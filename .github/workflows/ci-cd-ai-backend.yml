@@ -55,7 +55,7 @@ jobs:
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_KEY}}
           source: "docker/docker-compose.backend-java.yml"
-          target: "~/opt/docker"
+          target: "/home/${{secrets.VPS_USER}}/opt/docker"
 
       - name: Деплой сервиса через SSH
         uses: appleboy/ssh-action@master
