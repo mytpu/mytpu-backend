@@ -13,6 +13,7 @@ public class ChatService {
     }
 
     public ChatResponse chat(ChatRequest chatRequest) {
+        System.out.println("Дошло до сервиса");
         String userMessage = chatRequest.message();
 
         String answer = chatClient.prompt()
@@ -20,6 +21,7 @@ public class ChatService {
                 .user(userMessage)
                 .call()
                 .content();
+        System.out.println("Вернулось: " + answer);
         return new ChatResponse(answer);
     }
 }
