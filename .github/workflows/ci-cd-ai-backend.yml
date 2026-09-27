@@ -43,7 +43,7 @@ jobs:
           echo "name=ghcr.io/${OWNER}/ai-backend" >> $GITHUB_OUTPUT
           
       - name: Сборка образ
-        run: docker build -f backend-java/ai-backend/Dockerfile -t ${{steps.img.outputs.name}}:latest
+        run: docker build -f backend-java/ai-backend/Dockerfile -t ${{steps.img.outputs.name}}:latest .
 
       - name: Выгрузка образа на GHCR
         run: docker push ${{steps.img.outputs.name}}:latest
