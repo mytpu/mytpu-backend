@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/api/ai")
 public class ChatController {
     private final ChatService chatService;
 
@@ -20,7 +20,7 @@ public class ChatController {
         this.chatService = chatService;
     }
 
-    @PostMapping
+    @PostMapping("/chat")
     public ChatResponse chat(@RequestBody ChatRequest chatRequest){
         System.out.println("дошло до контроллера");
         return chatService.chat(chatRequest);
