@@ -41,7 +41,7 @@ jobs:
         run: |
           OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           echo "name=ghcr.io/${OWNER}/ai-backend" >> $GITHUB_OUTPUT
-          
+
       - name: Сборка образ
         run: docker build -f backend-java/ai-backend/Dockerfile -t ${{steps.img.outputs.name}}:latest backend-java/ai-backend
 
@@ -55,7 +55,8 @@ jobs:
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_KEY}}
           source: "docker/docker-compose.backend-java.yml"
-          target: "~/SL"
+          target: "/home/${{ secrets.VPS_USER }}/SL"
+          strip_components: 1
 
       - name: Деплой сервиса через SSH
         uses: appleboy/ssh-action@master
@@ -64,7 +65,7 @@ jobs:
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_KEY}}
           script: |
-            cd ~/SL
+            cd /home/${{ secrets.VPS_USER }}/SL
             
             echo "${{secrets.GHCR_TOKEN}}" | docker login ghcr.io -u "${{secrets.GHCR_USERNAME}}" --password-stdin
             
