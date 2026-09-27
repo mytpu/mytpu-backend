@@ -55,7 +55,7 @@ jobs:
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_KEY}}
           source: "docker/docker-compose.backend-java.yml"
-          target: "/home/${{secrets.VPS_USER}}/opt/docker"
+          target: "~/SL"
 
       - name: Деплой сервиса через SSH
         uses: appleboy/ssh-action@master
@@ -64,7 +64,7 @@ jobs:
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_KEY}}
           script: |
-            cd ~/opt/docker
+            cd ~/SL
             
             echo "${{secrets.GHCR_TOKEN}}" | docker login ghcr.io -u "${{secrets.GHCR_USERNAME}}" --password-stdin
             
