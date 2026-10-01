@@ -71,7 +71,7 @@ jobs:
             
             docker compose -f docker-compose.backend-java.yml pull ai-backend
             
-            docker compose -f docker-compose.backend-java.yml up -d ai-backend
+            docker compose -f docker-compose.backend-java.yml up -d --force-recreate ai-backend
             
             docker image prune -f
             
