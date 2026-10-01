@@ -53,7 +53,7 @@ jobs:
         with:
           host: ${{secrets.VPS_HOST}}
           username: ${{secrets.VPS_USER}}
-          key:  
+          key: ${{secrets.VPS_KEY}}
           source: "docker/docker-compose.backend-java.yml"
           target: "/home/${{ secrets.VPS_USER }}/SL"
           strip_components: 1
