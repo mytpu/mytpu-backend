@@ -58,7 +58,7 @@ jobs:
           target: "/home/${{ secrets.VPS_USER }}/SL"
           strip_components: 1
 
-      - name: Деплой сервиса через SSH
+      - name: Деплой сервиса через SSH протокол
         uses: appleboy/ssh-action@master
         with:
           host: ${{secrets.VPS_HOST}}
