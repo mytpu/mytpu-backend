@@ -5,10 +5,12 @@ import org.mytpu.ai.dto.ChatResponse;
 import org.mytpu.ai.services.ChatService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -22,7 +24,11 @@ public class ChatController {
 
     @PostMapping("/chat")
     public ChatResponse chat(@RequestBody ChatRequest chatRequest){
-        System.out.println("дошло до контроллера");
         return chatService.chat(chatRequest);
+    }
+
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamChat(@RequestBody ChatRequest chatRequest){
+        return chatService.streamChat(chatRequest);
     }
 }

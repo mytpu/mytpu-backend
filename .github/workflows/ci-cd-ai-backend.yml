@@ -36,13 +36,13 @@ jobs:
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
 
-      - name: Получение repository_owner в нижнер регистре
+      - name: Получение repository_owner в нижнем регистре
         id: img
         run: |
           OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           echo "name=ghcr.io/${OWNER}/ai-backend" >> $GITHUB_OUTPUT
 
-      - name: Сборка образ
+      - name: Сборка образа
         run: docker build -f backend-java/ai-backend/Dockerfile -t ${{steps.img.outputs.name}}:latest backend-java/ai-backend
 
       - name: Выгрузка образа на GHCR
@@ -53,7 +53,7 @@ jobs:
         with:
           host: ${{secrets.VPS_HOST}}
           username: ${{secrets.VPS_USER}}
-          key: ${{secrets.VPS_KEY}}
+          key:  
           source: "docker/docker-compose.backend-java.yml"
           target: "/home/${{ secrets.VPS_USER }}/SL"
           strip_components: 1
