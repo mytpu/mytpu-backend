@@ -25,18 +25,37 @@ public class ChatService {
     }
 
     public Flux<ServerSentEvent<?>> streamChat(ChatRequest chatRequest) {
-        ServerSentEvent<MetaEvent> metaEvent = ServerSentEvent.<MetaEvent>builder()
-                .event("meta")
-                .data(new MetaEvent("ЗАГЛУШКА", "ЗАГЛУШКА", "ЗАГЛУШКА"))
+        ServerSentEvent<MetaEvent> metaEvent = createSseEvent(
+                "meta",
+                new MetaEvent("ЗАГЛУШКА", "ЗАГЛУШКА", "ЗАГЛУШКА")
+        );
+
+        ServerSentEvent<StatusEvent> AIisThinkingEvent =  createSseEvent(
+                "status",
+                new StatusEvent("thinking", "Думаю")
+        );
+
+        ServerSentEvent<StatusEvent> AIisWritingEvent = createSseEvent(
+                "status",
+                new StatusEvent("writing", "Пишу ответ")
+        );
+
+        Flux<ServerSentEvent<?>> initialFlux = Flux.just(metaEvent, AIisThinkingEvent, AIisWritingEvent);
+
+        Flux<ServerSentEvent<?>> AIGeneratedChunks = chatClient.prompt()
+                .user(chatRequest.message())
+                .stream()
+                .content()
+                .map(chunk -> createSseEvent("delta", new DeltaEvent(chunk)));
+
+        return Flux.concat(initialFlux, AIGeneratedChunks);
+
+    }
+
+    private <T> ServerSentEvent<T> createSseEvent(String event, T data){
+        return ServerSentEvent.<T>builder()
+                .event(event)
+                .data(data)
                 .build();
-
-        ServerSentEvent<StatusEvent> initialStatusEvent = ServerSentEvent.<StatusEvent>builder()
-                .event("status")
-                .data(new StatusEvent("thinking", "Думаю..."))
-                .build();
-
-       Flux<ServerSentEvent<?>> initialFlux = Flux.just(metaEvent, initialStatusEvent);
-
-       return initialFlux;
     }
 }
