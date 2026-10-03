@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - main
-      - feature/backend-skeleton
+      - feature/sse-events
     paths:
       - "backend-java/ai-backend/**"
       - ".github/workflows/ci-cd-ai-backend.yml"
