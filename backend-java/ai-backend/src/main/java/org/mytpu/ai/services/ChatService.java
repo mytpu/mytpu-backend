@@ -1,4 +1,5 @@
 package org.mytpu.ai.services;
+import org.apache.catalina.Server;
 import org.mytpu.ai.dto.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.codec.ServerSentEvent;
@@ -48,7 +49,12 @@ public class ChatService {
                 .content()
                 .map(chunk -> createSseEvent("delta", new DeltaEvent(chunk)));
 
-        return Flux.concat(initialFlux, AIGeneratedChunks);
+        Flux<ServerSentEvent<?>> doneEvent = Flux.just(createSseEvent(
+                "done",
+                new DoneEvent("stop")
+        ));
+
+        return Flux.concat(initialFlux, AIGeneratedChunks, doneEvent);
 
     }
 
