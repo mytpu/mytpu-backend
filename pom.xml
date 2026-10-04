@@ -43,6 +43,7 @@
 
     <modules>
         <module>backend-java</module>
+        <module>rag</module>
     </modules>
 
 </project>
