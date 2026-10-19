@@ -1,0 +1,8 @@
+# Загрузка корпуса отдельным процессом: без веб-сервера, после работы процесс завершается.
+spring:
+  main:
+    web-application-type: none
+
+mytpu:
+  rag:
+    dataset-dir: ${RAG_DATASET_DIR:/data/dataset}

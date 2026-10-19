@@ -1,0 +1,32 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: rag
+  # Секреты — файлы: в контейнере /run/secrets/, локально SECRETS_DIR=deploy/secrets/
+  config:
+    import: "optional:configtree:${SECRETS_DIR:/run/secrets/}"
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    # Схема rag явно; public — для типов и операторов pgvector
+    url: ${RAG_DB_URL:jdbc:postgresql://postgres:5432/rag?currentSchema=rag,public}
+    username: rag
+    password: ${rag_db_password}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+mytpu:
+  rag:
+    enabled: true
+    model:
+      dir: ${RAG_MODEL_DIR:/models/e5-small-en-ru-int8}

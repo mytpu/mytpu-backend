@@ -1,0 +1,46 @@
+{"question": "как получить справку о том что я студент", "expected": ["https://tpu.ru/student/transfers-and-restorations/references-and-extracts"], "has_answer": true}
+{"question": "забыл пароль от корпоративной учётки, как поменять", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$12271401"], "has_answer": true}
+{"question": "не пускает в мудл, пишет ошибка входа", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486611", "https://help.tpu.ru/portal/article.html?kb=KB$2486610"], "has_answer": true}
+{"question": "где посмотреть свою зачётку", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486606", "https://help.tpu.ru/portal/article.html?kb=KB$2486607"], "has_answer": true}
+{"question": "какой номер у моей группы", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486607"], "has_answer": true}
+{"question": "потерял пропуск что делать", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$6721603"], "has_answer": true}
+{"question": "как распечатать документ на принтере в университете", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$12214901"], "has_answer": true}
+{"question": "как подключиться к сетевым дискам из дома через впн", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$12200401"], "has_answer": true}
+{"question": "когда сессия", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486604", "https://help.tpu.ru/portal/article.html?kb=KB$2486605"], "has_answer": true}
+{"question": "где найти учебный план своего направления", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486603", "https://tpu.ru/student/plans"], "has_answer": true}
+{"question": "сколько процентов антиплагиата допускается", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486619"], "has_answer": true}
+{"question": "как связаться с преподавателем", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486623"], "has_answer": true}
+{"question": "как уйти в академ", "expected": ["https://tpu.ru/student/academic-leave", "https://tpu.ru/student/transfers-and-restorations/vacations"], "has_answer": true}
+{"question": "как перевестись с платного обучения на бюджет", "expected": ["https://tpu.ru/student/budget-transfer", "https://tpu.ru/student/transfers-and-restorations/transfers-switching-from-paid"], "has_answer": true}
+{"question": "как восстановиться после отчисления", "expected": ["https://tpu.ru/student/restoration", "https://tpu.ru/student/transfers-and-restorations/restoration"], "has_answer": true}
+{"question": "как заселиться в общагу", "expected": ["https://tpu.ru/student/campus-host", "https://tpu.ru/tpu-life/campus"], "has_answer": true}
+{"question": "какие есть стипендии для студентов", "expected": ["https://tpu.ru/student/scholarship"], "has_answer": true}
+{"question": "куда обратиться к психологу", "expected": ["https://tpu.ru/student/psychologist"], "has_answer": true}
+{"question": "как получить дубликат студенческого билета", "expected": ["https://tpu.ru/student/transfers-and-restorations/dublikaty-dokumentov"], "has_answer": true}
+{"question": "можно ли пересдать экзамен на более высокую оценку", "expected": ["https://tpu.ru/student/attestation"], "has_answer": true}
+{"question": "как подать апелляцию на оценку", "expected": ["https://tpu.ru/student/appeals"], "has_answer": true}
+{"question": "есть ли в политехе бассейн", "expected": ["https://tpu.ru/tpu-life/swimming_pool"], "has_answer": true}
+{"question": "военная кафедра в ТПУ", "expected": ["https://tpu.ru/education/military-training"], "has_answer": true}
+{"question": "где медпункт для студентов", "expected": ["https://tpu.ru/tpu-life/sanatorium", "https://tpu.ru/student/med-obsl"], "has_answer": true}
+{"question": "как перевестись в ТПУ из другого вуза", "expected": ["https://tpu.ru/education/transfer-to-tpu"], "has_answer": true}
+{"question": "какая поддержка есть для студентов с детьми", "expected": ["https://tpu.ru/student/family-support"], "has_answer": true}
+{"question": "как получить материальную помощь", "expected": ["https://tpu.ru/student/support"], "has_answer": true}
+{"question": "можно ли снизить стоимость обучения", "expected": ["https://tpu.ru/student/snizhenie-stoimosti-obucheniya"], "has_answer": true}
+{"question": "есть ли дресс-код для студентов", "expected": ["https://tpu.ru/student/rights"], "has_answer": true}
+{"question": "как получить права администратора на рабочий компьютер", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$12259102"], "has_answer": true}
+{"question": "как зайти на удаленный рабочий стол", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486622"], "has_answer": true}
+{"question": "контакты единого деканата", "expected": ["https://tpu.ru/student/studcentre", "https://help.tpu.ru/portal/article.html?kb=KB$2486608"], "has_answer": true}
+{"question": "реквизиты университета для оплаты", "expected": ["https://tpu.ru/university/contacts"], "has_answer": true}
+{"question": "сколько попыток даётся на тест в электронном курсе", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486617"], "has_answer": true}
+{"question": "как посмотреть баллы в курсе", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$2486616"], "has_answer": true}
+{"question": "когда начинается ликвидация задолженностей у заочников", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$6313002"], "has_answer": true}
+{"question": "how to change my TPU account password", "expected": ["https://help.tpu.ru/portal/article.html?kb=KB$12271401"], "has_answer": true}
+{"question": "рецепт борща", "expected": [], "has_answer": false}
+{"question": "какой курс доллара сегодня", "expected": [], "has_answer": false}
+{"question": "как оформить загранпаспорт", "expected": [], "has_answer": false}
+{"question": "расписание электричек до Северска", "expected": [], "has_answer": false}
+{"question": "кто выиграл чемпионат мира по футболу", "expected": [], "has_answer": false}
+{"question": "как установить линукс на ноутбук", "expected": [], "has_answer": false}
+{"question": "какой телефон купить до 30 тысяч", "expected": [], "has_answer": false}
+{"question": "как получить водительские права", "expected": [], "has_answer": false}
+{"question": "сколько градусов кипит вода в горах", "expected": [], "has_answer": false}

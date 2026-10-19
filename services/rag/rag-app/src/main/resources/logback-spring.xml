@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Маскирование секретов в логах (docs/SECURITY.md, раздел 10): мастер-ключи mtpu_…, заголовки Bearer и X-Internal-Key,
+  параметры code=, token=, key=, password=, secret= — и в сообщениях, и в трассировках исключений.
+  Аргументы инструментов в лог не пишутся вообще.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <property name="MASK_KEYS" value="mtpu_[A-Za-z0-9_-]{8,}"/>
+    <property name="MASK_BEARER" value="(?i)bearer\s+[A-Za-z0-9._~+/=-]+"/>
+    <property name="MASK_HEADER" value="(?i)x-internal-key\s*[:=]\s*\S+"/>
+    <property name="MASK_PARAMS" value="(?i)(code|token|key|password|secret)=[^&amp;\s,;]+"/>
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %replace(%replace(%replace(%replace(%msg%n%ex){'${MASK_KEYS}', 'mtpu_***'}){'${MASK_BEARER}', 'Bearer ***'}){'${MASK_HEADER}', 'X-Internal-Key: ***'}){'${MASK_PARAMS}', '$1=***'}%nopex"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
