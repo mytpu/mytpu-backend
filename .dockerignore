@@ -1,0 +1,11 @@
+# В контекст сборки образов идут только собранные jar-файлы и deploy/docker
+.git
+.idea
+**/src
+**/.kotlin
+deploy/secrets
+deploy/load/results
+specs
+docs
+tools
+*.log

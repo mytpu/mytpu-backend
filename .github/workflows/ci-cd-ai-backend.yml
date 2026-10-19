@@ -1,11 +1,14 @@
 name: ci-cd-ai-backend-pipeline
 on:
   push:
+    # Деплой на сервер — только из main; actions закреплены по SHA коммита (им доступны ключи сервера)
     branches:
       - main
-      - feature/sse-events
     paths:
-      - "backend-java/ai-backend/**"
+      - "services/assistant/**"
+      - "pom.xml"
+      - "services/pom.xml"
+      - "deploy/docker/spring.Dockerfile"
       - ".github/workflows/ci-cd-ai-backend.yml"
 
 permissions:
@@ -18,19 +21,20 @@ jobs:
 
     steps:
       - name: Клонирование проекта
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Установка JDK 21
-        uses: actions/setup-java@v6
+      - name: Установка JDK 25
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
+          cache: maven
 
       - name: Сборка проекта
-        run: mvn clean package -pl :ai-backend -am
+        run: mvn -B clean package -pl services/assistant -am
 
       - name: Логин в GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{github.actor}}
@@ -40,16 +44,21 @@ jobs:
         id: img
         run: |
           OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
-          echo "name=ghcr.io/${OWNER}/ai-backend" >> $GITHUB_OUTPUT
+          echo "name=ghcr.io/${OWNER}/ai-backend" >> "$GITHUB_OUTPUT"
 
       - name: Сборка образа
-        run: docker build -f backend-java/ai-backend/Dockerfile -t ${{steps.img.outputs.name}}:latest backend-java/ai-backend
+        run: >-
+          docker build -f deploy/docker/spring.Dockerfile
+          --build-arg MODULE=services/assistant
+          --build-arg TRAINING_ENV="ML_BASE_URL=http://localhost/v1 ML_API_KEY=training ML_CHAT_MODEL=training"
+          -t ${{steps.img.outputs.name}}:latest
+          -t ${{steps.img.outputs.name}}:${{ github.sha }} .
 
       - name: Выгрузка образа на GHCR
-        run: docker push ${{steps.img.outputs.name}}:latest
+        run: docker push --all-tags ${{steps.img.outputs.name}}
 
       - name: Копирование docker-compose.backend-java на сервер
-        uses: appleboy/scp-action@v1
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{secrets.VPS_HOST}}
           username: ${{secrets.VPS_USER}}
@@ -59,25 +68,20 @@ jobs:
           strip_components: 1
 
       - name: Деплой сервиса через SSH протокол
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{secrets.VPS_HOST}}
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_KEY}}
           script: |
-            set -e 
-            
+            set -e
+
             cd /home/${{ secrets.VPS_USER }}/SL
-            
+
             echo "${{secrets.GHCR_TOKEN}}" | docker login ghcr.io -u "${{secrets.GHCR_USERNAME}}" --password-stdin
-            
+
             docker compose -f docker-compose.backend-java.yml pull --policy always ai-backend
-            
+
             docker compose -f docker-compose.backend-java.yml up -d --force-recreate ai-backend
-            
+
             docker image prune -f
-            
-
-
-
-

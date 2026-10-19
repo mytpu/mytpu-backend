@@ -1,0 +1,4 @@
+# Скрипты и описания контейнеров исполняются в Linux: всегда LF, даже при core.autocrlf=true на Windows
+*.sh text eol=lf
+*.Dockerfile text eol=lf
+Dockerfile* text eol=lf

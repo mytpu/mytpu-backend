@@ -8,3 +8,5 @@ services:
     env_file:
       - .env
     pull_policy: always
+    mem_limit: 300m
+    memswap_limit: 300m

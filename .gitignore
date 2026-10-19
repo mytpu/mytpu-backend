@@ -43,3 +43,6 @@ build/
 *.iml
 *.iws
 *.ipr
+### Секреты локального стенда ###
+deploy/secrets/
+deploy/load/results/
