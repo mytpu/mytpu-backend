@@ -1,0 +1,10 @@
+# Только для разработки: порт БД на localhost, чтобы запускать сервисы вне Docker (IDEA, java -jar).
+#   docker compose -f deploy/compose.dev.yml -f deploy/compose.dev-ports.yml up -d postgres
+# Сеть data закрыта (internal), поэтому для публикации порта postgres дополнительно подключается к сети dev-host.
+services:
+  postgres:
+    ports: ["127.0.0.1:5434:5432"]
+    networks: [data, dev-host]
+
+networks:
+  dev-host: {}

@@ -1,0 +1,156 @@
+# Стенд «Мой ТПУ»: postgres, rag, gateway, assistant (+ rag-ingest по требованию). Безопасность — docs/SECURITY.md, разделы 5 и 11.
+#   bash deploy/dev-secrets.sh                                   # секреты-файлы в deploy/secrets/ (в git их нет)
+#   mvn -q package -DskipTests                                   # jar-файлы для образов
+#   docker compose -f deploy/compose.dev.yml up -d --build
+#   docker compose -f deploy/compose.dev.yml --profile ingest run --rm rag-ingest   # загрузка корпуса
+# Модель векторов и корпус — не в git: RAG_MODEL_HOST_DIR, RAG_DATASET_HOST_DIR (по умолчанию — ../models, ../dataset).
+# Порт БД для запуска сервисов вне Docker — оверлей compose.dev-ports.yml.
+name: mytpu-dev
+
+x-spring-hardening: &spring-hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser_password
+    secrets: [pg_superuser_password, gateway_db_password, rag_db_password, assistant_db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    command: >-
+      postgres -c shared_buffers=128MB -c max_connections=40
+      -c work_mem=4MB -c maintenance_work_mem=64MB
+    networks: [data]
+    mem_limit: 640m
+    memswap_limit: 640m
+    security_opt: ["no-new-privileges:true"]
+    # Postgres сам меняет владельца данных и переключается на своего пользователя — оставлены только эти права
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rag:
+    <<: *spring-hardening
+    build:
+      context: ..
+      dockerfile: deploy/docker/spring.Dockerfile
+      args:
+        MODULE: services/rag/rag-app
+    image: mytpu/rag:dev
+    environment:
+      RAG_MODEL_DIR: /models/e5
+      DJL_CACHE_DIR: /tmp/djl
+      # Модель векторов живёт вне кучи: куче — 30 % лимита (решение 19.10)
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=30 -XX:InitialRAMPercentage=10"
+    secrets: [rag_db_password, rag_internal_key]
+    volumes:
+      - ${RAG_MODEL_HOST_DIR:-../models/e5-small-en-ru-int8}:/models/e5:ro
+      # Нативные библиотеки ONNX и токенизатора распаковываются в /tmp: том на диске, а не tmpfs в памяти контейнера
+      - rag-tmp:/tmp
+    networks: [core, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    mem_limit: 380m
+    memswap_limit: 380m
+
+  rag-ingest:
+    <<: *spring-hardening
+    image: mytpu/rag:dev
+    profiles: [ingest]
+    environment:
+      SPRING_PROFILES_ACTIVE: ingest
+      RAG_MODEL_DIR: /models/e5
+      RAG_DATASET_DIR: /data/dataset
+      DJL_CACHE_DIR: /tmp/djl
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=30 -XX:InitialRAMPercentage=10"
+    # Сервисный ключ загрузке не нужен — веб-сервер в ней не поднимается
+    secrets: [rag_db_password]
+    volumes:
+      - ${RAG_MODEL_HOST_DIR:-../models/e5-small-en-ru-int8}:/models/e5:ro
+      - ${RAG_DATASET_HOST_DIR:-../dataset}:/data/dataset:ro
+      # Свой том: загрузка и поиск не делят распакованные библиотеки
+      - rag-ingest-tmp:/tmp
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    # Ночная загрузка: отдельный процесс, своя память и не больше двух ядер (решение 19.10)
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 2
+    restart: "no"
+
+  gateway:
+    <<: *spring-hardening
+    build:
+      context: ..
+      dockerfile: deploy/docker/spring.Dockerfile
+      args:
+        MODULE: services/gateway
+    image: mytpu/gateway:dev
+    environment:
+      RAG_URL: http://rag:8080
+      # Живых данных в куче немного (кэш ограничен 32 МБ): потолок 40 % лимита, иначе Serial GC раздувает кучу до 55 %
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40"
+    secrets: [gateway_db_password, rag_internal_key]
+    tmpfs: ["/tmp:size=16m"]
+    ports: ["127.0.0.1:8081:8080"]
+    # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag; data — к своей БД
+    networks: [edge, core, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+      rag: {condition: service_started}
+    mem_limit: 380m
+    memswap_limit: 380m
+
+  assistant:
+    <<: *spring-hardening
+    build:
+      context: ..
+      dockerfile: deploy/docker/spring.Dockerfile
+      args:
+        MODULE: services/assistant
+        TRAINING_ENV: "ML_BASE_URL=http://localhost/v1 ml_api_key=training ML_CHAT_MODEL=training"
+    image: mytpu/assistant:dev
+    environment:
+      ML_BASE_URL: ${ML_BASE_URL:-http://host.docker.internal:8090/v1}
+      ML_CHAT_MODEL: ${ML_CHAT_MODEL:-tpu-assistant}
+    secrets: [ml_api_key]
+    tmpfs: ["/tmp:size=16m"]
+    ports: ["127.0.0.1:8082:8080"]
+    # В core (к gateway) — со спецификацией assistant; до тех пор rag ему недоступен
+    networks: [edge]
+    mem_limit: 300m
+    memswap_limit: 300m
+
+networks:
+  # Единственная сеть с выходом наружу и опубликованными портами (в проде порты есть только у caddy)
+  edge: {}
+  core:
+    internal: true
+  data:
+    internal: true
+
+secrets:
+  pg_superuser_password: {file: ./secrets/pg_superuser_password}
+  gateway_db_password: {file: ./secrets/gateway_db_password}
+  rag_db_password: {file: ./secrets/rag_db_password}
+  assistant_db_password: {file: ./secrets/assistant_db_password}
+  rag_internal_key: {file: ./secrets/rag_internal_key}
+  ml_api_key: {file: ./secrets/ml_api_key}
+
+volumes:
+  pgdata:
+  rag-tmp:
+  rag-ingest-tmp:

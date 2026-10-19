@@ -1,0 +1,12 @@
+# Оверлей для замера памяти (deploy/load/measure.sh): сводка Native Memory Tracking печатается при остановке JVM.
+# NMT немного добавляет расход — в обычной работе оверлей не используется. Флаги размеров повторяют compose.dev.yml.
+services:
+  gateway:
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40 -XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions -XX:+PrintNMTStatistics"
+  rag:
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=30 -XX:InitialRAMPercentage=10 -XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions -XX:+PrintNMTStatistics"
+  assistant:
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions -XX:+PrintNMTStatistics"
