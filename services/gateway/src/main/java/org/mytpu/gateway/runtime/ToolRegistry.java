@@ -1,0 +1,62 @@
+package org.mytpu.gateway.runtime;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.mytpu.gateway.catalog.CatalogChanged;
+import org.mytpu.gateway.catalog.IntegrationCatalog;
+import org.mytpu.tool.api.Integration;
+import org.mytpu.tool.api.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
+/**
+ * Все инструменты всех интеграций по имени. Пересобирается на ходу, когда интеграция меняет набор инструментов
+ * ({@link CatalogChanged}) — так коннекторы из консоли появляются без перезапуска.
+ */
+@Component
+public class ToolRegistry {
+    private static final Logger log = LoggerFactory.getLogger(ToolRegistry.class);
+
+    private final IntegrationCatalog catalog;
+    private volatile Map<String, RegisteredTool> tools = Map.of();
+
+    public ToolRegistry(IntegrationCatalog catalog) {
+        this.catalog = catalog;
+        rebuild();
+        log.info("Зарегистрированы инструменты: {}", tools.keySet());
+    }
+
+    public Optional<RegisteredTool> find(String name) {
+        return Optional.ofNullable(tools.get(name));
+    }
+
+    public List<RegisteredTool> all() {
+        return List.copyOf(tools.values());
+    }
+
+    public boolean active(RegisteredTool tool) {
+        return catalog.active(tool.integration());
+    }
+
+    @EventListener
+    public void onCatalogChanged(CatalogChanged event) {
+        rebuild();
+        log.info("Интеграция {} изменила набор инструментов, теперь: {}", event.integrationId(), tools.keySet());
+    }
+
+    private void rebuild() {
+        Map<String, RegisteredTool> next = new LinkedHashMap<>();
+        for (Integration integration : catalog.all()) {
+            for (Tool<?, ?> tool : integration.tools()) {
+                next.put(tool.descriptor().name(), new RegisteredTool(integration, tool));
+            }
+        }
+        // Порядок интеграций и инструментов сохраняется — tools/list стабилен между запусками
+        tools = java.util.Collections.unmodifiableMap(next);
+    }
+}

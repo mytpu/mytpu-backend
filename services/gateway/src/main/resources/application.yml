@@ -1,0 +1,61 @@
+server:
+  port: ${PORT:8080}
+  tomcat:
+    # Лишние запросы ждут в очереди, а не создают нагрузку (машина 4 ядра / 4 ГБ)
+    max-connections: 200
+    accept-count: 50
+    # Медленные клиенты не держат соединения: заголовки — за 5 с
+    connection-timeout: 5s
+
+spring:
+  application:
+    name: gateway
+  # Секреты — файлы: в контейнере /run/secrets/, локально SECRETS_DIR=deploy/secrets/
+  config:
+    import: "optional:configtree:${SECRETS_DIR:/run/secrets/}"
+  threads:
+    virtual:
+      enabled: true
+  messages:
+    basename: messages,tools/descriptions
+    encoding: UTF-8
+    fallback-to-system-locale: false
+  web:
+    # Ответы и сообщения валидации — на русском, независимо от локали сервера
+    locale: ru
+    locale-resolver: fixed
+  datasource:
+    url: ${GATEWAY_DB_URL:jdbc:postgresql://postgres:5432/gateway}
+    username: gateway
+    password: ${gateway_db_password}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+  flyway:
+    schemas: gateway
+    default-schema: gateway
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+mytpu:
+  gateway:
+    # Инструменты и интеграция-образец для разработки (system_ping); в проде выключено
+    dev-tools: false
+    docs:
+      url: ${RAG_URL:http://rag:8080}
+    # Лимиты инструментов: срок кэша, таймаут, вызовов в минуту на клиента
+    tools:
+      limits:
+        docs_search: {cache-ttl: 1h, timeout: 6s, rate-per-minute: 60}
+        rasp_find: {cache-ttl: 10m, timeout: 10s, rate-per-minute: 60}
+        system_ping: {timeout: 2s, rate-per-minute: 60}
+    limits:
+      client-calls-per-minute: 600
+    access:
+      max-failures-per-minute: 30
+    mcp:
+      max-body-bytes: 65536
