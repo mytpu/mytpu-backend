@@ -29,6 +29,10 @@ class RagSearchAutoConfiguration {
     @Bean
     fun ragMigrations(dataSource: DataSource, properties: RagProperties) = RagMigrations(dataSource, properties)
 
+    @Bean
+    fun hnswIndexCheck(dataSource: DataSource, properties: RagProperties, migrations: RagMigrations) =
+        HnswIndexCheck(JdbcClient.create(dataSource), properties, migrations)
+
     @Bean(destroyMethod = "close")
     fun onnxEmbedder(properties: RagProperties) = OnnxEmbedder(properties.model)
 

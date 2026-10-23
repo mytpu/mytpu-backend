@@ -8,7 +8,8 @@ import java.time.Instant
 
 /**
  * Стартовый корпус хакатона (`helpdesk-ai/data/raw`): статьи help.tpu.ru и страницы сайта ТПУ.
- * ПД в нём уже вырезаны (правила redact хакатона).
+ * ПД в нём уже вырезаны (правила redact хакатона). Оба файла обязательны и читаются целиком: без одного из них
+ * загрузка удалила бы как «пропавшие» все документы этого файла (половину корпуса).
  */
 class DatasetReader(private val mapper: JsonMapper = JsonMapper.builder().build()) {
 
@@ -16,7 +17,7 @@ class DatasetReader(private val mapper: JsonMapper = JsonMapper.builder().build(
 
     /** Статья — один раздел: заголовок статьи и её текст. */
     private fun readHelpArticles(file: Path): List<SourceDocument> {
-        if (!Files.exists(file)) return emptyList()
+        check(Files.exists(file)) { "Нет файла корпуса $file — загрузка остановлена, корпус не тронут" }
         val root = mapper.readTree(file.toFile())
         val collectedAt = Instant.parse(root.path("collectedAt").asString())
         return root.path("articles").items().map { article ->
@@ -32,7 +33,7 @@ class DatasetReader(private val mapper: JsonMapper = JsonMapper.builder().build(
 
     /** Страница сайта: текст построчный, разделы начинаются со строк из `headings`. */
     private fun readSitePages(file: Path): List<SourceDocument> {
-        if (!Files.exists(file)) return emptyList()
+        check(Files.exists(file)) { "Нет файла корпуса $file — загрузка остановлена, корпус не тронут" }
         return Files.readAllLines(file)
             .filter { it.isNotBlank() }
             .map { mapper.readTree(it) }

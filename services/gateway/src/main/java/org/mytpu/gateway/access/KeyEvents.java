@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 /**
  * События ключей ({@code gateway.key_events}) и WARN в лог — без самого ключа и полного адреса, только подсеть.
  * Пишутся в фоне ({@link BackgroundWriter}): ответ клиенту не зависит от БД, поэтому ловушку не отличить по времени или ошибке.
- * Одинаковые события ключа из одной подсети — не чаще раза в минуту (кроме ловушки — она пишется на каждый вызов);
- * на один ключ — не больше {@code mytpu.gateway.key-watch.max-events-per-minute} событий в минуту.
+ * Одинаковые события ключа из одной подсети — не чаще раза в минуту; на один ключ — не больше
+ * {@code mytpu.gateway.key-watch.max-events-per-minute} событий в минуту. Ловушка — вне обоих ограничений: каждый вызов.
  */
 @Component
 public class KeyEvents {
@@ -48,10 +48,12 @@ public class KeyEvents {
     }
 
     public void record(String clientId, String event, String subnet, String detail) {
-        if (!DECOY_USED.equals(event) && recent.asMap().putIfAbsent(clientId + '|' + event + '|' + subnet, Boolean.TRUE) != null) {
+        // Ловушка — улика утечки: пишется каждый вызов и не упирается в лимит ключа (очередь фоновой записи и так ограничена)
+        boolean decoy = DECOY_USED.equals(event);
+        if (!decoy && recent.asMap().putIfAbsent(clientId + '|' + event + '|' + subnet, Boolean.TRUE) != null) {
             return;
         }
-        if (perClient.get(clientId, k -> new AtomicInteger()).incrementAndGet() > maxPerMinute) {
+        if (!decoy && perClient.get(clientId, k -> new AtomicInteger()).incrementAndGet() > maxPerMinute) {
             return;
         }
         log.warn("Событие ключа {}: {} подсеть={} {}", clientId, event, subnet, detail == null ? "" : detail);

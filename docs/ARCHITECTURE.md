@@ -8,12 +8,12 @@
 | Модуль | Отвечает за | Состояние |
 |---|---|---|
 | `shared/tool-api` (Java, без Spring) | контракт: `Integration`, `Tool`, `ToolDescriptor`, `CallContext` (+ `Trust`, `Consent`), `ToolResult`, `ToolAnswer` (+ `publicSummary`), пометки полей `Classified`/`Mask` | готов |
-| `services/assistant` (Java) | чат: `POST /api/ai/chat`, `/api/ai/chat/stream` (SSE meta/status/delta/done) через Spring AI 2 к ml-server | перенесён из `ai-backend`, Boot 4.1 |
+| `services/assistant` (Java) | чат: `POST /api/ai/chat`, `/api/ai/chat/stream` (SSE meta/status/delta/error/done) через Spring AI 2 к ml-server; проверка запроса, лимиты (`limits`), таймауты, необязательный ключ клиента | готов к прод-деплою (`deploy/compose.server.yml`), `services/assistant/README.md` |
 | `services/rag/rag-api` (Java) | контракт поиска `DocsSearch` | готов |
 | `services/rag/rag-search` (Kotlin) | схема, модель векторов (e5-small ru+en, ONNX), нарезка, загрузка, гибридный поиск, замер | готов, `services/rag/README.md` |
 | `services/rag/rag-app` (Kotlin) | `POST /internal/search` (ключ gateway), профили `ingest`, `eval` | готов |
 | `services/gateway` (Java) | MCP-шлюз: `catalog`, `access` (мастер-ключи), `runtime`, `mcp` (свой обработчик), `integrations.docs` (`docs_search`), `integrations.rasp` (`rasp_find`) | готов; `rasp_day/week` отложены, `services/gateway/README.md` |
-| `deploy/` | общий `spring.Dockerfile` (AOT-кэш, флаги документа 22), `compose.dev.yml` (сети, секреты-файлы, укреплённые контейнеры, лимиты), замер `load/measure.sh` | готов |
+| `deploy/` | общий `spring.Dockerfile` (база по digest, AOT-кэш, флаги документа 22), `compose.dev.yml` (сети, секреты-файлы, укреплённые контейнеры, лимиты), `compose.server.yml` (прод assistant на VPS), замер `load/measure.sh` | готов; деплой в CI — за флагом `ASSISTANT_DEPLOY_ENABLED` |
 | ml-server (`D:\projects\ML-server`, ветка `feature/native-image`) | прокси к LLM на Ktor CIO, подготовлен к GraalVM Native Image | собирается на сервере, `README-native.md` |
 
 ## Целевые модули и их единственная ответственность

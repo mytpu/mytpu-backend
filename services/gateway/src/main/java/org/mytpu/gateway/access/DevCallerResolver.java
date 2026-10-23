@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,8 +49,9 @@ public class DevCallerResolver {
         }
         try {
             return Optional.of(build(request, client, requestId, user));
-        } catch (RuntimeException e) {
-            log.warn("Dev-заголовки не разобраны ({}): вызов без пользователя", e.getMessage());
+        } catch (BadHeader e) {
+            // Значение заголовка в лог не идёт (там может быть что угодно) — только его имя и тип ошибки
+            log.warn("Dev-заголовок {} не разобран ({}): вызов без пользователя", e.header, e.reason);
             return Optional.empty();
         }
     }
@@ -57,11 +59,31 @@ public class DevCallerResolver {
     private static CallContext build(HttpServletRequest request, ApiClient client, String requestId, String user) {
         String trust = request.getHeader("X-Dev-Trust");
         String consent = request.getHeader("X-Dev-Consent");
-        Map<String, Consent> consents = consent == null ? Map.of() : client.scopes().stream()
-                .collect(Collectors.toMap(Function.identity(), scope -> parse(consent)));
+        Consent parsed = consent == null ? null : parsed("X-Dev-Consent", () -> parse(consent));
+        Map<String, Consent> consents = parsed == null ? Map.of() : client.scopes().stream()
+                .collect(Collectors.toMap(Function.identity(), scope -> parsed));
         return new CallContext(user, client.roles(), client.id(), Channel.MCP, client.scopes(), requestId,
-                trust == null ? Trust.EXTERNAL : Trust.valueOf(trust.toUpperCase()),
+                trust == null ? Trust.EXTERNAL : parsed("X-Dev-Trust", () -> Trust.valueOf(trust.toUpperCase())),
                 "true".equalsIgnoreCase(request.getHeader("X-Dev-Dpop")), consents);
+    }
+
+    private static <T> T parsed(String header, Supplier<T> parse) {
+        try {
+            return parse.get();
+        } catch (RuntimeException e) {
+            throw new BadHeader(header, e.getClass().getSimpleName());
+        }
+    }
+
+    private static final class BadHeader extends RuntimeException {
+        private final String header;
+        private final String reason;
+
+        BadHeader(String header, String reason) {
+            super(header, null, false, false);
+            this.header = header;
+            this.reason = reason;
+        }
     }
 
     private static Consent parse(String value) {

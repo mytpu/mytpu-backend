@@ -1,0 +1,33 @@
+# Сервер (VPS команды): assistant с тем же укреплением, что на стенде (specs/prod-hardening-after-review).
+# Запуск — из CI (.github/workflows/ci-cd-ai-backend.yml) или руками в папке на сервере:
+#   IMAGE_TAG=<SHA коммита> docker compose --env-file server.env -f compose.server.yml up -d assistant
+# Рядом с файлом: server.env (только несекретные ML_BASE_URL, ML_CHAT_MODEL, TRUSTED_PROXIES) и папка secrets/
+# с файлами ml_api_key и assistant_client_key (пустой файл — ключ клиента чата выключен). Перенос — deploy/README.md.
+name: mytpu-server
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  restart: unless-stopped
+
+services:
+  assistant:
+    <<: *hardening
+    # Неизменяемый тег (SHA коммита), без latest: что проверено в CI, то и запущено; откат — прошлым тегом
+    image: ghcr.io/mytpu/ai-backend:${IMAGE_TAG:?IMAGE_TAG — SHA коммита образа}
+    container_name: mytpu-assistant
+    environment:
+      ML_BASE_URL: ${ML_BASE_URL:?ML_BASE_URL — адрес ml-server с /v1, в server.env}
+      ML_CHAT_MODEL: ${ML_CHAT_MODEL:-tpu-assistant}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    secrets: [ml_api_key, assistant_client_key]
+    tmpfs: ["/tmp:size=16m"]
+    ports: ["127.0.0.1:8080:8080"]
+    mem_limit: 300m
+    memswap_limit: 300m
+
+secrets:
+  ml_api_key: {file: ./secrets/ml_api_key}
+  assistant_client_key: {file: ./secrets/assistant_client_key}

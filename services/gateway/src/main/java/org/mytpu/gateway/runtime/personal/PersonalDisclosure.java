@@ -72,8 +72,9 @@ public class PersonalDisclosure {
             return Admission.FREE;
         }
         try {
-            return quota.reserve(context.userId(), context.clientId(), tool.maxItems())
-                    ? new Admission(null, tool.maxItems())
+            int reserved = quota.reserve(context.userId(), context.clientId(), tool.maxItems());
+            return reserved > 0
+                    ? new Admission(null, reserved)
                     : new Admission(ToolResult.denied(ErrorCode.PERSONAL_QUOTA, messages.text("error.personal_quota")), 0);
         } catch (DataAccessException e) {
             log.warn("Суточный лимит личного не проверен ({}): отказ", e.getClass().getSimpleName());
@@ -102,12 +103,13 @@ public class PersonalDisclosure {
         boolean full = decision.personal() == DisclosureMode.FULL;
         return switch (result) {
             case ToolResult.Ok<?> ok -> {
-                ResultRedactor.Redacted redacted = redactor.apply(ok.answer(), tool, classifier.schema(tool), decision);
+                ResultRedactor.Redacted redacted = redactor.apply(ok.answer(), tool, classifier.schema(tool), decision,
+                        limit(tool, admission));
                 yield disclose(context, tool, decision, redacted.disclosedFields(), redacted.records(), admission,
                         ToolResult.ok(redacted.answer()));
             }
             case ToolResult.NeedsChoice<?> choice -> full
-                    ? disclose(context, tool, decision, List.of("needs_choice"), choice.options().size(), admission, choice)
+                    ? discloseChoice(context, tool, decision, choice, limit(tool, admission), admission)
                     : disclose(context, tool, decision, List.of(), 0, admission,
                     ToolResult.ok(new ToolAnswer<>(messages.text("personal.choice_in_app"), null, null)));
             case ToolResult.Failed<?> failed -> {
@@ -119,6 +121,19 @@ public class PersonalDisclosure {
                 yield denied;
             }
         };
+    }
+
+    /** Больше занятого в суточном лимите не уходит; без резерва (режим без записей) — предел инструмента. */
+    private static int limit(ToolDescriptor tool, Admission admission) {
+        return admission.reserved() > 0 ? Math.min(tool.maxItems(), admission.reserved()) : tool.maxItems();
+    }
+
+    private ToolResult<?> discloseChoice(CallContext context, ToolDescriptor tool, Decision decision, ToolResult.NeedsChoice<?> choice,
+                                         int limit, Admission admission) {
+        ToolResult<?> out = choice.options().size() <= limit
+                ? choice
+                : new ToolResult.NeedsChoice<>(choice.question(), List.copyOf(choice.options().subList(0, limit)));
+        return disclose(context, tool, decision, List.of("needs_choice"), Math.min(limit, choice.options().size()), admission, out);
     }
 
     private ToolResult<?> disclose(CallContext context, ToolDescriptor tool, Decision decision, List<String> fields, int records,

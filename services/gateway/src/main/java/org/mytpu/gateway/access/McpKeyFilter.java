@@ -70,6 +70,7 @@ public class McpKeyFilter extends OncePerRequestFilter {
         InetAddress address = addresses.of(request);
         String ip = Cidr.limiterKeyOf(address);
         if (failures.blocked(ip)) {
+            response.setHeader("Retry-After", String.valueOf(failures.retryAfterSeconds()));
             reject(response, 429, "too_many_attempts", "access.too_many_attempts");
             return;
         }

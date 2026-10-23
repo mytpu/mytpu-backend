@@ -20,6 +20,8 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.1</spring-ai.version>
         <spring-modulith.version>2.1.1</spring-modulith.version>
+        <!-- Boot 4.1.1 тянет Tomcat 11.0.24 с критичными CVE-2026-65182/65905/68525 (trivy); убрать, когда Boot обновится -->
+        <tomcat.version>11.0.27</tomcat.version>
     </properties>
 
     <modules>

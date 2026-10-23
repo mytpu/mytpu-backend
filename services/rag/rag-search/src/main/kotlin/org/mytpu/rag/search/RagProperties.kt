@@ -48,6 +48,8 @@ data class RagProperties(
         val rrfK: Int = 60,
         /** Текст раздела в ответе обрезается до этой длины. */
         val maxSectionChars: Int = 3000,
+        /** Ширина поиска по HNSW-индексу (hnsw.ef_search): больше — точнее и медленнее. */
+        val efSearch: Int = 60,
     )
 
     data class Chunk(

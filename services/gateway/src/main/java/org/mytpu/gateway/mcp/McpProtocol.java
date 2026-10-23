@@ -20,7 +20,8 @@ import tools.jackson.databind.node.ObjectNode;
  */
 @Component
 public class McpProtocol {
-    static final List<String> PROTOCOL_VERSIONS = List.of("2025-11-25", "2025-06-18", "2025-03-26");
+    static final List<String> PROTOCOL_VERSIONS = List.of("2025-11-25", "2025-06-18");
+    static final List<String> METHODS = List.of("initialize", "ping", "tools/list", "tools/call");
 
     static final int METHOD_NOT_FOUND = -32601;
     static final int INVALID_PARAMS = -32602;

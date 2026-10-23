@@ -49,12 +49,13 @@ public class ResultRedactor {
         this.properties = properties;
     }
 
-    public Redacted apply(ToolAnswer<?> answer, ToolDescriptor tool, Schema schema, Decision decision) {
+    /** @param maxItems до скольких элементов обрезаются списки: предел инструмента или меньший резерв суточного лимита */
+    public Redacted apply(ToolAnswer<?> answer, ToolDescriptor tool, Schema schema, Decision decision, int maxItems) {
         boolean full = decision.personal() == DisclosureMode.FULL && decision.sensitive() == DisclosureMode.FULL;
         if (decision.personal() == DisclosureMode.REFERENCE) {
             return new Redacted(new ToolAnswer<>(safeSummary(answer), null, referenceHint(), null), List.of(), 0);
         }
-        Walk walk = new Walk(decision, tool.maxItems());
+        Walk walk = new Walk(decision, Math.min(maxItems, tool.maxItems()));
         JsonNode data = walk.object(json.valueToTree(answer.data()), schema, "");
         String hint = full ? answer.hint() : null;
         if (!walk.truncated.isEmpty()) {

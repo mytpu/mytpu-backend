@@ -49,7 +49,7 @@ class HybridDocsSearch(
         val tsQuery = QueryText.orTsQuery(text)
 
         val rows = tx.execute {
-            jdbc.sql("SET LOCAL hnsw.ef_search = 60").update()
+            jdbc.sql("SET LOCAL hnsw.ef_search = ${settings.efSearch}").update()
             jdbc.sql("SET LOCAL hnsw.iterative_scan = relaxed_order").update()
             jdbc.sql(sql)
                 .param("vec", vector)

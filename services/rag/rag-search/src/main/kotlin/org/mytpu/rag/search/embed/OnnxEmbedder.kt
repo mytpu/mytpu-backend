@@ -84,6 +84,9 @@ class OnnxEmbedder(private val model: RagProperties.Model) : AutoCloseable {
             session.run(inputs).use { result ->
                 @Suppress("UNCHECKED_CAST")
                 val hidden = result.get(0).value as Array<Array<FloatArray>>
+                check(hidden.all { row -> row.all { it.size == model.dimensions } }) {
+                    "Модель ${model.version} вернула векторы не той размерности (ожидалось ${model.dimensions})"
+                }
                 return hidden.indices.map { meanPoolNormalized(hidden[it], mask[it]) }
             }
         } finally {
@@ -109,7 +112,9 @@ class OnnxEmbedder(private val model: RagProperties.Model) : AutoCloseable {
             out[d] /= count.coerceAtLeast(1)
             norm += out[d] * out[d]
         }
-        val inv = (1.0 / sqrt(norm).coerceAtLeast(1e-12)).toFloat()
+        // NaN/Infinity от испорченной модели не должны попасть в индекс или в запрос
+        check(norm.isFinite() && norm > 0.0) { "Модель ${model.version} вернула вектор без конечной ненулевой нормы" }
+        val inv = (1.0 / sqrt(norm)).toFloat()
         for (d in out.indices) out[d] *= inv
         return out
     }

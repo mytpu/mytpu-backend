@@ -11,6 +11,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.mytpu.gateway.mcp.McpCallerResolver.Caller;
 import org.mytpu.gateway.mcp.McpProtocol.RpcError;
 import org.mytpu.gateway.runtime.Messages;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -33,8 +35,10 @@ import tools.jackson.databind.node.ObjectNode;
  */
 @RestController
 public class McpEndpoint {
+    private static final Logger log = LoggerFactory.getLogger(McpEndpoint.class);
     private static final int PARSE_ERROR = -32700;
     private static final int INVALID_REQUEST = -32600;
+    private static final int INTERNAL_ERROR = -32603;
 
     private final McpProtocol protocol;
     private final McpCallerResolver callers;
@@ -93,6 +97,14 @@ public class McpEndpoint {
             return ResponseEntity.ok(response);
         } catch (RpcError e) {
             return ResponseEntity.ok(error(id, e.code(), e.getMessage()));
+        } catch (RuntimeException e) {
+            // Клиент MCP ждёт JSON-RPC, а не HTML-страницу 500; подробности — только в лог
+            JsonNode method = message.path("method");
+            // Метод — из тела запроса: в лог только известные имена (иначе строку лога можно подделать переводом строки);
+            // текст и стек исключения не пишутся — в них могут быть значения полей личного инструмента
+            String name = method.isString() && McpProtocol.METHODS.contains(method.stringValue()) ? method.stringValue() : "<unknown>";
+            log.error("Сбой в /mcp, метод {}: {}", name, e.getClass().getName());
+            return ResponseEntity.ok(error(id, INTERNAL_ERROR, messages.text("mcp.internal_error")));
         }
     }
 

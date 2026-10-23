@@ -5,6 +5,7 @@ on:
       - main
   push:
     branches:
+      - main
       - "feature/**"
 
 permissions:

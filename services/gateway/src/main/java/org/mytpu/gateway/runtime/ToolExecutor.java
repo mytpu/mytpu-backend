@@ -24,6 +24,7 @@ import org.mytpu.tool.api.ToolResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -88,8 +89,8 @@ public class ToolExecutor {
             return denied(request, admission.denial(), started);
         }
 
-        String argsHash = hash(json.writeValueAsString(state.input()));
-        String cacheKey = request.toolName() + '|' + request.context().user().orElse("-") + '|' + argsHash;
+        String argsHash = argsHash(request);
+        String cacheKey = request.toolName() + '|' + request.context().user().orElse("-") + '|' + hash(json.writeValueAsString(state.input()));
         Optional<ToolResult<?>> cached = cache.get(cacheKey);
         if (cached.isPresent()) {
             ToolResult<?> released = disclosure.release(request.context(), descriptor, cached.get(), admission);
@@ -107,7 +108,7 @@ public class ToolExecutor {
     }
 
     private ToolResult<?> denied(CallRequest request, ToolResult<?> result, long started) {
-        audit.record(request.context(), request.toolName(), hash(String.valueOf(request.arguments())), result, false, millis(started));
+        audit.record(request.context(), request.toolName(), argsHash(request), result, false, millis(started));
         return result;
     }
 
@@ -145,6 +146,15 @@ public class ToolExecutor {
 
     private static long millis(long startedNanos) {
         return (System.nanoTime() - startedNanos) / 1_000_000;
+    }
+
+    /**
+     * Хэш аргументов для журнала — один и тот же у отказа и у успеха: JSON как прислан, ключи по алфавиту.
+     * По нему видно, что отклонённый и прошедший вызовы были с одинаковыми аргументами.
+     */
+    private String argsHash(CallRequest request) {
+        Object plain = request.arguments() == null ? null : json.treeToValue(request.arguments(), Object.class);
+        return hash(json.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS).writeValueAsString(plain));
     }
 
     private static String hash(String text) {

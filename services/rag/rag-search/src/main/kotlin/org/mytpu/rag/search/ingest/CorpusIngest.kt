@@ -39,7 +39,8 @@ class CorpusIngest(
         var chunks = 0
 
         for (doc in documents) {
-            val hash = sha256(doc.sections.joinToString("\u0000") { it.path + "\u0001" + it.text })
+            // Заголовок — в хэше: он есть в каждом куске, переименованную статью надо перезаписать
+            val hash = sha256(doc.title + "\u0002" + doc.sections.joinToString("\u0000") { it.path + "\u0001" + it.text })
             val previous = store.contentHash(doc.url)
             // Пропуск — только если текст тот же И векторы текущей версии модели уже есть (смена модели пересчитывает всё)
             if (previous == hash && store.hasEmbeddings(doc.url, embedder.version)) {
