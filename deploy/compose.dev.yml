@@ -101,6 +101,8 @@ services:
     image: mytpu/gateway:dev
     environment:
       RAG_URL: http://rag:8080
+      # Адрес caddy (/32) на сервере; на dev-стенде прокси нет — пусто (X-Forwarded-For не учитывается)
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # Живых данных в куче немного (кэш ограничен 32 МБ): потолок 40 % лимита, иначе Serial GC раздувает кучу до 55 %
       JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40"
     secrets: [gateway_db_password, rag_internal_key]

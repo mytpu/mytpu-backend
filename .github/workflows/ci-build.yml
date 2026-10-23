@@ -26,3 +26,21 @@ jobs:
 
       - name: Сборка и проверка всех модулей
         run: mvn -B -ntp verify
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование проекта с историей
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Образ закреплён по digest (v8.30.1); gitleaks-action не берём — для репозиториев организаций он требует лицензию
+      - name: Поиск секретов во всей истории
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" -w /repo
+          -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git /repo --config /repo/.gitleaks.toml --gitleaks-ignore-path /repo/.gitleaksignore
+          --redact --no-banner --exit-code 1

@@ -70,7 +70,7 @@ public class McpProtocol {
             entry.put("name", descriptor.name());
             entry.put("description", description(descriptor));
             entry.set("inputSchema", schemas.schema(descriptor));
-            entry.putObject("annotations").put("readOnlyHint", descriptor.kind() == org.mytpu.tool.api.Kind.READ);
+            entry.set("annotations", annotations(descriptor));
         }
         return result;
     }
@@ -85,6 +85,21 @@ public class McpProtocol {
             throw new RpcError(INVALID_PARAMS, messages.text("mcp.arguments_not_object"));
         }
         return results.toCallResult(executor.execute(new CallRequest(caller.context(), caller.policy(), name, arguments)));
+    }
+
+    /** Подсказки клиенту MCP (он может спросить подтверждение); защита от них не зависит — права решает шлюз. */
+    private ObjectNode annotations(ToolDescriptor descriptor) {
+        boolean read = descriptor.kind() == org.mytpu.tool.api.Kind.READ;
+        ObjectNode annotations = JsonNodeFactory.instance.objectNode();
+        String title = messages.optional(descriptor.name() + ".title");
+        if (title != null) {
+            annotations.put("title", title);
+        }
+        annotations.put("readOnlyHint", read);
+        annotations.put("destructiveHint", descriptor.kind() == org.mytpu.tool.api.Kind.WRITE);
+        annotations.put("idempotentHint", read);
+        annotations.put("openWorldHint", descriptor.openWorld());
+        return annotations;
     }
 
     private String description(ToolDescriptor descriptor) {

@@ -22,6 +22,7 @@ public class RaspFindTool implements Tool<RaspFindTool.Input, RaspFindTool.Answe
     // Срок кэша, таймаут и лимит — mytpu.gateway.tools.limits.rasp_find в application.yml
     private final ToolDescriptor descriptor = ToolDescriptor.read("rasp_find", RaspIntegration.SCOPE)
             .input(Input.class).output(Answer.class)
+            .openWorld(true)
             .build();
 
     public RaspFindTool(RaspClient client, Messages messages, String publicUrl) {

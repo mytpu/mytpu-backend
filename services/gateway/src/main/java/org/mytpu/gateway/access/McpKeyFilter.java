@@ -1,7 +1,10 @@
 package org.mytpu.gateway.access;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 
@@ -10,6 +13,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.mytpu.gateway.runtime.Messages;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
@@ -34,12 +38,22 @@ public class McpKeyFilter extends OncePerRequestFilter {
 
     private final ApiClientStore store;
     private final AuthFailureLimiter failures;
+    private final ClientAddress addresses;
+    private final KeyEvents events;
+    private final KeyNetworkWatch watch;
     private final Messages messages;
     private final JsonMapper json;
+    private final LocalDate v1KeysUntil;
 
-    public McpKeyFilter(ApiClientStore store, AuthFailureLimiter failures, Messages messages, JsonMapper json) {
+    public McpKeyFilter(ApiClientStore store, AuthFailureLimiter failures, ClientAddress addresses, KeyEvents events,
+                        KeyNetworkWatch watch, Messages messages, JsonMapper json,
+                        @Value("${mytpu.gateway.access.v1-keys-until:}") String v1KeysUntil) {
+        this.v1KeysUntil = v1KeysUntil.isBlank() ? null : LocalDate.parse(v1KeysUntil);
         this.store = store;
         this.failures = failures;
+        this.addresses = addresses;
+        this.events = events;
+        this.watch = watch;
         this.messages = messages;
         this.json = json;
     }
@@ -53,18 +67,35 @@ public class McpKeyFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String ip = request.getRemoteAddr();
+        InetAddress address = addresses.of(request);
+        String ip = Cidr.limiterKeyOf(address);
         if (failures.blocked(ip)) {
             reject(response, 429, "too_many_attempts", "access.too_many_attempts");
             return;
         }
-        Optional<ApiClient> client = bearer(request)
+        Optional<ApiClient> found = bearer(request)
                 .filter(ApiKeys::wellFormed)
-                .flatMap(store::findByKey)
-                .filter(c -> c.activeAt(Instant.now()));
+                .filter(k -> !(ApiKeys.isV1(k) && v1Expired()))
+                .flatMap(store::findByKey);
+        if (found.isPresent() && found.get().decoy()) {
+            // Ловушка отвечает так же, как неверный ключ: тот, кто её нашёл, не должен понять, что попался
+            events.record(found.get().id(), KeyEvents.DECOY_USED, Cidr.subnetOf(address), null);
+            found = Optional.empty();
+        }
+        Optional<ApiClient> client = found.filter(c -> c.activeAt(Instant.now()));
         if (client.isEmpty()) {
             failures.recordFailure(ip);
             reject(response, HttpServletResponse.SC_UNAUTHORIZED, "invalid_token", "access.invalid_token");
+            return;
+        }
+        if (client.get().suspended()) {
+            reject(response, HttpServletResponse.SC_UNAUTHORIZED, "key_suspended", "access.key_suspended");
+            return;
+        }
+        if (!NetworkPolicy.allows(client.get(), address)) {
+            failures.recordFailure(ip);
+            events.record(client.get().id(), KeyEvents.NETWORK_DENIED, Cidr.subnetOf(address), null);
+            reject(response, HttpServletResponse.SC_FORBIDDEN, "network_not_allowed", "access.network_not_allowed");
             return;
         }
         String path = PATHS.getPathWithinApplication(request);
@@ -73,8 +104,14 @@ public class McpKeyFilter extends OncePerRequestFilter {
             return;
         }
         store.touch(client.get().id());
+        watch.record(client.get(), address);
         request.setAttribute(CLIENT_ATTRIBUTE, client.get());
         chain.doFilter(request, response);
+    }
+
+    /** Ключи v1 (без контрольной суммы) принимаются до {@code mytpu.gateway.access.v1-keys-until}; пусто — без срока. */
+    private boolean v1Expired() {
+        return v1KeysUntil != null && LocalDate.now(ZoneOffset.UTC).isAfter(v1KeysUntil);
     }
 
     /** Читать консоль может viewer, менять — только admin. */

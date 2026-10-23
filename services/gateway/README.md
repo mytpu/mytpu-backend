@@ -29,9 +29,28 @@ RAG_MODEL_HOST_DIR=D:/models/e5-small-en-ru-int8 docker compose -f deploy/compos
 docker compose -f deploy/compose.dev.yml run --rm --no-deps -T gateway \
   --spring.profiles.active=issue-key --owner="Фамилия И. О." --scopes=docs.read,rasp.read
 ```
-Ключ печатается **один раз**. Параметры: `--roles=console.admin|console.viewer` (ключ консоли), `--deny=инструмент,…`,
-`--rate=инструмент:число,…` (свой лимит в минуту), `--days=90` (срок), `--write` (снять «только чтение»).
-Отозвать: `UPDATE gateway.api_clients SET enabled = false WHERE id = '…'` — действует за ≤ 30 с (в консоли — кнопкой).
+Ключ печатается **один раз** (формат v2: `mtpu_` + 49 символов base62 с контрольной суммой). Параметры:
+`--roles=console.admin|console.viewer` (ключ консоли), `--deny=инструмент,…`, `--rate=инструмент:число,…` (свой лимит в минуту),
+`--days=…` (срок), `--write` (снять «только чтение»),
+`--kind=person|server` (по умолчанию `person`), `--networks=203.0.113.0/24,2001:db8::/48` (сети, с которых ключ принимается).
+Правила: `server` — только с `--networks`; `person` без сетей — не дольше 30 дней (по умолчанию 30), с сетями —
+по умолчанию 90, не дольше 365. Сеть не шире /8 (IPv4) и /32 (IPv6).
+- Ключ-ловушка: `--decoy --owner="где лежит"` — без прав; любое использование — событие `key.decoy_used`.
+- Снять приостановку: `--resume=cli_…`.
+- Отозвать: `UPDATE gateway.api_clients SET enabled = false WHERE id = '…'` — действует за ≤ 30 с (в консоли — кнопкой).
+
+События ключей (новая подсеть, всплеск подсетей, приостановка, ловушка, отказ по сети) — в `gateway.key_events` и WARN в лог.
+За прокси (caddy) задайте `TRUSTED_PROXIES` = адрес контейнера caddy `/32` (статический IP в compose), **не всю сеть**:
+иначе с опубликованного порта (Docker userland-proxy приходит с адреса шлюза сети) можно подделать `X-Forwarded-For`.
+Без `TRUSTED_PROXIES` за прокси все клиенты видны с одного адреса: общий лимит попыток и 403 для ключей с сетями.
+Ключи v1 можно отключить датой: `V1_KEYS_UNTIL=2027-01-31`.
+
+## Личные данные внешним агентам
+Режимы выдачи и настройки — `docs/SECURITY.md` §6 и `mytpu.gateway.personal.*` в `application.yml`.
+На dev-стенде (`mytpu.gateway.dev-tools=true`, запрос с `127.0.0.1`) пользователя и согласие задают заголовки:
+`X-Dev-User: u1`, `X-Dev-Trust: external|trusted_tpu|trusted_contract|untrusted`, `X-Dev-Consent: masked:PT1H`
+(режим `full|masked|reference`, срок ISO-8601), `X-Dev-Dpop: true`. Проверочные инструменты — `system_profile_demo`
+(вымышленный профиль) и `system_forum_demo` (недоверенный текст). Журнал выдачи — `gateway.disclosures`.
 
 ## Подключить Claude Code
 ```bash

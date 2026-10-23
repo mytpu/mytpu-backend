@@ -9,6 +9,7 @@ import org.mytpu.gateway.catalog.CatalogChanged;
 import org.mytpu.gateway.catalog.IntegrationCatalog;
 import org.mytpu.tool.api.Integration;
 import org.mytpu.tool.api.Tool;
+import org.mytpu.gateway.runtime.personal.FieldClassifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -23,11 +24,13 @@ public class ToolRegistry {
     private static final Logger log = LoggerFactory.getLogger(ToolRegistry.class);
 
     private final IntegrationCatalog catalog;
+    private final FieldClassifier classifier;
     private volatile Map<String, RegisteredTool> tools = Map.of();
 
-    public ToolRegistry(IntegrationCatalog catalog) {
+    public ToolRegistry(IntegrationCatalog catalog, FieldClassifier classifier) {
         this.catalog = catalog;
-        rebuild();
+        this.classifier = classifier;
+        rebuild(true);
         log.info("Зарегистрированы инструменты: {}", tools.keySet());
     }
 
@@ -45,14 +48,25 @@ public class ToolRegistry {
 
     @EventListener
     public void onCatalogChanged(CatalogChanged event) {
-        rebuild();
+        rebuild(false);
         log.info("Интеграция {} изменила набор инструментов, теперь: {}", event.integrationId(), tools.keySet());
     }
 
-    private void rebuild() {
+    /** @param failFast при старте ошибка пометок полей останавливает шлюз; на ходу — инструмент не регистрируется */
+    private void rebuild(boolean failFast) {
         Map<String, RegisteredTool> next = new LinkedHashMap<>();
         for (Integration integration : catalog.all()) {
             for (Tool<?, ?> tool : integration.tools()) {
+                // Личный инструмент без пометок полей не регистрируется: при старте шлюз падает с понятной ошибкой
+                try {
+                    classifier.schema(tool.descriptor());
+                } catch (IllegalStateException e) {
+                    if (failFast) {
+                        throw e;
+                    }
+                    log.error("Инструмент не зарегистрирован: {}", e.getMessage());
+                    continue;
+                }
                 next.put(tool.descriptor().name(), new RegisteredTool(integration, tool));
             }
         }

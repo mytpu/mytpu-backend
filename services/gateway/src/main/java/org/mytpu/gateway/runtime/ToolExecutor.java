@@ -16,6 +16,7 @@ import java.util.concurrent.TimeoutException;
 import jakarta.annotation.PreDestroy;
 import org.mytpu.gateway.runtime.check.CallState;
 import org.mytpu.gateway.runtime.check.ToolCheck;
+import org.mytpu.gateway.runtime.personal.PersonalDisclosure;
 import org.mytpu.tool.api.ErrorCode;
 import org.mytpu.tool.api.Tool;
 import org.mytpu.tool.api.ToolException;
@@ -26,8 +27,8 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Единый исполнитель для всех дверей (MCP, позже чат и hub): общий лимит клиента → цепочка {@link ToolCheck} → кэш →
- * вызов с таймаутом → журнал. Сам ничего не проверяет — только прогоняет цепочку, поэтому не разрастается с новыми правилами.
+ * Единый исполнитель для всех дверей (MCP, позже чат и hub): общий лимит клиента → цепочка {@link ToolCheck} →
+ * отказ по личным данным → кэш → вызов с таймаутом → выдача личного по режиму ({@link PersonalDisclosure}) → журнал. Сам ничего не проверяет — только прогоняет цепочку, поэтому не разрастается с новыми правилами.
  */
 @Component
 public class ToolExecutor {
@@ -39,18 +40,20 @@ public class ToolExecutor {
     private final ToolSettings settings;
     private final ToolCache cache;
     private final AuditLog audit;
+    private final PersonalDisclosure disclosure;
     private final Messages messages;
     private final JsonMapper json;
     private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
 
     public ToolExecutor(ToolRegistry registry, List<ToolCheck> checks, ClientRateLimit clientLimit, ToolSettings settings,
-                        ToolCache cache, AuditLog audit, Messages messages, JsonMapper json) {
+                        ToolCache cache, AuditLog audit, PersonalDisclosure disclosure, Messages messages, JsonMapper json) {
         this.registry = registry;
         this.checks = List.copyOf(checks);
         this.clientLimit = clientLimit;
         this.settings = settings;
         this.cache = cache;
         this.audit = audit;
+        this.disclosure = disclosure;
         this.messages = messages;
         this.json = json;
     }
@@ -79,21 +82,28 @@ public class ToolExecutor {
                 return denied(request, denial.get(), started);
             }
         }
+        var descriptor = state.tool().descriptor();
+        PersonalDisclosure.Admission admission = disclosure.admit(request.context(), descriptor);
+        if (admission.denied()) {
+            return denied(request, admission.denial(), started);
+        }
 
         String argsHash = hash(json.writeValueAsString(state.input()));
         String cacheKey = request.toolName() + '|' + request.context().user().orElse("-") + '|' + argsHash;
         Optional<ToolResult<?>> cached = cache.get(cacheKey);
         if (cached.isPresent()) {
-            audit.record(request.context(), request.toolName(), argsHash, cached.get(), true, millis(started));
-            return cached.get();
+            ToolResult<?> released = disclosure.release(request.context(), descriptor, cached.get(), admission);
+            audit.record(request.context(), request.toolName(), argsHash, released, true, millis(started));
+            return released;
         }
 
         ToolResult<?> result = invoke(state);
         if (result instanceof ToolResult.Ok<?> || result instanceof ToolResult.NeedsChoice<?>) {
-            cache.put(cacheKey, result, settings.cacheTtl(state.tool().descriptor()));
+            cache.put(cacheKey, result, disclosure.cacheTtl(descriptor, settings.cacheTtl(descriptor)));
         }
-        audit.record(request.context(), request.toolName(), argsHash, result, false, millis(started));
-        return result;
+        ToolResult<?> released = disclosure.release(request.context(), descriptor, result, admission);
+        audit.record(request.context(), request.toolName(), argsHash, released, false, millis(started));
+        return released;
     }
 
     private ToolResult<?> denied(CallRequest request, ToolResult<?> result, long started) {
@@ -114,7 +124,12 @@ public class ToolExecutor {
             if (e.getCause() instanceof ToolException failure) {
                 return ToolResult.failed(failure.code(), failure.getMessage());
             }
-            log.error("Инструмент {} упал", state.tool().name(), e.getCause());
+            if (state.tool().descriptor().sensitivity() == org.mytpu.tool.api.Sensitivity.PUBLIC) {
+                log.error("Инструмент {} упал", state.tool().name(), e.getCause());
+            } else {
+                // Текст исключения личного инструмента может содержать значения полей — в лог только класс
+                log.error("Личный инструмент {} упал: {}", state.tool().name(), e.getCause().getClass().getName());
+            }
             return ToolResult.failed(ErrorCode.INTERNAL_ERROR, messages.text("error.internal_error"));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

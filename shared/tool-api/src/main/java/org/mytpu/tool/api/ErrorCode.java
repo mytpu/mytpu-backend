@@ -12,7 +12,11 @@ public enum ErrorCode {
     UPSTREAM_UNAVAILABLE,
     UPSTREAM_TIMEOUT,
     UPSTREAM_ERROR,
-    INTERNAL_ERROR;
+    INTERNAL_ERROR,
+    /** Нет согласия пользователя на личные данные для этого клиента или оно истекло. */
+    NEEDS_CONSENT,
+    /** Исчерпан суточный лимит личных записей для пары «пользователь — клиент». */
+    PERSONAL_QUOTA;
 
     /** Код в ответе: {@code tool_disabled}, {@code rate_limited} и т. д. */
     public String code() {

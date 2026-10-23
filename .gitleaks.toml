@@ -1,0 +1,11 @@
+# Сканер секретов (CI: .github/workflows/ci-build.yml). Стандартные правила gitleaks + мастер-ключ шлюза.
+title = "mytpu-backend"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "mytpu-master-key"
+description = "Мастер-ключ MCP-шлюза «Мой ТПУ» (v2: base62 + CRC32, v1: base64url)"
+regex = '''mtpu_(?:[0-9A-Za-z]{49}|[A-Za-z0-9_-]{43})(?:[^0-9A-Za-z_-]|$)'''
+keywords = ["mtpu_"]

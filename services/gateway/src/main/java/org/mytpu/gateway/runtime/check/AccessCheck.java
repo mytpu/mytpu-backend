@@ -16,7 +16,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Права вызывающего: scope инструмента разрешён, инструмент не выключен в ключе; чувствительное наружу (MCP) не выдаётся;
- * личное — только с пользователем; запись — не ключу «только чтение» и пока ни для кого (черновики — следующая спецификация).
+ * личное — только с пользователем; прямая запись ({@link Kind#WRITE}) через MCP — никогда; черновики и запись — не ключу
+ * «только чтение» и пока ни для кого (черновики и подтверждение — спецификация 6).
  */
 @Component
 @Order(20)
@@ -48,7 +49,10 @@ public class AccessCheck implements ToolCheck {
         if (descriptor.sensitivity() == Sensitivity.PERSONAL && request.context().user().isEmpty()) {
             return "error.tool_not_allowed.personal";
         }
-        if (descriptor.kind() == Kind.WRITE) {
+        if (descriptor.kind() == Kind.WRITE && request.context().channel() == Channel.MCP) {
+            return "error.tool_not_allowed.mcp_write";
+        }
+        if (descriptor.kind() != Kind.READ) {
             return request.policy().readOnly() ? "error.tool_not_allowed.read_only" : "error.write_unavailable";
         }
         return null;

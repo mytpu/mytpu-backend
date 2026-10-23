@@ -49,7 +49,7 @@ public class EnabledCheck implements ToolCheck {
         if (mode == Mode.INTERNAL_ONLY && request.context().channel() == Channel.MCP) {
             return "error.gateway_mode.internal_only";
         }
-        if (mode == Mode.READ_ONLY && tool.descriptor().kind() == Kind.WRITE) {
+        if (mode == Mode.READ_ONLY && tool.descriptor().kind() != Kind.READ) {
             return "error.gateway_mode.read_only";
         }
         if (!registry.active(tool) || !control.toolEnabled(tool.name())) {

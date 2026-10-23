@@ -41,7 +41,9 @@ public class McpResults {
         if (answer.hint() != null) {
             text.append("\n").append(answer.hint());
         }
-        text.append("\n\n").append(json.writeValueAsString(answer.data()));
+        if (answer.data() != null) {
+            text.append("\n\n").append(json.writeValueAsString(answer.data()));
+        }
         return result(text.toString(), structured, false);
     }
 

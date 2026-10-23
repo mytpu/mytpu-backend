@@ -7,6 +7,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -40,10 +41,25 @@ public class ApiClientStore {
             .maximumSize(2_000)
             .build();
     private final Map<String, Instant> lastTouch = new ConcurrentHashMap<>();
+    /** Потолок поисков ключа в БД в секунду (не из кэша): перебор правильных по формату ключей не забирает пул. */
+    private final int maxLookupsPerSecond;
+    private long lookupSecond;
+    private int lookups;
 
-    public ApiClientStore(JdbcClient jdbc, JsonMapper json) {
+    public ApiClientStore(JdbcClient jdbc, JsonMapper json,
+                          @org.springframework.beans.factory.annotation.Value("${mytpu.gateway.access.max-key-lookups-per-second:50}") int maxLookupsPerSecond) {
         this.jdbc = jdbc;
         this.json = json;
+        this.maxLookupsPerSecond = maxLookupsPerSecond;
+    }
+
+    private synchronized boolean lookupAllowed() {
+        long second = System.currentTimeMillis() / 1000;
+        if (second != lookupSecond) {
+            lookupSecond = second;
+            lookups = 0;
+        }
+        return ++lookups <= maxLookupsPerSecond;
     }
 
     public Optional<ApiClient> findByKey(String key) {
@@ -53,10 +69,10 @@ public class ApiClientStore {
         if (cached != null) {
             return Optional.of(cached);
         }
-        if (misses.getIfPresent(hex) != null) {
+        if (misses.getIfPresent(hex) != null || !lookupAllowed()) {
             return Optional.empty();
         }
-        Optional<ApiClient> found = jdbc.sql("SELECT * FROM api_clients WHERE key_hash = :hash")
+        Optional<ApiClient> found = jdbc.sql("SELECT *, allowed_networks::text[] AS networks_text FROM api_clients WHERE key_hash = :hash")
                 .param("hash", hash)
                 .query(this::map)
                 .optional();
@@ -80,8 +96,10 @@ public class ApiClientStore {
         String key = ApiKeys.generate();
         String id = "cli_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         jdbc.sql("""
-                INSERT INTO api_clients (id, owner, key_prefix, key_hash, scopes, roles, denied_tools, rate_limits, read_only, expires_at)
-                VALUES (:id, :owner, :prefix, :hash, :scopes, :roles, :denied, CAST(:limits AS jsonb), :readOnly, :expires)
+                INSERT INTO api_clients (id, owner, key_prefix, key_hash, scopes, roles, denied_tools, rate_limits, read_only,
+                                         expires_at, kind, allowed_networks, decoy)
+                VALUES (:id, :owner, :prefix, :hash, :scopes, :roles, :denied, CAST(:limits AS jsonb), :readOnly,
+                        :expires, :kind, CAST(:networks AS cidr[]), :decoy)
                 """)
                 .param("id", id)
                 .param("owner", request.owner())
@@ -93,12 +111,37 @@ public class ApiClientStore {
                 .param("limits", json.writeValueAsString(request.rateLimits()))
                 .param("readOnly", request.readOnly())
                 .param("expires", request.expiresAt() == null ? null : Timestamp.from(request.expiresAt()))
+                .param("kind", request.kind().db())
+                .param("networks", request.allowedNetworks().toArray(String[]::new))
+                .param("decoy", request.decoy())
                 .update();
         return new IssuedKey(id, key);
     }
 
+    /** Приостановка (подозрение на утечку): действует сразу на этом экземпляре, на остальных — за ≤ 30 с. */
+    public boolean suspend(String clientId, String reason) {
+        int changed = jdbc.sql("UPDATE api_clients SET suspended_at = now(), suspended_reason = :reason "
+                        + "WHERE id = :id AND suspended_at IS NULL")
+                .param("id", clientId).param("reason", reason).update();
+        invalidate(clientId);
+        return changed > 0;
+    }
+
+    public boolean resume(String clientId) {
+        int changed = jdbc.sql("UPDATE api_clients SET suspended_at = NULL, suspended_reason = NULL "
+                        + "WHERE id = :id AND suspended_at IS NOT NULL")
+                .param("id", clientId).update();
+        invalidate(clientId);
+        return changed > 0;
+    }
+
+    private void invalidate(String clientId) {
+        byHash.asMap().values().removeIf(c -> c.id().equals(clientId));
+    }
+
     private ApiClient map(ResultSet rs, int row) throws SQLException {
         Timestamp expires = rs.getTimestamp("expires_at");
+        Timestamp suspended = rs.getTimestamp("suspended_at");
         return new ApiClient(
                 rs.getString("id"),
                 rs.getString("owner"),
@@ -109,7 +152,11 @@ public class ApiClientStore {
                 json.readValue(rs.getString("rate_limits"), new TypeReference<Map<String, Integer>>() { }),
                 rs.getBoolean("read_only"),
                 rs.getBoolean("enabled"),
-                expires == null ? null : expires.toInstant());
+                expires == null ? null : expires.toInstant(),
+                ApiClient.Kind.fromDb(rs.getString("kind")),
+                List.copyOf(strings(rs.getArray("networks_text"))),
+                suspended == null ? null : suspended.toInstant(),
+                rs.getBoolean("decoy"));
     }
 
     private static Set<String> strings(Array array) throws SQLException {
@@ -117,7 +164,8 @@ public class ApiClientStore {
     }
 
     public record NewClient(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
-                            Map<String, Integer> rateLimits, boolean readOnly, Instant expiresAt) {
+                            Map<String, Integer> rateLimits, boolean readOnly, Instant expiresAt,
+                            ApiClient.Kind kind, List<String> allowedNetworks, boolean decoy) {
     }
 
     public record IssuedKey(String clientId, String key) {

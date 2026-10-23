@@ -7,7 +7,7 @@
 ## Сейчас в репозитории (ветка `feature/gateway`, 19.10)
 | Модуль | Отвечает за | Состояние |
 |---|---|---|
-| `shared/tool-api` (Java, без Spring) | контракт: `Integration`, `Tool`, `ToolDescriptor`, `CallContext`, `ToolResult`, `ToolAnswer` | готов |
+| `shared/tool-api` (Java, без Spring) | контракт: `Integration`, `Tool`, `ToolDescriptor`, `CallContext` (+ `Trust`, `Consent`), `ToolResult`, `ToolAnswer` (+ `publicSummary`), пометки полей `Classified`/`Mask` | готов |
 | `services/assistant` (Java) | чат: `POST /api/ai/chat`, `/api/ai/chat/stream` (SSE meta/status/delta/done) через Spring AI 2 к ml-server | перенесён из `ai-backend`, Boot 4.1 |
 | `services/rag/rag-api` (Java) | контракт поиска `DocsSearch` | готов |
 | `services/rag/rag-search` (Kotlin) | схема, модель векторов (e5-small ru+en, ONNX), нарезка, загрузка, гибридный поиск, замер | готов, `services/rag/README.md` |
@@ -22,7 +22,7 @@
 | `shared/tool-api` | контракт инструмента: `Tool`, `ToolDescriptor`, `CallContext`, `ToolResult` | реализацию проверок и вызовов | — (общий для gateway, assistant, rag) |
 | `shared/call-context` | сборка `CallContext` из `X-User-*`, проверка `X-Internal-Key` | вход пользователя | заголовки от caddy/сервисов |
 | `services/identity` | вход через oauth.tpu.ru, сессии, `/internal/verify`, OAuth-сервер шлюза, сейф токенов ТПУ | вызовы инструментов | caddy (forward_auth), gateway (JWKS, токены ТПУ) |
-| `services/gateway` → `runtime` (tool-runtime) | реестр инструментов, проверки по порядку, кэш, таймауты, журнал | транспорт и разбор токенов | двери → исполнитель → интеграции |
+| `services/gateway` → `runtime` (tool-runtime) | реестр инструментов, проверки по порядку, кэш, таймауты, журнал; `runtime.personal` — выдача личного по режиму (классы полей, решение, вырезание, суточный лимит, журнал выдачи — `specs/personal-data-for-agents`) | транспорт и разбор токенов | двери → исполнитель → интеграции |
 | `services/gateway` → `mcp` (door-mcp) | MCP `/mcp` (Streamable HTTP без состояния, свой обработчик — решение 19.10), `tools/list` по правам ключа, сборка `CallContext` | правила доступа (это runtime) | внешние агенты |
 | `services/gateway` → `integrations/*` | по модулю на сервис ТПУ: `rasp`, `docs`, позже `tpuapi`, `help`, `lms` | проверки прав | сервисы ТПУ, rag |
 | `services/gateway` → `catalog`, `access` | каталог интеграций; мастер-ключи клиентов (набор разрешённых API) | вызовы инструментов | door-mcp, консоль |

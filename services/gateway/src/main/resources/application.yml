@@ -1,5 +1,7 @@
 server:
   port: ${PORT:8080}
+  # Адрес клиента — только из ClientAddress (доверенные прокси); Spring/Tomcat сами X-Forwarded-For не применяют
+  forward-headers-strategy: none
   tomcat:
     # Лишние запросы ждут в очереди, а не создают нагрузку (машина 4 ядра / 4 ГБ)
     max-connections: 200
@@ -57,5 +59,29 @@ mytpu:
       client-calls-per-minute: 600
     access:
       max-failures-per-minute: 30
+      # Поисков ключа в БД в секунду (не из кэша); сверх — 401 без БД
+      max-key-lookups-per-second: 50
+      # Ключи v1 (без контрольной суммы) принимаются до этой даты (ГГГГ-ММ-ДД); пусто — без срока
+      v1-keys-until: ${V1_KEYS_UNTIL:}
+    # Прокси, которым верим в X-Forwarded-For (CIDR через запятую): только адрес контейнера caddy (/32), не вся сеть.
+    # Пусто — никому
+    trusted-proxies: ${TRUSTED_PROXIES:}
+    # Признак утечки: больше N разных подсетей у ключа за час → server приостанавливается, person — событие
+    key-watch:
+      max-networks-per-hour: 3
+      max-events-per-minute: 20
+      # Одновременных фоновых записей учёта; лишние отбрасываются
+      background-writes: 2
     mcp:
       max-body-bytes: 65536
+    # Выдача личного внешним агентам (specs/personal-data-for-agents)
+    personal:
+      # full внешнему агенту — только после решения вуза о зарубежных провайдерах (вопросы 3 и 17 в docs/SECURITY.md)
+      external-full-allowed: false
+      full-without-dpop-max: 1d
+      max-records-per-day: 200
+      cache-ttl-max: 60s
+      taint-window: 30m
+      # Карточка «Мой ТПУ» для режима reference (спецификация 7); пусто — фраза без ссылки
+      card-url: ${PERSONAL_CARD_URL:}
+      disclosure-retention: 365d
