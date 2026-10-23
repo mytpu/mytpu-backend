@@ -105,7 +105,7 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # Живых данных в куче немного (кэш ограничен 32 МБ): потолок 40 % лимита, иначе Serial GC раздувает кучу до 55 %
       JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40"
-    secrets: [gateway_db_password, rag_internal_key]
+    secrets: [gateway_db_password, rag_internal_key, gateway_audit_key]
     tmpfs: ["/tmp:size=16m"]
     ports: ["127.0.0.1:8081:8080"]
     # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag; data — к своей БД
@@ -150,6 +150,7 @@ secrets:
   rag_db_password: {file: ./secrets/rag_db_password}
   assistant_db_password: {file: ./secrets/assistant_db_password}
   rag_internal_key: {file: ./secrets/rag_internal_key}
+  gateway_audit_key: {file: ./secrets/gateway_audit_key}
   ml_api_key: {file: ./secrets/ml_api_key}
 
 volumes:

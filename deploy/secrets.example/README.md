@@ -12,4 +12,5 @@
 | `rag_db_password` | postgres, rag | пароль пользователя `rag` к БД `rag` |
 | `assistant_db_password` | postgres, assistant | пароль пользователя `assistant` к БД `assistant` |
 | `rag_internal_key` | gateway, rag | сервисный ключ gateway → rag (`POST /internal/search`) |
+| `gateway_audit_key` | gateway | ключ HMAC для отпечатков аргументов в журнале `gateway.audit` (без него шлюз не стартует) |
 | `ml_api_key` | assistant | ключ assistant → ml-server (`ML_API_KEY` ml-server) |

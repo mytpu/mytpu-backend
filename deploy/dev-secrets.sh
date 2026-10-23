@@ -13,6 +13,7 @@ names=(
     rag_db_password
     assistant_db_password
     rag_internal_key
+    gateway_audit_key
     ml_api_key
 )
 

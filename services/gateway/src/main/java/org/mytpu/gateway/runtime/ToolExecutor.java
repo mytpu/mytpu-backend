@@ -24,7 +24,6 @@ import org.mytpu.tool.api.ToolResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -44,10 +43,12 @@ public class ToolExecutor {
     private final PersonalDisclosure disclosure;
     private final Messages messages;
     private final JsonMapper json;
+    private final ArgsHasher argsHasher;
     private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
 
     public ToolExecutor(ToolRegistry registry, List<ToolCheck> checks, ClientRateLimit clientLimit, ToolSettings settings,
-                        ToolCache cache, AuditLog audit, PersonalDisclosure disclosure, Messages messages, JsonMapper json) {
+                        ToolCache cache, AuditLog audit, PersonalDisclosure disclosure, Messages messages, JsonMapper json,
+                        ArgsHasher argsHasher) {
         this.registry = registry;
         this.checks = List.copyOf(checks);
         this.clientLimit = clientLimit;
@@ -57,6 +58,7 @@ public class ToolExecutor {
         this.disclosure = disclosure;
         this.messages = messages;
         this.json = json;
+        this.argsHasher = argsHasher;
     }
 
     /** Что вызывающий видит в {@code tools/list}: инструменты, которые не скрывает ни одна проверка. */
@@ -89,7 +91,7 @@ public class ToolExecutor {
             return denied(request, admission.denial(), started);
         }
 
-        String argsHash = argsHash(request);
+        String argsHash = argsHasher.of(request.arguments());
         String cacheKey = request.toolName() + '|' + request.context().user().orElse("-") + '|' + hash(json.writeValueAsString(state.input()));
         Optional<ToolResult<?>> cached = cache.get(cacheKey);
         if (cached.isPresent()) {
@@ -108,7 +110,7 @@ public class ToolExecutor {
     }
 
     private ToolResult<?> denied(CallRequest request, ToolResult<?> result, long started) {
-        audit.record(request.context(), request.toolName(), argsHash(request), result, false, millis(started));
+        audit.record(request.context(), request.toolName(), argsHasher.of(request.arguments()), result, false, millis(started));
         return result;
     }
 
@@ -148,15 +150,7 @@ public class ToolExecutor {
         return (System.nanoTime() - startedNanos) / 1_000_000;
     }
 
-    /**
-     * Хэш аргументов для журнала — один и тот же у отказа и у успеха: JSON как прислан, ключи по алфавиту.
-     * По нему видно, что отклонённый и прошедший вызовы были с одинаковыми аргументами.
-     */
-    private String argsHash(CallRequest request) {
-        Object plain = request.arguments() == null ? null : json.treeToValue(request.arguments(), Object.class);
-        return hash(json.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS).writeValueAsString(plain));
-    }
-
+    /** Ключ кэша (только в памяти): обычный SHA-256 разобранного ввода. Отпечаток для журнала — {@link ArgsHasher}. */
     private static String hash(String text) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));

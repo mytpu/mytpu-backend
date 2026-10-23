@@ -27,6 +27,8 @@
 5. Старый `.env` удалить после первого успешного деплоя.
 6. В настройках репозитория GitHub (Settings → Variables) завести `ASSISTANT_DEPLOY_ENABLED=true` — до этого CI собирает,
    проверяет и выгружает образ, но на сервер не выкладывает.
+7. Settings → Environments → `production`: Required reviewers (кто подтверждает выкладку) и перенести туда секреты
+   `VPS_HOST`, `VPS_USER`, `VPS_KEY`, `GHCR_USERNAME`, `GHCR_TOKEN` — тогда их видит только подтверждённая выкладка.
 
 ## Как CI выкладывает
 `build` (сборка и тесты assistant, образ, trivy) → выгрузка в GHCR с тегом = SHA → `deploy` (только при

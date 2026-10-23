@@ -88,6 +88,8 @@ jobs:
     # Выключено, пока владелец VPS не перенёс .env в secrets/ (deploy/README.md)
     if: vars.ASSISTANT_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
+    # Окружение production: секреты VPS — его секреты, выкладка ждёт подтверждения ревьюера (Settings → Environments)
+    environment: production
     # Две выкладки подряд не идут одновременно (общий assistant.tag и порт)
     concurrency:
       group: deploy-assistant
