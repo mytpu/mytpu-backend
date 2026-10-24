@@ -16,6 +16,20 @@ data class DetailedResult(
     val bestSimilarity: Double?,
     /** Отрыв лучшего куска от десятого по сходству: у постороннего вопроса все куски «одинаково похожи». */
     val margin: Double,
+    /** Все кандидаты после склейки RRF — для песочницы консоли. */
+    val candidates: List<Candidate> = emptyList(),
+)
+
+/** Кандидат поиска: место после RRF, сходство по векторам (если нашёлся векторами), нашёлся ли по тексту, вклад RRF. */
+data class Candidate(
+    val place: Int,
+    val sectionId: String,
+    val chunkId: Long,
+    val title: String,
+    val path: String,
+    val similarity: Double?,
+    val inText: Boolean,
+    val rrf: Double,
 )
 
 /**
@@ -60,6 +74,8 @@ class HybridDocsSearch(
                 .param("access", access)
                 .query { rs, _ ->
                     Row(
+                        chunkId = rs.getLong("chunk_id"),
+                        rrf = rs.getDouble("score"),
                         sectionId = rs.getString("section_id"),
                         distance = rs.getObject("dist") as Double?,
                         inText = rs.getBoolean("in_txt"),
@@ -80,10 +96,15 @@ class HybridDocsSearch(
         val hits = if (!found) emptyList() else rows.distinctBy { it.sectionId }.take(limit).mapIndexed { i, row ->
             DocHit(i + 1, row.title, row.url, row.path, row.text.take(settings.maxSectionChars), row.updatedAt)
         }
-        return DetailedResult(SearchResult(found, hits), best, margin)
+        val candidates = rows.mapIndexed { i, row ->
+            Candidate(i + 1, row.sectionId, row.chunkId, row.title, row.path, row.distance?.let { 1.0 - it }, row.inText, row.rrf)
+        }
+        return DetailedResult(SearchResult(found, hits), best, margin, candidates)
     }
 
     private data class Row(
+        val chunkId: Long,
+        val rrf: Double,
         val sectionId: String,
         val distance: Double?,
         val inText: Boolean,
@@ -137,7 +158,7 @@ class HybridDocsSearch(
                 ) u
                 GROUP BY chunk_id
             )
-            SELECT s.id AS section_id, f.dist, f.in_txt, d.title, d.url, s.path, s.text AS section_text, d.updated_at
+            SELECT c.id AS chunk_id, f.score, s.id AS section_id, f.dist, f.in_txt, d.title, d.url, s.path, s.text AS section_text, d.updated_at
             FROM fused f
             JOIN chunks c ON c.id = f.chunk_id
             JOIN sections s ON s.id = c.section_id

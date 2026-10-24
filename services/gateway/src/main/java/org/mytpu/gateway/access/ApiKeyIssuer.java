@@ -1,6 +1,5 @@
 package org.mytpu.gateway.access;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -9,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.mytpu.gateway.catalog.IntegrationCatalog;
-import org.mytpu.gateway.runtime.RegisteredTool;
-import org.mytpu.gateway.runtime.ToolRegistry;
+import org.mytpu.gateway.runtime.Messages;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
@@ -33,21 +30,17 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("issue-key")
 public class ApiKeyIssuer implements ApplicationRunner {
-    private static final Set<String> ROLES = Set.of(ApiClient.CONSOLE_ADMIN, ApiClient.CONSOLE_VIEWER);
-    private static final long MAX_DAYS = 365;
-    private static final long MAX_DAYS_WITHOUT_NETWORKS = 30;
-
     private final ApiClientStore store;
-    private final IntegrationCatalog catalog;
-    private final ToolRegistry registry;
+    private final KeyRules rules;
+    private final Messages messages;
     private final KeyEvents events;
     private final ConfigurableApplicationContext context;
 
-    public ApiKeyIssuer(ApiClientStore store, IntegrationCatalog catalog, ToolRegistry registry, KeyEvents events,
+    public ApiKeyIssuer(ApiClientStore store, KeyRules rules, Messages messages, KeyEvents events,
                         ConfigurableApplicationContext context) {
         this.store = store;
-        this.catalog = catalog;
-        this.registry = registry;
+        this.rules = rules;
+        this.messages = messages;
         this.events = events;
         this.context = context;
     }
@@ -63,53 +56,23 @@ public class ApiKeyIssuer implements ApplicationRunner {
             System.out.println(resumed ? "Приостановка ключа " + resume + " снята." : "Ключ " + resume + " не найден или не приостановлен.");
             exit();
         }
-        String owner = single(args, "owner");
-        if (owner == null || owner.isBlank()) {
-            fail("Укажите владельца ключа: --owner=\"Фамилия И. О.\"");
-        }
-        Set<String> scopes = list(args, "scopes");
-        Set<String> unknown = new LinkedHashSet<>(scopes);
-        unknown.removeAll(catalog.knownScopes());
-        if (!unknown.isEmpty()) {
-            fail("Неизвестные scopes " + unknown + ". Допустимые: " + catalog.knownScopes());
-        }
-        Set<String> roles = list(args, "roles");
-        if (!ROLES.containsAll(roles)) {
-            fail("Допустимые роли: " + ROLES);
-        }
         boolean decoy = args.containsOption("decoy");
-        if (decoy && !(scopes.isEmpty() && roles.isEmpty())) {
-            fail("Ключ-ловушка выдаётся без прав: уберите --scopes и --roles");
-        }
-        if (!decoy && scopes.isEmpty() && roles.isEmpty()) {
-            fail("Ключ без scopes и ролей ничего не открывает: укажите --scopes или --roles");
-        }
-        ApiClient.Kind kind = kind(single(args, "kind"));
-        List<String> networks = List.copyOf(list(args, "networks"));
-        networks.forEach(ApiKeyIssuer::checkNetwork);
-        if (kind == ApiClient.Kind.SERVER && networks.isEmpty()) {
-            fail("Ключ server выдаётся только с сетями: --networks=203.0.113.0/24");
-        }
-        long maxDays = networks.isEmpty() && !decoy ? MAX_DAYS_WITHOUT_NETWORKS : MAX_DAYS;
         String days = single(args, "days");
-        long validDays = days == null ? Math.min(90, maxDays) : Long.parseLong(days);
-        if (validDays < 1 || validDays > maxDays) {
-            fail("Срок ключа — от 1 до " + maxDays + " дней" + (maxDays == MAX_DAYS_WITHOUT_NETWORKS
-                    ? " (без --networks — не дольше " + MAX_DAYS_WITHOUT_NETWORKS + ")" : ""));
+        ApiClientStore.NewClient client;
+        try {
+            client = rules.newClient(new KeyRules.Request(single(args, "owner"), list(args, "scopes"), list(args, "roles"),
+                    list(args, "deny"), rateLimits(list(args, "rate")), args.containsOption("write"),
+                    days == null ? null : Long.parseLong(days), kind(single(args, "kind")),
+                    List.copyOf(list(args, "networks")), decoy));
+        } catch (KeyRules.Violation v) {
+            throw new IllegalArgumentException(messages.text("key.error." + v.code(), v.args()));
         }
-        Instant expires = Instant.now().plus(Duration.ofDays(validDays));
-        Set<String> deny = list(args, "deny");
-        Map<String, Integer> rates = rateLimits(list(args, "rate"));
-        Set<String> known = new java.util.HashSet<>(registry.all().stream().map(RegisteredTool::name).toList());
-        Set<String> unknownTools = new LinkedHashSet<>(deny);
-        unknownTools.addAll(rates.keySet());
-        unknownTools.removeAll(known);
-        if (!unknownTools.isEmpty()) {
-            fail("Неизвестные инструменты " + unknownTools + ". Есть: " + known);
-        }
+        Instant expires = client.expiresAt();
+        List<String> networks = client.allowedNetworks();
+        ApiClient.Kind kind = client.kind();
+        String owner = client.owner();
 
-        var issued = store.issue(new ApiClientStore.NewClient(owner, scopes, roles, deny,
-                rates, decoy || !args.containsOption("write"), expires, kind, networks, decoy));
+        var issued = store.issue(client);
         System.out.println();
         System.out.println((decoy ? "Ключ-ловушка выдан: " : "Мастер-ключ выдан: ") + issued.clientId() + " (" + owner + "), "
                 + kind.db() + (networks.isEmpty() ? ", любые сети" : ", сети " + networks) + ", до " + expires);
@@ -132,19 +95,6 @@ public class ApiKeyIssuer implements ApplicationRunner {
             return ApiClient.Kind.fromDb(value);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Тип ключа — person или server");
-        }
-    }
-
-    /** Сеть шире /8 (IPv4) или /32 (IPv6) — фактически «любые адреса»: такой ключ обходил бы правила для server и срок 30 дней. */
-    private static void checkNetwork(String network) {
-        Cidr cidr = null;
-        try {
-            cidr = Cidr.parse(network);
-        } catch (RuntimeException e) {
-            fail("Неверная сеть " + network + ": нужен CIDR, например 203.0.113.0/24 или 2001:db8::/48");
-        }
-        if (cidr.prefix() < (cidr.ipv4() ? 8 : 32)) {
-            fail("Слишком широкая сеть " + network + ": не шире /8 для IPv4 и /32 для IPv6");
         }
     }
 

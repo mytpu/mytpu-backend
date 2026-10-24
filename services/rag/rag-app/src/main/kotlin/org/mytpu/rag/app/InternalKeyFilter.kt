@@ -12,6 +12,7 @@ import java.security.MessageDigest
 
 /**
  * «Закрыто всё»: без сервисного ключа gateway → rag (файл-секрет `rag_internal_key`) открыт только `/actuator/health`.
+ * API консоли (пути `/admin/…`) — только со своим ключом `rag_admin_key`: ключ поиска не открывает загрузку и удаление документов.
  * Путь берётся декодированным и без `;параметров`, как его сопоставляет Spring MVC. Ключ сравнивается за постоянное время;
  * пустой или короткий ключ — ошибка при старте, а не «пустой ключ подходит к пустому».
  */
@@ -19,12 +20,16 @@ import java.security.MessageDigest
 @ConditionalOnWebApplication
 class InternalKeyFilter(
     @Value("\${rag_internal_key:}") key: String,
+    @Value("\${rag_admin_key:}") adminKey: String,
 ) : OncePerRequestFilter() {
 
     private val expected = key.trim().toByteArray()
+    private val expectedAdmin = adminKey.trim().toByteArray()
 
     init {
         require(expected.size >= MIN_KEY_BYTES) { "Сервисный ключ rag_internal_key не задан или короче $MIN_KEY_BYTES символов" }
+        require(expectedAdmin.size >= MIN_KEY_BYTES) { "Ключ консоли rag_admin_key не задан или короче $MIN_KEY_BYTES символов" }
+        require(!MessageDigest.isEqual(expected, expectedAdmin)) { "rag_admin_key должен отличаться от rag_internal_key" }
     }
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
@@ -34,7 +39,9 @@ class InternalKeyFilter(
 
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
         val presented = request.getHeader(HEADER)?.trim()?.toByteArray()
-        if (presented == null || !MessageDigest.isEqual(presented, expected)) {
+        val path = PATHS.getPathWithinApplication(request)
+        val admin = path == "/admin" || path.startsWith("/admin/")
+        if (presented == null || !MessageDigest.isEqual(presented, if (admin) expectedAdmin else expected)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED)
             return
         }

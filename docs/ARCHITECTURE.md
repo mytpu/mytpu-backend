@@ -26,10 +26,10 @@
 | `services/gateway` → `mcp` (door-mcp) | MCP `/mcp` (Streamable HTTP без состояния, свой обработчик — решение 19.10), `tools/list` по правам ключа, сборка `CallContext` | правила доступа (это runtime) | внешние агенты |
 | `services/gateway` → `integrations/*` | по модулю на сервис ТПУ: `rasp`, `docs`, позже `tpuapi`, `help`, `lms` | проверки прав | сервисы ТПУ, rag |
 | `services/gateway` → `catalog`, `access` | каталог интеграций; мастер-ключи клиентов (набор разрешённых API) | вызовы инструментов | door-mcp, консоль |
-| `services/gateway` → `admin`, `connectors`, `stats` | API консоли MCP; API без кода (коннекторы `GET`); агрегаты журнала | интерфейс консоли | консоль; rag через `/admin/api/rag/**` |
+| `services/gateway` → `admin`, `connectors`, `stats` | `admin` — API консоли MCP (по контроллеру на раздел), журнал действий, прокси консоли rag; `connectors` — API без кода (интеграция `connectors`, `GET`, SSRF в DNS-резолвере, секреты AES-GCM); `stats` — чтение журналов (обзор по `audit_minute`) | интерфейс консоли; проверки доступа (это `access`) | консоль; rag через `/admin/api/rag/**` |
 | `console/` | интерфейс консолей MCP и rag (Vite + React + TS, статика) | данные и права | `/admin/api/**` gateway |
 | `services/assistant` | чат с LLM, инструменты как `ToolCallback` → gateway | вызовы сервисов ТПУ напрямую | ml-server, gateway |
-| `services/rag` | поиск по документам, ночной ingest, модель векторов, API консоли rag | права доступа | gateway (`POST /internal/search`, `/admin/**`) |
+| `services/rag` | поиск по документам, ночной ingest, модель векторов; API консоли rag (`rag-app` `admin`: источники и файлы, задачи загрузки, документы, песочница, замер, ненайденное), разбор файлов и `Redactor` (`rag-search` `files`, `privacy`) | права доступа (решает gateway) | gateway (`POST /internal/search` — `rag_internal_key`, `/admin/**` — `rag_admin_key`) |
 | ml-server (отдельный репо) | прокси к LLM, pii | инструменты | assistant |
 
 ## Откуда берётся контент

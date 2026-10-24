@@ -35,3 +35,15 @@
 `ASSISTANT_DEPLOY_ENABLED=true`): копирование `compose.server.yml`, остановка старого контейнера `ai-backend`,
 `up -d` нового, проверка `127.0.0.1:8080/actuator/health` до 60 с. Не поднялся → запуск прошлого тега (файл
 `assistant.tag` на сервере) и красный CI. Секреты GitHub (`VPS_*`, `GHCR_*`) передаются в скрипт переменными окружения.
+
+## Консоль администратора (gateway `/admin/api/**`)
+- Отвечает только с сетей `ADMIN_ALLOWED_NETWORKS` (по умолчанию localhost), остальным — 404. В Docker запрос с хоста
+  приходит в контейнер шлюза с адреса шлюза сети `edge`, а не с `127.0.0.1`: узнать его —
+  `docker network inspect mytpu-dev_edge -f '{{(index .IPAM.Config 0).Gateway}}'` и вписать ровно его (`/32`),
+  не всю подсеть Docker — иначе консоль откроется соседним контейнерам.
+- Через прокси (caddy) консоль не публиковать: закрыть `/admin/api/*` в его конфиге; запрос от доверенного прокси без
+  `X-Forwarded-For` консоль не пропускает.
+- Ключ консоли: `issue-key --roles=console.admin` (или `console.viewer` — только чтение).
+- Секреты консоли: `connector_vault_key` (сейф секретов коннекторов), `rag_admin_key` (шлюз → rag `/admin`) —
+  `bash deploy/dev-secrets.sh` создаёт их на стенде.
+

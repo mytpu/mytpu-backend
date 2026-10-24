@@ -18,6 +18,10 @@ spring:
   threads:
     virtual:
       enabled: true
+  # Загрузки в консоль rag проходят прокси потоком: тело не разбирается шлюзом (иначе поток уже прочитан)
+  servlet:
+    multipart:
+      enabled: false
   messages:
     basename: messages,tools/descriptions
     encoding: UTF-8
@@ -44,6 +48,13 @@ management:
         include: health
 
 mytpu:
+  # API консоли (/admin/api/**) — только с этих сетей; до входа через ТПУ — localhost (SSH-туннель)
+  admin:
+    allowed-networks: ${ADMIN_ALLOWED_NETWORKS:127.0.0.1/32,::1/128}
+  # Коннекторы из консоли: свои запрещённые сети (сети Docker вне частных диапазонов), сверка публикаций между экземплярами
+  connectors:
+    denied-networks: ${CONNECTORS_DENIED_NETWORKS:}
+    refresh: 30s
   gateway:
     # Инструменты и интеграция-образец для разработки (system_ping); в проде выключено
     dev-tools: false
@@ -74,6 +85,8 @@ mytpu:
       background-writes: 2
     mcp:
       max-body-bytes: 65536
+    # Адрес шлюза для команды claude mcp add в консоли
+    public-url: ${GATEWAY_PUBLIC_URL:http://127.0.0.1:8081}
     # Выдача личного внешним агентам (specs/personal-data-for-agents)
     personal:
       # full внешнему агенту — только после решения вуза о зарубежных провайдерах (вопросы 3 и 17 в docs/SECURITY.md)

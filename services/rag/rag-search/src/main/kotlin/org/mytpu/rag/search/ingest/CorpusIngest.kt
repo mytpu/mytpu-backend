@@ -58,9 +58,18 @@ class CorpusIngest(
         return IngestReport(added, changed, unchanged, removed, chunks, System.currentTimeMillis() - started)
     }
 
-    private fun prepare(doc: SourceDocument): List<StoredSection> {
+    /** Один документ из консоли (файл, страница): нарезка, векторы и замена разделов; @return число кусков. */
+    fun ingestDocument(sourceId: Long, doc: SourceDocument, batchSize: Int): Int {
+        val hash = sha256(doc.title + "\u0002" + doc.sections.joinToString("\u0000") { it.path + "\u0001" + it.text })
+        val sections = prepare(doc, batchSize)
+        store.replace(sourceId, doc, hash, sections, embedder.version)
+        return sections.sumOf { it.chunks.size }
+    }
+
+    private fun prepare(doc: SourceDocument, batchSize: Int? = null): List<StoredSection> {
         val sectionChunks = doc.sections.map { section -> section to chunker.chunk(doc.title, section) }
-        val vectors = embedder.embedPassages(sectionChunks.flatMap { (_, chunks) -> chunks.map { it.heading + "\n" + it.text } })
+        val texts = sectionChunks.flatMap { (_, chunks) -> chunks.map { it.heading + "\n" + it.text } }
+        val vectors = if (batchSize == null) embedder.embedPassages(texts) else embedder.embedPassages(texts, batchSize)
         var next = 0
         val seenPaths = mutableMapOf<String, Int>()
         return sectionChunks.map { (section, chunks) ->

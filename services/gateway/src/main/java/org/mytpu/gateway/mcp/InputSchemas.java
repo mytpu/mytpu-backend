@@ -13,6 +13,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.mytpu.gateway.runtime.DescribedInput;
+import org.mytpu.gateway.runtime.RegisteredTool;
 import org.mytpu.gateway.runtime.Messages;
 import org.mytpu.tool.api.ToolDescriptor;
 import org.springframework.stereotype.Component;
@@ -31,6 +33,11 @@ public class InputSchemas {
 
     public InputSchemas(Messages messages) {
         this.messages = messages;
+    }
+
+    /** Схема инструмента: своя у {@link DescribedInput} (коннектор), иначе — из record аргументов. */
+    public ObjectNode schema(RegisteredTool tool) {
+        return tool.tool() instanceof DescribedInput described ? described.inputSchema() : schema(tool.descriptor());
     }
 
     public ObjectNode schema(ToolDescriptor descriptor) {

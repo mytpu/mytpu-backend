@@ -50,10 +50,10 @@ class OnnxEmbedder(private val model: RagProperties.Model) : AutoCloseable {
 
     fun embedQuery(text: String): FloatArray = embed(listOf("query: $text")).single()
 
-    fun embedPassages(texts: List<String>): List<FloatArray> {
+    fun embedPassages(texts: List<String>, batchSize: Int = model.batchSize): List<FloatArray> {
         val order = texts.indices.sortedBy { texts[it].length }
         val vectors = arrayOfNulls<FloatArray>(texts.size)
-        order.chunked(model.batchSize).forEach { batch ->
+        order.chunked(batchSize.coerceAtLeast(1)).forEach { batch ->
             embed(batch.map { "passage: ${texts[it]}" }).forEachIndexed { i, vector -> vectors[batch[i]] = vector }
         }
         return vectors.map { it!! }

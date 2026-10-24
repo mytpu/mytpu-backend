@@ -1,8 +1,9 @@
 package org.mytpu.rag.app
 
-import org.mytpu.rag.api.DocsSearch
+import org.mytpu.rag.app.admin.QueryLog
 import org.mytpu.rag.api.SearchFilter
 import org.mytpu.rag.api.SearchResult
+import org.mytpu.rag.search.search.HybridDocsSearch
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.PostMapping
@@ -24,7 +25,8 @@ data class SearchRequest(
  */
 @RestController
 class InternalSearchController(
-    private val search: DocsSearch,
+    private val search: HybridDocsSearch,
+    private val queryLog: QueryLog,
     @Value("\${mytpu.rag.internal.allowed-access:public}") private val allowedAccess: Set<String>,
 ) {
 
@@ -33,6 +35,9 @@ class InternalSearchController(
         if (request.access !in allowedAccess) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Уровень доступа недоступен этому ключу")
         }
-        return search.search(request.query, SearchFilter(request.audience, request.access, request.limit))
+        val detailed = search.searchDetailed(request.query, SearchFilter(request.audience, request.access, request.limit))
+        // В журнал — только после вырезания ПД (QueryLog); по нему консоль показывает, чего нет в базе
+        queryLog.record(request.query, detailed.result.found(), detailed.bestSimilarity)
+        return detailed.result
     }
 }

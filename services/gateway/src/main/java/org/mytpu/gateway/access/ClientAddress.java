@@ -2,6 +2,7 @@ package org.mytpu.gateway.access;
 
 import java.net.InetAddress;
 import java.util.List;
+import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +41,19 @@ public class ClientAddress {
             }
         }
         return remote;
+    }
+
+    /**
+     * Строгий вариант для консоли: запрос от доверенного прокси без разборчивого {@code X-Forwarded-For} — адрес клиента
+     * неизвестен (пусто), а не адрес самого прокси: иначе прокси на localhost открыл бы консоль всем, кто дошёл до прокси.
+     */
+    public Optional<InetAddress> known(HttpServletRequest request) {
+        InetAddress remote = InetAddress.ofLiteral(request.getRemoteAddr());
+        if (!trusted(remote)) {
+            return Optional.of(remote);
+        }
+        InetAddress client = of(request);
+        return client.equals(remote) || trusted(client) ? Optional.empty() : Optional.of(client);
     }
 
     private boolean trusted(InetAddress address) {

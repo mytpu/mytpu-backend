@@ -63,6 +63,17 @@
             <version>${djl.version}</version>
         </dependency>
         <dependency>
+            <!-- PDF из консоли rag; DOCX читается своим разбором word/document.xml (без POI — память rag 380 МБ) -->
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.22.1</version>
+        </dependency>
+        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>

@@ -72,7 +72,8 @@ public class ApiClientStore {
         if (misses.getIfPresent(hex) != null || !lookupAllowed()) {
             return Optional.empty();
         }
-        Optional<ApiClient> found = jdbc.sql("SELECT *, allowed_networks::text[] AS networks_text FROM api_clients WHERE key_hash = :hash")
+        Optional<ApiClient> found = jdbc.sql("SELECT *, allowed_networks::text[] AS networks_text FROM api_clients "
+                        + "WHERE key_hash = :hash OR (previous_key_hash = :hash AND previous_key_until > now())")
                 .param("hash", hash)
                 .query(this::map)
                 .optional();
@@ -135,11 +136,22 @@ public class ApiClientStore {
         return changed > 0;
     }
 
-    private void invalidate(String clientId) {
+    /** Изменение ключа из консоли: на этом экземпляре сразу, на остальных — за ≤ 30 с (срок кэша). */
+    void invalidate(String clientId) {
         byHash.asMap().values().removeIf(c -> c.id().equals(clientId));
+        // Внутри транзакции параллельный запрос успел бы положить в кэш старую строку до commit — сброс ещё раз после него
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            byHash.asMap().values().removeIf(c -> c.id().equals(clientId));
+                        }
+                    });
+        }
     }
 
-    private ApiClient map(ResultSet rs, int row) throws SQLException {
+    ApiClient map(ResultSet rs, int row) throws SQLException {
         Timestamp expires = rs.getTimestamp("expires_at");
         Timestamp suspended = rs.getTimestamp("suspended_at");
         return new ApiClient(

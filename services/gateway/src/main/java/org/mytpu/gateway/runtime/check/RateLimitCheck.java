@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.mytpu.gateway.runtime.Messages;
-import org.mytpu.gateway.runtime.ToolSettings;
+import org.mytpu.gateway.runtime.ToolLimits;
 import org.mytpu.tool.api.ErrorCode;
 import org.mytpu.tool.api.ToolResult;
 import org.springframework.core.annotation.Order;
@@ -21,13 +21,13 @@ import org.springframework.stereotype.Component;
 @Order(30)
 public class RateLimitCheck implements ToolCheck {
     private final Messages messages;
-    private final ToolSettings settings;
+    private final ToolLimits settings;
     private final Cache<String, AtomicInteger> counters = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofMinutes(2))
             .maximumSize(50_000)
             .build();
 
-    public RateLimitCheck(Messages messages, ToolSettings settings) {
+    public RateLimitCheck(Messages messages, ToolLimits settings) {
         this.messages = messages;
         this.settings = settings;
     }

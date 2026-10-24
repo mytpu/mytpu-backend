@@ -14,6 +14,8 @@ names=(
     assistant_db_password
     rag_internal_key
     gateway_audit_key
+    connector_vault_key
+    rag_admin_key
     ml_api_key
 )
 

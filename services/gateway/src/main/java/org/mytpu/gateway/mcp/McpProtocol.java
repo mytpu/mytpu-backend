@@ -70,7 +70,7 @@ public class McpProtocol {
             ObjectNode entry = tools.addObject();
             entry.put("name", descriptor.name());
             entry.put("description", description(descriptor));
-            entry.set("inputSchema", schemas.schema(descriptor));
+            entry.set("inputSchema", schemas.schema(tool));
             entry.set("annotations", annotations(descriptor));
         }
         return result;

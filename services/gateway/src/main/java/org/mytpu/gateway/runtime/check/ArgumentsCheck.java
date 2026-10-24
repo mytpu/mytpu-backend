@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import org.mytpu.gateway.runtime.DescribedInput;
 import org.mytpu.gateway.runtime.Messages;
 import org.mytpu.tool.api.ErrorCode;
 import org.mytpu.tool.api.ToolResult;
@@ -38,6 +39,14 @@ public class ArgumentsCheck implements ToolCheck {
     @Override
     public Optional<ToolResult<?>> check(CallState state) {
         JsonNode args = state.request().arguments() == null ? JsonNodeFactory.instance.objectNode() : state.request().arguments();
+        if (state.tool().tool() instanceof DescribedInput described) {
+            DescribedInput.Validated validated = described.validate(args);
+            if (!validated.errors().isEmpty()) {
+                return invalid(String.join("; ", validated.errors()));
+            }
+            state.input(validated.input());
+            return Optional.empty();
+        }
         Object input;
         try {
             input = json.treeToValue(args, state.tool().descriptor().inputType());

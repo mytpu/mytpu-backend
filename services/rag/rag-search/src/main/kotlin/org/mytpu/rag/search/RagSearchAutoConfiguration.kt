@@ -1,10 +1,12 @@
 package org.mytpu.rag.search
 
 import org.mytpu.rag.search.embed.OnnxEmbedder
+import org.mytpu.rag.search.files.FileParser
 import org.mytpu.rag.search.ingest.Chunker
 import org.mytpu.rag.search.ingest.CorpusIngest
 import org.mytpu.rag.search.ingest.DatasetReader
 import org.mytpu.rag.search.ingest.DocumentStore
+import org.mytpu.rag.search.privacy.Redactor
 import org.mytpu.rag.search.search.HybridDocsSearch
 import org.mytpu.rag.search.search.RagEval
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -50,6 +52,12 @@ class RagSearchAutoConfiguration {
 
     @Bean
     fun ragEval(search: HybridDocsSearch) = RagEval(search)
+
+    @Bean
+    fun fileParser() = FileParser()
+
+    @Bean
+    fun redactor() = Redactor()
 
     @Bean
     fun corpusIngest(properties: RagProperties, embedder: OnnxEmbedder, store: DocumentStore) =

@@ -32,7 +32,9 @@ RUN env ${TRAINING_ENV} java ${JVM_FLAGS} -XX:AOTCacheOutput=/app/app.aot \
 
 FROM ${BASE_IMAGE}
 ARG JVM_FLAGS
-RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
+# /data — для томов сервиса (файлы консоли rag): новый том наследует владельца каталога из образа
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /data && chown 10001:10001 /data
 WORKDIR /app
 COPY --from=build /app /app
 ENV MALLOC_ARENA_MAX=2

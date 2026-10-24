@@ -34,6 +34,14 @@ public class McpKeyFilter extends OncePerRequestFilter {
     /** Атрибут запроса с найденным {@link ApiClient} — его читает определение вызывающего. */
     public static final String CLIENT_ATTRIBUTE = McpKeyFilter.class.getName() + ".client";
 
+    /** Ключ, прошедший фильтр; для путей, которые фильтр пропускает (health), — исключение. */
+    public static ApiClient caller(HttpServletRequest request) {
+        if (request.getAttribute(CLIENT_ATTRIBUTE) instanceof ApiClient client) {
+            return client;
+        }
+        throw new IllegalStateException("запрос не прошёл проверку ключа");
+    }
+
     private static final UrlPathHelper PATHS = new UrlPathHelper();
 
     private final ApiClientStore store;
@@ -100,7 +108,8 @@ public class McpKeyFilter extends OncePerRequestFilter {
             return;
         }
         String path = PATHS.getPathWithinApplication(request);
-        if (path.startsWith("/internal/") && !allowedInternal(client.get(), request.getMethod())) {
+        // Консоль: /internal/** (каталог) и API консоли /admin/api/** — только ключам с ролью консоли
+        if (consolePath(path) && !allowedInternal(client.get(), request.getMethod())) {
             reject(response, HttpServletResponse.SC_FORBIDDEN, "insufficient_scope", "access.console_role");
             return;
         }
@@ -113,6 +122,10 @@ public class McpKeyFilter extends OncePerRequestFilter {
     /** Ключи v1 (без контрольной суммы) принимаются до {@code mytpu.gateway.access.v1-keys-until}; пусто — без срока. */
     private boolean v1Expired() {
         return v1KeysUntil != null && LocalDate.now(ZoneOffset.UTC).isAfter(v1KeysUntil);
+    }
+
+    private static boolean consolePath(String path) {
+        return path.startsWith("/internal/") || path.equals("/admin/api") || path.startsWith("/admin/api/");
     }
 
     /** Читать консоль может viewer, менять — только admin. */

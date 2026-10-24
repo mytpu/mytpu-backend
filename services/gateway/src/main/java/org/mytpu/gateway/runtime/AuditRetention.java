@@ -26,6 +26,7 @@ public class AuditRetention {
     @Scheduled(cron = "${mytpu.gateway.audit.retention-cron:0 30 3 * * *}")
     public void purge() {
         int removed = jdbc.sql("DELETE FROM audit WHERE at < now() - interval '180 days'").update();
+        jdbc.sql("DELETE FROM audit_minute WHERE minute < now() - interval '180 days'").update();
         if (removed > 0) {
             log.info("Из журнала удалено {} записей старше 180 дней", removed);
         }

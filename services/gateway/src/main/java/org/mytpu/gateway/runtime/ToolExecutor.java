@@ -37,7 +37,7 @@ public class ToolExecutor {
     private final ToolRegistry registry;
     private final List<ToolCheck> checks;
     private final ClientRateLimit clientLimit;
-    private final ToolSettings settings;
+    private final ToolLimits settings;
     private final ToolCache cache;
     private final AuditLog audit;
     private final PersonalDisclosure disclosure;
@@ -46,7 +46,7 @@ public class ToolExecutor {
     private final ArgsHasher argsHasher;
     private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
 
-    public ToolExecutor(ToolRegistry registry, List<ToolCheck> checks, ClientRateLimit clientLimit, ToolSettings settings,
+    public ToolExecutor(ToolRegistry registry, List<ToolCheck> checks, ClientRateLimit clientLimit, ToolLimits settings,
                         ToolCache cache, AuditLog audit, PersonalDisclosure disclosure, Messages messages, JsonMapper json,
                         ArgsHasher argsHasher) {
         this.registry = registry;

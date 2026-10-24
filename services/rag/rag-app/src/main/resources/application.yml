@@ -10,6 +10,12 @@ spring:
   threads:
     virtual:
       enabled: true
+  # Загрузка файлов консоли: поток пишется во временный файл (на томе /tmp), не в память
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+      file-size-threshold: 0
   datasource:
     # Схема rag явно; public — для типов и операторов pgvector
     url: ${RAG_DB_URL:jdbc:postgresql://postgres:5432/rag?currentSchema=rag,public}
@@ -30,3 +36,5 @@ mytpu:
     enabled: true
     model:
       dir: ${RAG_MODEL_DIR:/models/e5-small-en-ru-int8}
+    # Файлы из консоли (том rag-files)
+    files-dir: ${RAG_FILES_DIR:/data/files}
