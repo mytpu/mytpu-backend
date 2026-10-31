@@ -69,10 +69,6 @@ public class CountryLookup implements DisposableBean {
         }
     }
 
-    public CountryLookup(KeyLifecycleProperties properties) {
-        this(properties, new ClientAddress(List.of()));
-    }
-
     public Result lookup(InetAddress address) {
         if (address == null || (addresses != null && addresses.isTrusted(address))) {
             return Result.UNKNOWN;

@@ -1,0 +1,103 @@
+<div class="shell-layout">
+  <aside class="sidebar">
+    <div class="logo-wrap">
+      <app-logo
+        [size]="28"
+        [title]="'brand.title' | t"
+        [subtitle]="'brand.subtitle' | t"
+      />
+    </div>
+
+    <nav class="nav-groups">
+      @for (grp of navGroups; track grp.groupKey) {
+        <div class="nav-group">
+          <div class="nav-label">{{ grp.groupKey | t }}</div>
+          @for (item of grp.items; track item.path) {
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-item"
+            >
+              <app-icon [name]="item.icon" [size]="20" class="nav-icon" />
+              <span class="nav-text">{{ item.labelKey | t }}</span>
+            </a>
+          }
+        </div>
+      }
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="session-box">
+      <div class="avatar">{{ initials() }}</div>
+      <div class="who-col">
+        <span class="who-name">
+          {{ (sessionStore.canChange() ? 'session.adminRole' : 'session.viewerRole') | t }}
+        </span>
+        <span class="who-role">{{ roleCode() }}</span>
+      </div>
+      <button
+        type="button"
+        class="logout-btn"
+        (click)="sessionStore.logout()"
+        [attr.title]="'session.logout' | t"
+        [attr.aria-label]="'session.logout' | t"
+      >
+        <app-icon name="logout" [size]="18" />
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="header">
+      <div class="title-col">
+        <span class="meta-row">{{ currentMeta() | t }}</span>
+        <h1 class="page-title">{{ currentTitle() | t }}</h1>
+      </div>
+      <div class="header-spacer"></div>
+      <button
+        type="button"
+        class="theme-btn"
+        (click)="themeService.toggleTheme()"
+        [attr.title]="'header.toggleTheme' | t"
+        [attr.aria-label]="'header.toggleTheme' | t"
+      >
+        <app-icon [name]="themeService.theme() === 'dark' ? 'sun' : 'moon'" [size]="20" />
+      </button>
+    </header>
+
+    <section class="page-body">
+      <router-outlet />
+    </section>
+
+    <footer class="footer">
+      <a
+        [href]="'footer.attributionUrl' | t"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="footer-link"
+      >
+        {{ 'footer.attribution' | t }}
+      </a>
+    </footer>
+  </main>
+
+  @if (idleService.warning()) {
+    <div class="idle-overlay">
+      <app-dialog
+        [title]="'idle.title' | t"
+        [subtitle]="'idle.message' | t: { seconds: idleService.secondsRemaining() }"
+        [locked]="true"
+      >
+        <div actions class="idle-actions">
+          <app-button kind="quiet" (btnClick)="sessionStore.logout()">
+            {{ 'idle.logout' | t }}
+          </app-button>
+          <app-button kind="primary" (btnClick)="idleService.extend()">
+            {{ 'idle.extend' | t }}
+          </app-button>
+        </div>
+      </app-dialog>
+    </div>
+  }
+</div>

@@ -1,0 +1,47 @@
+<div class="login-page">
+  <div class="login-card">
+    <app-logo
+      [size]="32"
+      [title]="'brand.title' | t"
+      [subtitle]="'brand.subtitle' | t"
+    />
+
+    <div class="card-head">
+      <h1 class="login-title">{{ 'login.title' | t }}</h1>
+      <p class="login-subtitle">{{ 'login.subtitle' | t }}</p>
+    </div>
+
+    <form class="login-form" (submit)="onSubmit($event)">
+      <app-field
+        type="password"
+        icon="lock"
+        [label]="'login.keyLabel' | t"
+        [placeholder]="'login.keyPlaceholder' | t"
+        [hint]="errorMessage() || ('login.keyHint' | t)"
+        [state]="errorMessage() ? 'error' : null"
+        [error]="!!errorMessage()"
+        [value]="apiKey()"
+        (valueChange)="onKeyInput($event)"
+        [disabled]="loading()"
+      />
+
+      <app-button
+        type="submit"
+        kind="primary"
+        size="lg"
+        [fullWidth]="true"
+        [disabled]="loading() || !apiKey().trim()"
+      >
+        {{ (loading() ? 'login.submitting' : 'login.submit') | t }}
+      </app-button>
+    </form>
+
+    <div class="login-note">
+      <app-icon name="clock" [size]="16" class="note-icon" />
+      <div class="note-texts">
+        <span class="note-main">{{ 'login.note' | t }}</span>
+        <span class="note-roles">{{ 'login.rolesInfo' | t }}</span>
+      </div>
+    </div>
+  </div>
+</div>

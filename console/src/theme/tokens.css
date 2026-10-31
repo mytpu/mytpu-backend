@@ -1,0 +1,143 @@
+/* Токены «Мой ТПУ» из FigCraft (переменные «ТПУ»): светлая — цвета «Оригами», тёмная — «Графит» (Обсидиан).
+   Пересобрать: variable.export css → этот файл с латинскими именами. Цвета вручную не править. */
+
+:root {
+  --bg-page: #F3F6F4;
+  --bg-tile: #FFFFFF;
+  --bg-nested: #EDF1EE;
+  --bg-chip: #E3F5E8;
+  --bg-overlay: rgba(7, 92, 41, 0.40);
+  --line: #E1E8E3;
+  --text-primary: #1E1E1E;
+  --text-secondary: #4A5650;
+  --text-muted: #5E6B64;
+  --text-on-action: #FFFFFF;
+  --green-icon: #0E9243;
+  --green-action: #0B7A37;
+  --green-text: #0B7A37;
+  --green-bright: #28BE46;
+  --green-soft: #E3F5E8;
+  --green-now-bg: #0B7A37;
+  --green-now-border: #075C29;
+  --green-now-text: #BFF3CC;
+  --warn-text: #7A4A00;
+  --warn-icon: #E8870E;
+  --warn-soft: #FFE7C2;
+  --info-text: #2457B5;
+  --info-icon: #2F6FDB;
+  --info-soft: #E6EEFB;
+  --danger-text: #A61B1B;
+  --danger-soft: #FCE8E8;
+  --graphite-bg: #075C29;
+  --graphite-text: #FFFFFF;
+  --my-message-bg: #0B7A37;
+  --my-message-text: #FFFFFF;
+  --disabled-bg: #EDF1EE;
+  --disabled-text: #7E8A84;
+  --text-menu: #2F3833;
+  --border-tile: #D6E0D9;
+  --source-blue: #2F6FDB;
+  --source-blue-soft: #E6EEFB;
+  --source-green: #0E9243;
+  --source-green-soft: #E3F4EA;
+  --source-orange: #E8870E;
+  --source-orange-soft: #FDF1E1;
+  --source-violet: #7B4FD6;
+  --source-violet-soft: #EFE9FB;
+  --source-grey: #5F666D;
+  --source-grey-soft: #EEF0F1;
+  --source-red: #D64545;
+  --source-red-soft: #FDECEC;
+  --green-now-title: #FFFFFF;
+  --logo-corner: #075C29;
+  --logo-cross: #0E9243;
+  --logo-radius: 2px;
+}
+
+:root[data-theme="dark"] {
+  --bg-page: #0C0C0E;
+  --bg-tile: #161618;
+  --bg-nested: #1E1E21;
+  --bg-chip: #232327;
+  --bg-overlay: rgba(0, 0, 0, 0.70);
+  --line: #2A2A2E;
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #8B8B93;
+  --text-on-action: #0C0C0E;
+  --green-icon: #2FCB53;
+  --green-action: #2FCB53;
+  --green-text: #2FCB53;
+  --green-bright: #2FCB53;
+  --green-soft: #17291D;
+  --green-now-bg: #17291D;
+  --green-now-border: #1F5A2F;
+  --green-now-text: #9BE8AE;
+  --warn-text: #FBBF24;
+  --warn-icon: #FBBF24;
+  --warn-soft: #2A2210;
+  --info-text: #93B4FF;
+  --info-icon: #93B4FF;
+  --info-soft: #1A2236;
+  --danger-text: #F87171;
+  --danger-soft: #2E1517;
+  --graphite-bg: #F4F4F5;
+  --graphite-text: #0C0C0E;
+  --my-message-bg: #2A2A2E;
+  --my-message-text: #F4F4F5;
+  --disabled-bg: #1E1E21;
+  --disabled-text: #5C5C64;
+  --text-menu: #D4D4D8;
+  --border-tile: #2A2A2E;
+  --source-blue: #6B9BFF;
+  --source-blue-soft: #1A2236;
+  --source-green: #2FCB53;
+  --source-green-soft: #17291D;
+  --source-orange: #FBBF24;
+  --source-orange-soft: #2A2210;
+  --source-violet: #A78BFA;
+  --source-violet-soft: #231C38;
+  --source-grey: #A1A1AA;
+  --source-grey-soft: #232327;
+  --source-red: #F87171;
+  --source-red-soft: #2E1517;
+  --green-now-title: #F4F4F5;
+  --logo-corner: #3F3F46;
+  --logo-cross: #2FCB53;
+  --logo-radius: 2px;
+}
+
+:root {
+  --radius-button: 10px;
+  --radius-tile: 12px;
+  --radius-now: 14px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --height-button-site: 40px;
+  --height-button-phone: 44px;
+  --height-field: 40px;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --dur-data: 600ms;
+}
+
+:root {
+  --font-sans: "Onest", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --sidebar-w: 248px;
+  --shadow-dialog: 0 16px 40px rgb(0 0 0 / 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --dur-data: 0ms; }
+}

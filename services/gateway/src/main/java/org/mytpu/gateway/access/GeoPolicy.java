@@ -45,10 +45,6 @@ public class GeoPolicy {
                 .build();
     }
 
-    public GeoPolicy(KeyLifecycleProperties properties, CountryLookup lookup, KeyEvents events) {
-        this(properties, lookup, events, new ClientAddress(List.of()));
-    }
-
     public Decision check(ApiClient client, Optional<InetAddress> address) {
         return check(client, address.orElse(null));
     }
