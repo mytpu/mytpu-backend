@@ -1,0 +1,83 @@
+<div class="feed-container">
+  <div class="feed-header">
+    <div class="feed-title-wrap">
+      <app-icon name="list" [size]="18" class="feed-icon" />
+      <span class="feed-title">{{ 'mcp.events.feedTitle' | t }}</span>
+    </div>
+
+    <div class="filters-row">
+      <select
+        class="filter-select"
+        [ngModel]="eventTypeFilter()"
+        (ngModelChange)="eventTypeFilter.set($event)"
+      >
+        @for (t of eventTypes; track t.value) {
+          <option [value]="t.value">{{ t.labelKey | t }}</option>
+        }
+      </select>
+
+      <div class="search-wrap">
+        <app-icon name="search" [size]="16" class="search-icon" />
+        <input
+          type="text"
+          class="search-input"
+          [placeholder]="'mcp.events.filterSearchPlaceholder' | t"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+        @if (searchQuery()) {
+          <button type="button" class="clear-btn" (click)="searchQuery.set('')">
+            <app-icon name="x" [size]="14" />
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (filteredEvents().length === 0) {
+    <app-empty-state
+      icon="list"
+      [title]="'mcp.events.emptyTitle' | t"
+      [description]="'mcp.events.emptyDesc' | t"
+      [actionText]="'mcp.events.emptyReset' | t"
+      (action)="eventTypeFilter.set('all'); searchQuery.set('')"
+    />
+  } @else {
+    <app-table [columns]="columns">
+      @for (e of filteredEvents(); track e.id) {
+        <tr [class.is-new]="highlightedIds().has(e.id)">
+          <td>
+            <span class="time-col">{{ formatTime(e.at) }}</span>
+          </td>
+          <td>
+            <app-badge [kind]="badgeInfo(e.event).kind">
+              {{ badgeLabel(e) }}
+            </app-badge>
+          </td>
+          <td>
+            <div class="key-col">
+              <span class="key-owner">{{ e.owner || e.clientId }}</span>
+              @if (e.event === 'key.suspended' || e.event === 'key.group_suspended' || e.event === 'key.inactive_suspended') {
+                <app-button
+                  kind="outline"
+                  size="sm"
+                  [disabled]="!canChange()"
+                  [disabledTitle]="'actions.readonly' | t"
+                  (btnClick)="resume.emit(e)"
+                >
+                  {{ 'mcp.events.actionResume' | t }}
+                </app-button>
+              }
+            </div>
+          </td>
+          <td>
+            <code class="network-col">{{ e.network || '—' }}</code>
+          </td>
+          <td>
+            <span class="detail-col">{{ e.detail || '—' }}</span>
+          </td>
+        </tr>
+      }
+    </app-table>
+  }
+</div>

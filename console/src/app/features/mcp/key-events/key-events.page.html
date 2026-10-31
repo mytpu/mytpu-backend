@@ -1,0 +1,89 @@
+<div class="events-page">
+  @if (loading()) {
+    <div class="skeleton-grid">
+      <app-skeleton height="90px" radius="16px" />
+      <app-skeleton height="90px" radius="16px" />
+      <app-skeleton height="90px" radius="16px" />
+      <app-skeleton height="90px" radius="16px" />
+    </div>
+    <div class="skeleton-layout">
+      <div class="skeleton-main">
+        <app-skeleton height="300px" radius="16px" />
+      </div>
+      <div class="skeleton-side">
+        <app-skeleton height="300px" radius="16px" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.events.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadInitialData()"
+    />
+  } @else {
+    <app-key-events-stats
+      [decoyCount]="decoyCount()"
+      [decoyPlace]="decoyPlace()"
+      [suspendedCount]="suspendedCount()"
+      [groupSuspendedCount]="groupSuspendedCount()"
+      [inactiveCount]="inactiveCount()"
+      [expiringCount]="expiringCount()"
+      [selfRotatedCount]="selfRotatedCount()"
+    />
+
+    @if (decoyEvent(); as de) {
+      <app-key-events-alarm
+        [decoyEvent]="de"
+        [suspendedKeys]="suspendedGroupKeys()"
+        (selectGroup)="selectDecoy($event)"
+      />
+    }
+
+    <div class="page-layout">
+      <div class="main-column">
+        <app-key-events-feed
+          [events]="events()"
+          [highlightedIds]="highlightedIds()"
+          [canChange]="canChange()"
+          [(eventTypeFilter)]="eventTypeFilter"
+          [(searchQuery)]="searchQuery"
+          (resume)="openResume($event)"
+        />
+      </div>
+
+      <div class="side-column">
+        <app-key-events-sidebar
+          [expiringKeys]="expiringKeys()"
+          [decoyKeys]="decoyKeys()"
+          [selectedDecoyId]="selectedDecoyId()"
+          [groupMemberIds]="decoyGroupMembers()"
+          [allKeys]="allKeys()"
+          [canChange]="canChange()"
+          (selectDecoy)="selectDecoy($event)"
+          (openAddMember)="showAddMemberDialog.set(true)"
+          (removeMember)="removeDecoyMember($event)"
+          (resumeKey)="openResume($event)"
+        />
+      </div>
+    </div>
+  }
+
+  @if (showAddMemberDialog()) {
+    <app-add-decoy-member-dialog
+      [availableKeys]="availableKeysToAdd()"
+      [submitting]="submitting()"
+      (addMember)="addDecoyMember($event)"
+      (cancel)="showAddMemberDialog.set(false)"
+    />
+  }
+
+  @if (resumingKey(); as rk) {
+    <app-resume-dialog
+      [owner]="rk.owner"
+      [submitting]="submitting()"
+      (submitResume)="submitResume($event)"
+      (cancel)="resumingKey.set(null)"
+    />
+  }
+</div>

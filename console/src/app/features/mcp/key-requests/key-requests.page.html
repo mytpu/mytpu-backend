@@ -1,0 +1,160 @@
+<div class="requests-page">
+  <app-key-requests-filter
+    [(searchQuery)]="searchQuery"
+    [(statusFilter)]="statusFilter"
+    [(kindFilter)]="kindFilter"
+    [newCount]="newCount()"
+    [approvedCount]="approvedCount()"
+    [rejectedCount]="rejectedCount()"
+    [canChange]="canChange()"
+    (createClick)="showCreateDialog.set(true)"
+  />
+
+  @if (loading()) {
+    <div class="skeleton-layout">
+      <div class="skeleton-main">
+        <app-skeleton height="48px" radius="10px" />
+        <app-skeleton height="64px" radius="10px" />
+        <app-skeleton height="64px" radius="10px" />
+      </div>
+      <div class="skeleton-side">
+        <app-skeleton height="400px" radius="16px" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.requests.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadRequests()"
+    />
+  } @else {
+    <div class="page-layout">
+      <div class="main-column">
+        @if (filteredRequests().length === 0) {
+          <app-empty-state
+            icon="search"
+            [title]="'mcp.requests.emptyTitle' | t"
+            [description]="'mcp.requests.emptyDesc' | t"
+            [actionText]="'mcp.requests.emptyReset' | t"
+            (action)="searchQuery.set(''); statusFilter.set('new'); kindFilter.set('all')"
+          />
+        } @else {
+          <app-table [columns]="columns">
+            @for (r of filteredRequests(); track r.id) {
+              <tr
+                class="request-row"
+                [class.selected]="selectedRequest()?.id === r.id"
+                (click)="selectRequest(r)"
+              >
+                <td>
+                  <div class="requester-col">
+                    <span class="requester-name">{{ r.requester }} · {{ r.contact }}</span>
+                    <span class="requester-purpose">{{ r.purpose }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="tags-wrap">
+                    @for (s of r.scopes; track s) {
+                      <span class="scope-tag">{{ s }}</span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <app-badge [kind]="r.kind === 'demo' ? 'info' : 'neutral'">
+                    {{ r.kind }} · {{ 'mcp.requests.daysFormat' | t: { days: r.days } }}
+                  </app-badge>
+                </td>
+                <td>
+                  <span class="date-text">{{ formatTime(r.at) }}</span>
+                </td>
+              </tr>
+            }
+          </app-table>
+        }
+
+        @if (decidedThisWeek().length > 0) {
+          <div class="decided-section">
+            <h3 class="section-title">{{ 'mcp.requests.decidedTitle' | t }}</h3>
+            <app-table [columns]="decidedColumns">
+              @for (d of decidedThisWeek(); track d.id) {
+                <tr (click)="selectRequest(d)">
+                  <td>
+                    <div class="requester-col">
+                      <span class="requester-name">{{ d.requester }} · {{ d.contact }}</span>
+                      <span class="requester-purpose">
+                        @if (d.status === 'approved') {
+                          {{ 'mcp.requests.statusApproved' | t }} {{ d.decidedBy }} · {{ d.clientId }}
+                        } @else {
+                          {{ 'mcp.requests.statusRejected' | t }} {{ d.decidedBy }}: «{{ d.rejectReason }}»
+                        }
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <app-badge [kind]="d.status === 'approved' ? 'ok' : 'danger'">
+                      {{ d.status === 'approved' ? ('mcp.requests.statusApproved' | t) : ('mcp.requests.statusRejected' | t) }}
+                    </app-badge>
+                  </td>
+                  <td>
+                    <span class="decided-kind">{{ d.kind }} · {{ 'mcp.requests.daysFormat' | t: { days: d.days } }}</span>
+                  </td>
+                  <td>
+                    <span class="date-text">{{ formatDate(d.decidedAt) }}</span>
+                  </td>
+                </tr>
+              }
+            </app-table>
+          </div>
+        }
+
+        <div class="security-banner">
+          <app-icon name="lock" [size]="16" class="banner-icon" />
+          <span class="banner-text">{{ 'mcp.requests.securityNote' | t }}</span>
+        </div>
+      </div>
+
+      <div class="side-column">
+        @if (selectedRequest(); as sel) {
+          <app-key-requests-card
+            [request]="sel"
+            [canChange]="canChange()"
+            [submitting]="submitting()"
+            (approve)="handleApprove($event)"
+            (reject)="showRejectDialog.set(true)"
+          />
+        } @else {
+          <div class="empty-side">
+            <span class="empty-prompt">{{ 'mcp.requests.selectPrompt' | t }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (showCreateDialog()) {
+    <app-create-request-dialog
+      [submitting]="submitting()"
+      (submitRequest)="handleCreate($event)"
+      (cancel)="showCreateDialog.set(false)"
+    />
+  }
+
+  @if (showRejectDialog() && selectedRequest(); as sel) {
+    <app-reject-request-dialog
+      [requester]="sel.requester"
+      [submitting]="submitting()"
+      (confirmReject)="handleReject($event)"
+      (cancel)="showRejectDialog.set(false)"
+    />
+  }
+
+  @if (createdKey(); as cr) {
+    <app-key-created-dialog
+      [apiKey]="cr.key"
+      [command]="cr.command"
+      [owner]="createdKeyOwner()"
+      (done)="createdKey.set(null)"
+    />
+  }
+</div>

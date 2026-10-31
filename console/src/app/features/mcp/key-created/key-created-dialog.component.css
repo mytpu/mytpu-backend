@@ -1,0 +1,76 @@
+:host {
+  display: block;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+.note-warn {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  border-radius: var(--radius-tile);
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.note-icon {
+  color: var(--warn-icon);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.note-text {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.code-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.code-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.code-box {
+  background: var(--bg-nested);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.code-content {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}

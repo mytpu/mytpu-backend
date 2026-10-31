@@ -21,34 +21,40 @@ export const routes: Routes = [
       {
         path: 'mcp/overview',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/overview/overview.page').then(
+            (m) => m.OverviewPage,
           ),
-        data: { step: 8, title: 'nav.overview', meta: 'nav.groupMcp' },
+        data: { title: 'nav.overview', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/keys',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/keys/keys.page').then((m) => m.KeysPage),
+        data: { title: 'nav.keys', meta: 'nav.groupMcp' },
+      },
+      {
+        path: 'mcp/keys/new',
+        loadComponent: () =>
+          import('./features/mcp/key-wizard/key-wizard.page').then(
+            (m) => m.KeyWizardPage,
           ),
-        data: { step: 8, title: 'nav.keys', meta: 'nav.groupMcp' },
+        data: { title: 'mcp.wizard.title', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/key-requests',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/key-requests/key-requests.page').then(
+            (m) => m.KeyRequestsPage,
           ),
-        data: { step: 8, title: 'nav.keyRequests', meta: 'nav.groupMcp' },
+        data: { title: 'nav.keyRequests', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/key-events',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/key-events/key-events.page').then(
+            (m) => m.KeyEventsPage,
           ),
-        data: { step: 8, title: 'nav.keyEvents', meta: 'nav.groupMcp' },
+        data: { title: 'nav.keyEvents', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/integrations',

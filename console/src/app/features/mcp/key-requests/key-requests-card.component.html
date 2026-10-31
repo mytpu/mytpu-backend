@@ -1,0 +1,207 @@
+<app-card
+  [label]="'mcp.requests.cardTitle' | t: { id: request().id.substring(0, 10), status: statusText() }"
+  icon="key"
+>
+  <div class="path-steps">
+    <div class="step-item" [class.done]="stepNow() > 0">
+      <span class="step-num">1</span>
+      <span class="step-label">{{ 'mcp.requests.step1' | t }}</span>
+    </div>
+    <div class="step-line" [class.active]="stepNow() >= 1"></div>
+    <div class="step-item" [class.done]="stepNow() > 1" [class.now]="stepNow() === 1">
+      <span class="step-num">2</span>
+      <span class="step-label">{{ 'mcp.requests.step2' | t }}</span>
+    </div>
+    <div class="step-line" [class.active]="stepNow() >= 2"></div>
+    <div class="step-item" [class.done]="stepNow() > 2" [class.now]="stepNow() === 2">
+      <span class="step-num">3</span>
+      <span class="step-label">{{ 'mcp.requests.step3' | t }}</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="kv-list">
+    <div class="kv-row">
+      <span class="kv-key">{{ 'mcp.requests.who' | t }}</span>
+      <span class="kv-val">{{ request().requester }} · {{ request().contact }}</span>
+    </div>
+    <div class="kv-row">
+      <span class="kv-key">{{ 'mcp.requests.purpose' | t }}</span>
+      <span class="kv-val">{{ request().purpose }}</span>
+    </div>
+    <div class="kv-row">
+      <span class="kv-key">{{ 'mcp.requests.asks' | t }}</span>
+      <span class="kv-val">
+        {{ request().kind }} · {{ 'mcp.requests.daysFormat' | t: { days: request().days } }} ·
+        {{ request().networks.length ? request().networks.join(', ') : ('mcp.requests.asksNoNetworks' | t) }}
+      </span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  @if (request().status === 'new') {
+    <div class="section-title">{{ 'mcp.requests.decisionTitle' | t }}</div>
+
+    <div class="form-body">
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.typeLabel' | t }}</label>
+        <div class="seg-controls">
+          <button
+            type="button"
+            class="seg-btn"
+            [class.active]="decisionKind() === 'person'"
+            (click)="setKind('person')"
+          >
+            person
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            [class.active]="decisionKind() === 'server'"
+            (click)="setKind('server')"
+          >
+            server
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            [class.active]="decisionKind() === 'demo'"
+            (click)="setKind('demo')"
+          >
+            demo
+          </button>
+        </div>
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.daysLabel' | t }}</label>
+        <input
+          type="number"
+          class="field-input"
+          [ngModel]="decisionDays()"
+          (ngModelChange)="decisionDays.set($event)"
+          min="1"
+          [max]="maxDays()"
+        />
+        <span class="hint">{{ 'mcp.requests.daysHint' | t: { kind: decisionKind(), max: maxDays() } }}</span>
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.networksLabel' | t }}</label>
+        <input
+          type="text"
+          class="field-input"
+          [ngModel]="decisionNetworks()"
+          (ngModelChange)="decisionNetworks.set($event)"
+          [placeholder]="'mcp.requests.fieldNetworksPlaceholder' | t"
+        />
+        <span class="hint">{{ 'mcp.requests.networksHint' | t }}</span>
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.servicesLabel' | t }}</label>
+        <div class="scopes-list">
+          @for (s of decisionScopes(); track s) {
+            <span class="scope-chip selected" (click)="toggleScope(s)">{{ s }}</span>
+          }
+          <button
+            type="button"
+            class="add-scope-btn"
+            (click)="showScopePicker.set(!showScopePicker())"
+          >
+            {{ 'mcp.requests.addService' | t }}
+          </button>
+        </div>
+        @if (showScopePicker()) {
+          <div class="scope-picker">
+            @for (s of availableScopes; track s) {
+              @if (!decisionScopes().includes(s)) {
+                <button type="button" class="scope-chip" (click)="toggleScope(s)">
+                  + {{ s }}
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-label">{{ 'mcp.requests.ruOnlyLabel' | t }}</span>
+        <app-toggle [checked]="decisionRuOnly()" (changed)="onToggleRuOnly($event)" />
+      </div>
+
+      @if (!decisionRuOnly()) {
+        <div class="field-col">
+          <label class="label">{{ 'mcp.requests.geoReasonLabel' | t }}</label>
+          <input
+            type="text"
+            class="field-input"
+            [ngModel]="decisionGeoReason()"
+            (ngModelChange)="decisionGeoReason.set($event)"
+            [placeholder]="'mcp.requests.geoReasonPlaceholder' | t"
+          />
+          @if (geoError()) {
+            <span class="error-msg">{{ geoError() }}</span>
+          }
+        </div>
+      }
+
+      <div class="info-note">
+        <app-icon name="lock" [size]="16" class="note-icon" />
+        <span class="note-text">{{ 'mcp.requests.keySingleViewNote' | t }}</span>
+      </div>
+
+      <div class="foot-actions">
+        <app-button
+          kind="danger"
+          icon="x"
+          [disabled]="!canChange() || submitting()"
+          [disabledTitle]="'actions.readonly' | t"
+          (btnClick)="reject.emit()"
+        >
+          {{ 'mcp.requests.rejectBtn' | t }}
+        </app-button>
+        <div class="spacer"></div>
+        <app-button
+          kind="primary"
+          icon="check"
+          [disabled]="!canChange() || submitting()"
+          [disabledTitle]="'actions.readonly' | t"
+          (btnClick)="onApprove()"
+        >
+          {{ 'mcp.requests.approveBtn' | t }}
+        </app-button>
+      </div>
+    </div>
+  } @else if (request().status === 'approved') {
+    <div class="decided-info">
+      <app-badge kind="ok">{{ 'mcp.requests.statusApproved' | t }}</app-badge>
+      @if (request().decidedBy) {
+        <span class="decided-text">
+          {{ 'mcp.requests.decidedBy' | t: { by: request().decidedBy ?? '', date: request().decidedAt || '' } }}
+        </span>
+      }
+      @if (request().clientId) {
+        <span class="decided-client">
+          {{ 'mcp.requests.decidedClient' | t: { clientId: request().clientId ?? '' } }}
+        </span>
+      }
+    </div>
+  } @else if (request().status === 'rejected') {
+    <div class="decided-info">
+      <app-badge kind="danger">{{ 'mcp.requests.statusRejected' | t }}</app-badge>
+      @if (request().decidedBy) {
+        <span class="decided-text">
+          {{ 'mcp.requests.decidedBy' | t: { by: request().decidedBy ?? '', date: request().decidedAt || '' } }}
+        </span>
+      }
+      @if (request().rejectReason) {
+        <span class="decided-reason">
+          {{ 'mcp.requests.decidedReason' | t: { reason: request().rejectReason ?? '' } }}
+        </span>
+      }
+    </div>
+  }
+</app-card>

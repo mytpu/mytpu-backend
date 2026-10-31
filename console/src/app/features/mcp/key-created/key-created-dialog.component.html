@@ -1,0 +1,48 @@
+<div class="dialog-overlay">
+  <app-dialog
+    [title]="(isReissue() ? 'mcp.created.titleReissued' : 'mcp.created.title') | t"
+    [subtitle]="subtitleText()"
+    [locked]="true"
+  >
+    <div class="note-warn">
+      <app-icon name="lock" [size]="18" class="note-icon" />
+      <span class="note-text">{{ 'mcp.created.warning' | t }}</span>
+    </div>
+
+    <div class="code-field">
+      <span class="code-label">{{ 'mcp.created.keyLabel' | t }}</span>
+      <div class="code-box">
+        <code class="code-content">{{ apiKey() }}</code>
+        <app-button
+          kind="outline"
+          size="sm"
+          [icon]="copiedKey() ? 'check' : 'copy'"
+          (btnClick)="copyKey()"
+        >
+          {{ (copiedKey() ? 'mcp.created.copiedBtn' : 'mcp.created.copyBtn') | t }}
+        </app-button>
+      </div>
+    </div>
+
+    <div class="code-field">
+      <span class="code-label">{{ 'mcp.created.commandLabel' | t }}</span>
+      <div class="code-box">
+        <code class="code-content">{{ command() }}</code>
+        <app-button
+          kind="outline"
+          size="sm"
+          [icon]="copiedCommand() ? 'check' : 'copy'"
+          (btnClick)="copyCommand()"
+        >
+          {{ (copiedCommand() ? 'mcp.created.copiedBtn' : 'mcp.created.copyBtn') | t }}
+        </app-button>
+      </div>
+    </div>
+
+    <div actions class="dialog-actions">
+      <app-button kind="primary" (btnClick)="onSave()">
+        {{ 'mcp.created.doneBtn' | t }}
+      </app-button>
+    </div>
+  </app-dialog>
+</div>

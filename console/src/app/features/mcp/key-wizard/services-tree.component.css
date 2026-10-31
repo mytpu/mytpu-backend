@@ -1,0 +1,145 @@
+:host {
+  display: block;
+  width: 100%;
+}
+.tree-card {
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.spacer {
+  flex: 1;
+}
+.seg-controls {
+  display: inline-flex;
+  background: var(--bg-nested);
+  border-radius: var(--radius-button);
+  padding: 2px;
+}
+.seg-btn {
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-button) - 2px);
+  padding: 5px var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.seg-btn.active {
+  background: var(--bg-tile);
+  color: var(--text-primary);
+}
+.search-box {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: var(--radius-button);
+  padding: 0 var(--space-2);
+  height: 32px;
+  width: 200px;
+  gap: 6px;
+}
+.search-icon {
+  color: var(--text-muted);
+}
+.search-input {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+}
+.services-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+.service-block {
+  border-bottom: 1px solid var(--line);
+}
+.service-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 4px;
+}
+.disabled-opacity {
+  opacity: 0.55;
+}
+.expand-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+.service-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--green-soft);
+  color: var(--green-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.service-titles {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.service-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.service-id {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 8px 48px;
+  gap: 6px;
+}
+.tool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg-nested);
+}
+.tool-row.tool-selected {
+  background: var(--green-soft);
+}
+.tool-info {
+  display: flex;
+  flex-direction: column;
+}
+.tool-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.tool-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}

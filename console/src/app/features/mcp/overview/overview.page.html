@@ -1,0 +1,165 @@
+<div class="overview-container">
+  <div class="overview-toolbar">
+    <div class="toolbar-left">
+      <app-badge kind="ok" [dot]="true">
+        {{ 'mcp.overview.modeNormal' | t }}
+      </app-badge>
+    </div>
+    <div class="toolbar-right">
+      <div class="period-selector">
+        <button
+          type="button"
+          class="period-btn"
+          [class.active]="hours() === 24"
+          (click)="setPeriod(24)"
+        >
+          {{ 'mcp.overview.period24h' | t }}
+        </button>
+        <button
+          type="button"
+          class="period-btn"
+          [class.active]="hours() === 168"
+          (click)="setPeriod(168)"
+        >
+          {{ 'mcp.overview.period7d' | t }}
+        </button>
+        <button
+          type="button"
+          class="period-btn"
+          [class.active]="hours() === 720"
+          (click)="setPeriod(720)"
+        >
+          {{ 'mcp.overview.period30d' | t }}
+        </button>
+      </div>
+      <app-button kind="ghost" (btnClick)="reload()" [attr.title]="'actions.retry' | t">
+        <app-icon name="refresh" [size]="16" />
+      </app-button>
+    </div>
+  </div>
+
+  @if (resource.isLoading() && !resource.value()) {
+    <div class="overview-grid">
+      <div class="col-left">
+        <app-skeleton height="190px" radius="var(--radius-now)" />
+        <app-skeleton height="320px" radius="var(--radius-card)" />
+      </div>
+      <div class="col-right">
+        <app-skeleton height="130px" radius="var(--radius-card)" />
+        <app-skeleton height="200px" radius="var(--radius-card)" />
+        <app-skeleton height="160px" radius="var(--radius-card)" />
+      </div>
+    </div>
+  } @else if (resource.error() && !resource.value()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.overview.error' | t"
+      [actionText]="'mcp.overview.retry' | t"
+      (action)="reload()"
+    />
+  } @else if (resource.value(); as data) {
+    <div class="overview-grid">
+      <div class="col-left">
+        <app-now-tile
+          [mode]="data.mode"
+          [totalCalls]="totalCalls()"
+          [periodLabel]="periodKey() | t"
+          [totalErrors]="totalErrors()"
+          [errorPercent]="errorPercent()"
+          [p95Overall]="p95Overall()"
+          [activeClientsCount]="activeClientsCount()"
+        />
+
+        <app-card
+          [label]="'mcp.overview.integrations' | t"
+          icon="plug"
+          [link]="'mcp.overview.allIntegrations' | t"
+          (linkClick)="goToIntegrations()"
+        >
+          <div class="integrations-list">
+            @for (item of data.integrations; track item.id; let last = $last) {
+              <div class="integration-row" [class.border-b]="!last">
+                <div class="integration-icon">
+                  <app-icon name="plug" [size]="18" />
+                </div>
+                <div class="integration-info">
+                  <span class="integration-name">{{ item.title }}</span>
+                  <span class="integration-sub">
+                    {{ item.id }} · {{ 'mcp.overview.toolsCount' | t: { count: item.tools.length } }}
+                  </span>
+                </div>
+                <div class="integration-status">
+                  @if (item.enabled) {
+                    <app-badge kind="ok">{{ 'mcp.overview.statusWorking' | t }}</app-badge>
+                  } @else {
+                    <app-badge kind="neutral">{{ 'mcp.overview.statusDisabled' | t }}</app-badge>
+                  }
+                </div>
+                <div class="integration-num">
+                  <app-live-num [value]="toolCalls(item.tools[0] || item.id)" />
+                </div>
+                <div class="integration-num">
+                  {{ toolP95(item.tools[0] || item.id) }}
+                </div>
+              </div>
+            }
+          </div>
+        </app-card>
+      </div>
+
+      <div class="col-right">
+        <app-card
+          [label]="'mcp.overview.keys' | t"
+          icon="key"
+          [link]="'mcp.overview.allKeys' | t"
+          (linkClick)="goToKeys()"
+        >
+          <div class="keys-summary">
+            <div class="keys-count-row">
+              <span class="keys-big-num">
+                <app-live-num [value]="activeClientsCount()" />
+              </span>
+              <span class="keys-unit">{{ 'mcp.overview.activeKeys' | t }}</span>
+            </div>
+            <div class="keys-chips">
+              <app-badge kind="warn">{{ 'mcp.overview.expiringChip' | t: { count: 2 } }}</app-badge>
+              <app-badge kind="info">{{ 'mcp.overview.reissueChip' | t: { count: 1 } }}</app-badge>
+            </div>
+          </div>
+        </app-card>
+
+        <app-card [label]="'mcp.overview.topClients' | t" icon="user">
+          <div class="clients-list">
+            @for (c of data.stats.topClients; track c.clientId) {
+              <div class="client-item">
+                <div class="client-info">
+                  <span class="client-name">{{ c.owner || c.clientId }}</span>
+                  <span class="client-val"><app-live-num [value]="c.calls" /></span>
+                </div>
+                <div class="client-progress-track">
+                  <div
+                    class="client-progress-bar"
+                    [style.width.%]="(c.calls / maxClientCalls()) * 100"
+                  ></div>
+                </div>
+              </div>
+            }
+          </div>
+        </app-card>
+
+        <app-card [label]="'mcp.overview.slowest' | t" icon="clock">
+          <div class="slow-list">
+            @for (t of slowestTools(); track t.tool) {
+              <div class="slow-item">
+                <span class="slow-tag">{{ t.tool }}</span>
+                <app-badge kind="warn">
+                  {{ 'mcp.overview.ms' | t: { ms: t.p95Ms || t.avgMs } }}
+                </app-badge>
+              </div>
+            }
+          </div>
+        </app-card>
+      </div>
+    </div>
+  }
+</div>

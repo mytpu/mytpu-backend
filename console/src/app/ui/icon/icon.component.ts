@@ -30,7 +30,9 @@ export type IconName =
   | 'eye'
   | 'user'
   | 'copy'
-  | 'chevDown';
+  | 'chevDown'
+  | 'chevRight'
+  | 'more';
 
 const ICONS: Record<IconName, string> = {
   home: 'M4 10.2 L12 3.5 L20 10.2 L20 19 A2 2 0 0 1 18 21 L6 21 A2 2 0 0 1 4 19 Z M10 20 L10 15.5 A1 1 0 0 1 11 14.5 L13 14.5 A1 1 0 0 1 14 15.5 L14 20',
@@ -63,6 +65,8 @@ const ICONS: Record<IconName, string> = {
   user: 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M4 21c0-4 3.6-6 8-6s8 2 8 6',
   copy: 'M10 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-9a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2z M4 16V6a2 2 0 0 1 2-2h10',
   chevDown: 'M6 9l6 6 6-6',
+  chevRight: 'M9 6l6 6-6 6',
+  more: 'M12 5h.01M12 12h.01M12 19h.01',
 };
 
 @Component({

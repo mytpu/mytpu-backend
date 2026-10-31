@@ -1,0 +1,152 @@
+<div class="wizard-container">
+  <div class="wizard-header">
+    <app-steps [steps]="stepItems" [activeIndex]="currentStep()" />
+  </div>
+
+  <form [formGroup]="form" class="wizard-form">
+    @if (currentStep() === 0) {
+      <app-step-owner
+        [form]="form"
+        [maxDays]="maxDays()"
+        [fieldErrors]="fieldErrors()"
+      />
+      <div class="step-nav">
+        <app-button kind="ghost" (btnClick)="cancel()">
+          {{ 'mcp.wizard.btnCancel' | t }}
+        </app-button>
+        <app-button kind="primary" (btnClick)="nextStep()">
+          {{ 'mcp.wizard.btnNext' | t }}
+        </app-button>
+      </div>
+    }
+
+    @if (currentStep() === 1) {
+      <div class="step2-layout">
+        <div class="step2-main">
+          <app-services-tree
+            [catalog]="catalog()"
+            [(selectedScopes)]="selectedScopes"
+            [(deniedTools)]="deniedTools"
+          />
+          @if (fieldErrors()['scopes']) {
+            <span class="field-error">{{ fieldErrors()['scopes'] }}</span>
+          }
+        </div>
+
+        <div class="step2-side">
+          <app-card [label]="'mcp.wizard.summaryKeyTitle' | t" icon="key">
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.summaryOwner' | t }}</span>
+              <span class="kv-val">{{ form.controls.owner.value }}</span>
+            </div>
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.summaryExpiry' | t }}</span>
+              <span class="kv-val">
+                {{ 'mcp.wizard.summaryDaysValue' | t: { days: form.controls.days.value, date: expiryDate() } }}
+              </span>
+            </div>
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.summaryAccess' | t }}</span>
+              <span class="kv-val">
+                {{ 'mcp.wizard.summaryAccessValue' | t: { services: selectedScopes().length, tools: selectedToolsCount() } }}
+              </span>
+            </div>
+          </app-card>
+
+          <app-card [label]="'mcp.wizard.summaryLimitsTitle' | t" icon="clock">
+            <div class="field-col">
+              <label class="field-label">{{ 'mcp.wizard.rateLimitLabel' | t }}</label>
+              <input type="number" min="1" class="text-input" formControlName="rateLimit" />
+              <span class="field-hint">{{ 'mcp.wizard.rateLimitHint' | t }}</span>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <span class="toggle-title">{{ 'mcp.wizard.readOnlyLabel' | t }}</span>
+                <span class="toggle-desc">{{ 'mcp.wizard.readOnlyDesc' | t }}</span>
+              </div>
+              <app-toggle
+                [checked]="form.controls.readOnly.value"
+                (changed)="form.controls.readOnly.setValue($event)"
+              />
+            </div>
+          </app-card>
+
+          <div class="pii-note">
+            <app-icon name="lock" [size]="16" class="note-icon" />
+            <span class="note-text">{{ 'mcp.wizard.notePii' | t }}</span>
+          </div>
+
+          <div class="side-nav">
+            <app-button kind="quiet" (btnClick)="prevStep()">
+              {{ 'mcp.wizard.btnBack' | t }}
+            </app-button>
+            <app-button kind="primary" (btnClick)="nextStep()">
+              {{ 'mcp.wizard.btnNext' | t }}
+            </app-button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (currentStep() === 2) {
+      <div class="step3-card">
+        <app-card [label]="'mcp.wizard.summaryKeyTitle' | t" icon="key">
+          <div class="summary-grid">
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.summaryOwner' | t }}</span>
+              <span class="kv-val">{{ form.controls.owner.value }}</span>
+            </div>
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.kindLabel' | t }}</span>
+              <span class="kv-val">{{ form.controls.kind.value }}</span>
+            </div>
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.summaryExpiry' | t }}</span>
+              <span class="kv-val">
+                {{ 'mcp.wizard.summaryDaysValue' | t: { days: form.controls.days.value, date: expiryDate() } }}
+              </span>
+            </div>
+            <div class="kv-pair">
+              <span class="kv-label">{{ 'mcp.wizard.geoRuOnlyLabel' | t }}</span>
+              <span class="kv-val">
+                {{ form.controls.ruOnly.value ? ('mcp.keys.geoRuOnly' | t) : ('mcp.keys.geoAny' | t) }}
+              </span>
+            </div>
+          </div>
+        </app-card>
+
+        @if (serverError()) {
+          <div class="server-error-banner">
+            <app-icon name="alert" [size]="16" />
+            <span>{{ 'mcp.wizard.errorServerPrefix' | t: { message: serverError()! } }}</span>
+          </div>
+        }
+
+        <div class="step-nav">
+          <app-button kind="quiet" (btnClick)="prevStep()">
+            {{ 'mcp.wizard.btnBack' | t }}
+          </app-button>
+          <app-button
+            kind="primary"
+            icon="key"
+            [disabled]="submitting()"
+            (btnClick)="submit()"
+          >
+            {{ (editKeyId() ? 'mcp.wizard.btnSave' : 'mcp.wizard.btnSubmit') | t }}
+          </app-button>
+        </div>
+      </div>
+    }
+  </form>
+
+  @if (createdKey(); as keyData) {
+    <app-key-created-dialog
+      [apiKey]="keyData.key"
+      [command]="keyData.command"
+      [owner]="form.controls.owner.value"
+      [scopes]="selectedScopes()"
+      [expires]="expiryDate()"
+      (done)="onKeySaved()"
+    />
+  }
+</div>

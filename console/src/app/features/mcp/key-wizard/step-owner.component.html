@@ -1,0 +1,85 @@
+<div [formGroup]="form()" class="step-card">
+  <div class="field-col">
+    <label class="field-label">{{ 'mcp.wizard.ownerLabel' | t }}</label>
+    <input
+      type="text"
+      class="text-input"
+      [placeholder]="'mcp.wizard.ownerPlaceholder' | t"
+      formControlName="owner"
+    />
+    @if (fieldErrors()['owner']) {
+      <span class="field-error">{{ fieldErrors()['owner'] }}</span>
+    }
+  </div>
+
+  <div class="field-col">
+    <label class="field-label">{{ 'mcp.wizard.kindLabel' | t }}</label>
+    <div class="kind-group">
+      <label class="kind-option" [class.selected]="form().controls['kind'].value === 'person'">
+        <input type="radio" value="person" formControlName="kind" />
+        <span>{{ 'mcp.wizard.kindPerson' | t }}</span>
+      </label>
+      <label class="kind-option" [class.selected]="form().controls['kind'].value === 'server'">
+        <input type="radio" value="server" formControlName="kind" />
+        <span>{{ 'mcp.wizard.kindServer' | t }}</span>
+      </label>
+      <label class="kind-option" [class.selected]="form().controls['kind'].value === 'demo'">
+        <input type="radio" value="demo" formControlName="kind" />
+        <span>{{ 'mcp.wizard.kindDemo' | t }}</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="field-col">
+    <label class="field-label">{{ 'mcp.wizard.daysLabel' | t }}</label>
+    <input type="number" min="1" [max]="maxDays()" class="text-input" formControlName="days" />
+    <span class="field-hint">
+      {{ 'mcp.wizard.daysHint' | t: { kind: form().controls['kind'].value, max: maxDays() } }}
+    </span>
+    @if (fieldErrors()['days']) {
+      <span class="field-error">{{ fieldErrors()['days'] }}</span>
+    }
+  </div>
+
+  <div class="field-col">
+    <label class="field-label">{{ 'mcp.wizard.networksLabel' | t }}</label>
+    <input
+      type="text"
+      class="text-input"
+      [placeholder]="'mcp.wizard.networksPlaceholder' | t"
+      formControlName="networks"
+    />
+    <span class="field-hint">{{ 'mcp.wizard.networksHint' | t }}</span>
+    @if (fieldErrors()['networks']) {
+      <span class="field-error">{{ fieldErrors()['networks'] }}</span>
+    }
+  </div>
+
+  <div class="geo-section">
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-title">{{ 'mcp.wizard.geoRuOnlyLabel' | t }}</span>
+        <span class="toggle-desc">{{ 'mcp.wizard.geoRuOnlyDesc' | t }}</span>
+      </div>
+      <app-toggle
+        [checked]="form().controls['ruOnly'].value"
+        (changed)="form().controls['ruOnly'].setValue($event)"
+      />
+    </div>
+
+    @if (!form().controls['ruOnly'].value) {
+      <div class="field-col">
+        <label class="field-label">{{ 'mcp.wizard.geoReasonLabel' | t }}</label>
+        <textarea
+          class="textarea-input"
+          rows="2"
+          [placeholder]="'mcp.wizard.geoReasonPlaceholder' | t"
+          formControlName="geoReason"
+        ></textarea>
+        @if (fieldErrors()['geoReason']) {
+          <span class="field-error">{{ fieldErrors()['geoReason'] }}</span>
+        }
+      </div>
+    }
+  </div>
+</div>

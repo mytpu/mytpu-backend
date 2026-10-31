@@ -1,6 +1,9 @@
 import { Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import {
   ActivatedRoute,
+  NavigationEnd,
   Router,
   RouterLink,
   RouterLinkActive,
@@ -48,6 +51,8 @@ export class ShellComponent {
   readonly themeService = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly activatedRoute = inject(ActivatedRoute);
+  // Заголовок и мета-строка шапки пересчитываются после каждого перехода
+  private readonly navigated = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd)));
 
   readonly navGroups: NavGroup[] = [
     {
@@ -78,12 +83,14 @@ export class ShellComponent {
   ];
 
   readonly currentTitle = computed(() => {
+    this.navigated();
     let r = this.activatedRoute;
     while (r.firstChild) r = r.firstChild;
     return r.snapshot.data['title'] ?? 'nav.overview';
   });
 
   readonly currentMeta = computed(() => {
+    this.navigated();
     let r = this.activatedRoute;
     while (r.firstChild) r = r.firstChild;
     return r.snapshot.data['meta'] ?? 'header.metaDefault';

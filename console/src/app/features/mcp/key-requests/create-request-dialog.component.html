@@ -1,0 +1,101 @@
+<div class="overlay">
+  <app-dialog
+    [title]="'mcp.requests.dialogCreateTitle' | t"
+    [subtitle]="'mcp.requests.dialogCreateSubtitle' | t"
+    (closed)="cancel.emit()"
+  >
+    <form [formGroup]="form" class="request-form">
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.fieldRequester' | t }}</label>
+        <input
+          type="text"
+          class="input-field"
+          formControlName="requester"
+          [placeholder]="'mcp.requests.fieldRequesterPlaceholder' | t"
+        />
+        @if (fieldError('requester')) {
+          <span class="error-msg">{{ fieldError('requester') }}</span>
+        }
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.fieldContact' | t }}</label>
+        <input
+          type="email"
+          class="input-field"
+          formControlName="contact"
+          [placeholder]="'mcp.requests.fieldContactPlaceholder' | t"
+        />
+        @if (fieldError('contact')) {
+          <span class="error-msg">{{ fieldError('contact') }}</span>
+        }
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.fieldPurpose' | t }}</label>
+        <textarea
+          class="textarea-field"
+          rows="2"
+          formControlName="purpose"
+          [placeholder]="'mcp.requests.fieldPurposePlaceholder' | t"
+        ></textarea>
+        @if (fieldError('purpose')) {
+          <span class="error-msg">{{ fieldError('purpose') }}</span>
+        }
+      </div>
+
+      <div class="fields-row">
+        <div class="field-col half">
+          <label class="label">{{ 'mcp.requests.fieldKind' | t }}</label>
+          <select class="input-field" formControlName="kind">
+            <option value="person">person</option>
+            <option value="server">server</option>
+            <option value="demo">demo</option>
+          </select>
+        </div>
+        <div class="field-col half">
+          <label class="label">{{ 'mcp.requests.fieldDays' | t }}</label>
+          <input type="number" class="input-field" formControlName="days" min="1" max="365" />
+        </div>
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.fieldNetworks' | t }}</label>
+        <input
+          type="text"
+          class="input-field"
+          formControlName="networks"
+          [placeholder]="'mcp.requests.fieldNetworksPlaceholder' | t"
+        />
+        @if (fieldError('networks')) {
+          <span class="error-msg">{{ fieldError('networks') }}</span>
+        }
+      </div>
+
+      <div class="field-col">
+        <label class="label">{{ 'mcp.requests.fieldScopes' | t }}</label>
+        <div class="scopes-wrap">
+          @for (s of availableScopes; track s) {
+            <button
+              type="button"
+              class="scope-chip"
+              [class.selected]="selectedScopes().includes(s)"
+              (click)="toggleScope(s)"
+            >
+              {{ s }}
+            </button>
+          }
+        </div>
+      </div>
+    </form>
+
+    <div actions class="actions-row">
+      <app-button kind="ghost" (btnClick)="cancel.emit()">
+        {{ 'actions.cancel' | t }}
+      </app-button>
+      <app-button kind="primary" [disabled]="submitting()" (btnClick)="onSubmit()">
+        {{ 'mcp.requests.btnCreate' | t }}
+      </app-button>
+    </div>
+  </app-dialog>
+</div>

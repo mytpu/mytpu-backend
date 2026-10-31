@@ -1,0 +1,101 @@
+<div class="tree-card">
+  <div class="tree-toolbar">
+    <div class="seg-controls">
+      <button
+        type="button"
+        class="seg-btn"
+        [class.active]="filterMode() === 'all'"
+        (click)="filterMode.set('all')"
+      >
+        {{ 'mcp.wizard.servicesFilterAll' | t }}
+      </button>
+      <button
+        type="button"
+        class="seg-btn"
+        [class.active]="filterMode() === 'selected'"
+        (click)="filterMode.set('selected')"
+      >
+        {{ 'mcp.wizard.servicesFilterSelected' | t: { count: selectedScopes().length } }}
+      </button>
+    </div>
+    <div class="spacer"></div>
+    <div class="search-box">
+      <app-icon name="search" [size]="14" class="search-icon" />
+      <input
+        type="text"
+        class="search-input"
+        [placeholder]="'mcp.wizard.searchToolPlaceholder' | t"
+        [ngModel]="searchTool()"
+        (ngModelChange)="searchTool.set($event)"
+      />
+    </div>
+  </div>
+
+  <div class="services-list">
+    @for (item of filteredIntegrations(); track item.integration.id) {
+      <div class="service-block">
+        <div
+          class="service-header"
+          [class.disabled-opacity]="!item.integration.enabled"
+        >
+          <input
+            type="checkbox"
+            class="service-check"
+            [checked]="isServiceSelected(item)"
+            (change)="toggleService(item, $event)"
+          />
+          <button
+            type="button"
+            class="expand-btn"
+            (click)="toggleExpand(item.integration.id)"
+          >
+            <app-icon
+              [name]="isExpanded(item.integration.id) ? 'chevDown' : 'chevRight'"
+              [size]="16"
+            />
+          </button>
+          <div class="service-icon">
+            <app-icon name="plug" [size]="18" />
+          </div>
+          <div class="service-titles">
+            <span class="service-title">{{ item.integration.title }}</span>
+            <span class="service-id">{{ item.integration.id }}</span>
+          </div>
+          <div class="service-badge-col">
+            @if (!item.integration.enabled) {
+              <app-badge kind="neutral">
+                {{ 'mcp.wizard.integrationDisabled' | t }}
+              </app-badge>
+            } @else {
+              <app-badge [kind]="isServiceSelected(item) ? 'ok' : 'neutral'">
+                {{ 'mcp.wizard.selectedCount' | t: {
+                  selected: selectedToolsCount(item),
+                  total: item.tools.length
+                } }}
+              </app-badge>
+            }
+          </div>
+        </div>
+
+        @if (isExpanded(item.integration.id)) {
+          <div class="tools-list">
+            @for (tool of item.tools; track tool.name) {
+              <div class="tool-row" [class.tool-selected]="isToolSelected(tool)">
+                <input
+                  type="checkbox"
+                  class="tool-check"
+                  [checked]="isToolSelected(tool)"
+                  (change)="toggleTool(tool, $event)"
+                />
+                <div class="tool-info">
+                  <span class="tool-name">{{ tool.name }}</span>
+                  <span class="tool-desc">{{ tool.description }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

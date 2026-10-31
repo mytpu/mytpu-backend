@@ -1,0 +1,166 @@
+<div class="keys-container">
+  <app-keys-filter
+    [(searchQuery)]="searchQuery"
+    [(statusFilter)]="statusFilter"
+    [(scopeFilter)]="scopeFilter"
+    [activeCount]="activeCount()"
+    [expiringCount]="expiringCount()"
+    [revokedCount]="revokedCount()"
+    [allScopes]="allScopes()"
+    [canChange]="canChange()"
+    (newKeyClick)="onNewKey()"
+  />
+
+  @if (loading()) {
+    <div class="skeleton-table">
+      <app-skeleton height="48px" radius="10px" />
+      <app-skeleton height="64px" radius="10px" />
+      <app-skeleton height="64px" radius="10px" />
+      <app-skeleton height="64px" radius="10px" />
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.keys.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadKeys()"
+    />
+  } @else if (filteredKeys().length === 0) {
+    <app-empty-state
+      icon="key"
+      [title]="'mcp.keys.emptyTitle' | t"
+      [description]="'mcp.keys.emptyDesc' | t"
+      [actionText]="'mcp.keys.emptyReset' | t"
+      (action)="searchQuery.set(''); statusFilter.set('active'); scopeFilter.set('all')"
+    />
+  } @else {
+    <app-table [columns]="columns">
+      @for (k of filteredKeys(); track k.id) {
+        <tr>
+          <td>
+            <div class="owner-cell">
+              <span class="owner-name">{{ k.owner }}</span>
+              <span class="owner-kind">{{ k.kind }}</span>
+            </div>
+          </td>
+          <td>
+            <code class="key-prefix">{{ k.keyPrefix }}</code>
+          </td>
+          <td>
+            <div class="scopes-cell">
+              @for (s of k.scopes; track s) {
+                <span class="scope-tag">{{ s }}</span>
+              }
+            </div>
+          </td>
+          <td>
+            @if (!k.enabled) {
+              <app-badge kind="danger">{{ 'mcp.keys.statusRevoked' | t }}</app-badge>
+            } @else if (k.suspended) {
+              <app-badge kind="danger">{{ 'mcp.keys.statusSuspended' | t }}</app-badge>
+            } @else if (k.previousKeyUntil) {
+              <app-badge kind="info">{{ 'mcp.keys.statusGrace' | t: { hours: 24 } }}</app-badge>
+            } @else if (daysUntil(k.expiresAt) <= 7) {
+              <app-badge kind="warn">{{ 'mcp.keys.statusExpiring' | t: { days: daysUntil(k.expiresAt) } }}</app-badge>
+            } @else {
+              <app-badge kind="neutral">{{ 'mcp.keys.statusActive' | t: { date: formatDate(k.expiresAt) } }}</app-badge>
+            }
+          </td>
+          <td>
+            <span class="activity-text">{{ k.lastUsedAt ? formatDate(k.lastUsedAt) : '—' }}</span>
+          </td>
+          <td class="text-right">
+            <span class="calls-text">{{ k.calls30d }}</span>
+          </td>
+          <td>
+            @if (k.geo === 'ru_only' || !k.geo) {
+              <app-badge kind="ok">{{ 'mcp.keys.geoRuOnly' | t }}</app-badge>
+            } @else {
+              <app-badge kind="warn">{{ 'mcp.keys.geoAny' | t }}</app-badge>
+            }
+          </td>
+          <td class="text-right">
+            <div class="actions-cell">
+              @if (k.suspended) {
+                <app-button
+                  kind="outline"
+                  size="sm"
+                  [disabled]="!canChange()"
+                  [disabledTitle]="'mcp.keys.readonlyHint' | t"
+                  (btnClick)="canChange() && resumingKey.set(k)"
+                >
+                  {{ 'mcp.keys.actionResume' | t }}
+                </app-button>
+              } @else {
+                <button
+                  type="button"
+                  class="action-icon-btn"
+                  [disabled]="!canChange()"
+                  [attr.title]="canChange() ? ('mcp.keys.actionReissue' | t) : ('mcp.keys.readonlyHint' | t)"
+                  (click)="canChange() && reissuingKey.set(k)"
+                >
+                  <app-icon name="refresh" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="action-icon-btn"
+                  [disabled]="!canChange()"
+                  [attr.title]="canChange() ? ('mcp.keys.actionEditPermissions' | t) : ('mcp.keys.readonlyHint' | t)"
+                  (click)="onEditPermissions(k)"
+                >
+                  <app-icon name="lock" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="action-icon-btn danger"
+                  [disabled]="!canChange()"
+                  [attr.title]="canChange() ? ('mcp.keys.actionRevoke' | t) : ('mcp.keys.readonlyHint' | t)"
+                  (click)="canChange() && revokingKey.set(k)"
+                >
+                  <app-icon name="x" [size]="16" />
+                </button>
+              }
+            </div>
+          </td>
+        </tr>
+      }
+    </app-table>
+  }
+
+  @if (reissuingKey()) {
+    <app-reissue-dialog
+      [submitting]="submitting()"
+      (submitReissue)="submitReissue($event)"
+      (cancel)="reissuingKey.set(null)"
+    />
+  }
+
+  @if (revokingKey(); as rev) {
+    <app-revoke-dialog
+      [owner]="rev.owner"
+      [keyPrefix]="rev.keyPrefix"
+      [submitting]="submitting()"
+      (confirm)="submitRevoke()"
+      (cancel)="revokingKey.set(null)"
+    />
+  }
+
+  @if (resumingKey(); as res) {
+    <app-resume-dialog
+      [owner]="res.owner"
+      [submitting]="submitting()"
+      (submitResume)="submitResume($event)"
+      (cancel)="resumingKey.set(null)"
+    />
+  }
+
+  @if (createdKey(); as cr) {
+    <app-key-created-dialog
+      [apiKey]="cr.key"
+      [command]="cr.command"
+      [owner]="createdKeyOwner()"
+      [isReissue]="true"
+      (done)="onKeySaved()"
+    />
+  }
+</div>

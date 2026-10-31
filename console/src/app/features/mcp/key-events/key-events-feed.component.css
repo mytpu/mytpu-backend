@@ -1,0 +1,129 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.feed-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.feed-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.feed-icon {
+  color: var(--text-secondary);
+}
+
+.feed-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.filters-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filter-select {
+  height: 36px;
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: var(--radius-button);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 0 var(--space-3);
+  outline: none;
+}
+
+.search-wrap {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: var(--radius-button);
+  padding: 0 var(--space-2);
+  height: 36px;
+  width: 220px;
+  box-sizing: border-box;
+  gap: 6px;
+}
+
+.search-icon {
+  color: var(--text-muted);
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+tr.is-new {
+  background-color: var(--green-soft);
+  transition: background-color var(--dur-slow) var(--ease);
+}
+
+.time-col {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.key-col {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.key-owner {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.network-col {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.detail-col {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
