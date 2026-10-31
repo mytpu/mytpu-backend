@@ -13,7 +13,8 @@
 - [ ] Образы gateway, rag, assistant собираются на ПК одной командой и переносятся на сервер одним архивом
   (`docker save` → `scp` → `docker load`); на сервере ничего не компилируется.
 - [ ] На сервере одна команда поднимает postgres, rag, gateway, assistant с лимитами памяти стенда; секреты создаются
-  на сервере (в git их нет); ml-server не трогаем — assistant ходит в него по `127.0.0.1`.
+  на сервере (в git их нет); ml-server не трогаем — assistant ходит в него по его HTTPS-адресу через системный Caddy
+  (loopback хоста из контейнера недоступен, а ml-server слушает только `127.0.0.1`).
 - [ ] Caddy: отдельный сайт `mytpu.<ip>.sslip.io` (сертификат Let's Encrypt). Наружу — только `/mcp`, `/actuator/health`,
   `/api/ai/*`; `/admin/*` и `/internal/*` — 404 на уровне Caddy. Шлюз доверяет адресу Caddy (`TRUSTED_PROXIES`).
 - [ ] `https://mytpu.<ip>.sslip.io/actuator/health` → `UP`; Claude Code по `claude mcp add … /mcp` с ключом из
@@ -48,6 +49,9 @@
 | 3 | Caddy | `deploy/test-server/Caddyfile.mytpu` (сайт, пути наружу, 404 на `/admin`, `/internal`) | `https://…/actuator/health` → UP; `https://…/admin/api/me` → 404 |
 | 4 | Консоль через туннель | `console/proxy.tunnel.json` (цель `127.0.0.1:18081`, заголовок `X-Forwarded-For: 127.0.0.1`), скрипт `start:tunnel` в `console/package.json` | вход ключом консоли через туннель |
 | 5 | Проверки и замер | `deploy/test-server/README.md` (памятка: команды по шагам, чек-лист проверок, таблица замера) | все критерии выше; цифры памяти записаны |
+
+## Ход работ
+- 01.11: шаги 1–4 — файлы готовы (Antigravity + правки), образы собраны (архив 515 МБ) и перенесены на сервер вместе с моделью, корпусом и базой стран. Ждём владельца: Docker, группа `docker`, сайт Caddy, ключ ml-server (`deploy/test-server/README.md`, раздел 1). Шаг 5 — после запуска.
 
 ## Ответы на открытые вопросы (2026-10-31)
 1. Доступ — SSH по ключу с ПК владельца, пользователь без прав администратора (как при выкладке ml-server). Команды

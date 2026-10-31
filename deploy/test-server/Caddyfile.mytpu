@@ -1,0 +1,53 @@
+# Шаблон Caddy для тестового стенда «Мой ТПУ» на сервере Сбера.
+# Включается владельцем сервера в /etc/caddy/Caddyfile через 'import mytpu.caddy'.
+#
+# Наружу проксируются только:
+#   - /mcp*             -> 127.0.0.1:8081 (MCP Streamable HTTP / SSE)
+#   - /actuator/health  -> 127.0.0.1:8081 (проверка здоровья шлюза)
+#   - /api/ai/*         -> 127.0.0.1:8082 (стриминг чата assistant)
+#
+# Пути /admin/* (консоль шлюза и rag) и /internal/* (межсервисные API)
+# намеренно НЕ проксируются и блокируются с ответом 404 на уровне Caddy.
+# Консоль доступна администраторам исключительно через локальный SSH-туннель.
+
+{{MYTPU_HOST}} {
+    request_body {
+        max_size 2MB
+    }
+
+    # Заголовки безопасности
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+
+    # MCP-шлюз (Streamable HTTP и SSE события)
+    handle /mcp* {
+        reverse_proxy 127.0.0.1:8081 {
+            flush_interval -1
+        }
+    }
+
+    # Проверка работоспособности gateway
+    handle /actuator/health {
+        reverse_proxy 127.0.0.1:8081
+    }
+
+    # Чат assistant (SSE-стриминг meta/delta/done)
+    handle /api/ai/* {
+        reverse_proxy 127.0.0.1:8082 {
+            flush_interval -1
+        }
+    }
+
+    # Все прочие маршруты (/admin/*, /internal/* и др.) не проксируются
+    handle {
+        respond 404
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

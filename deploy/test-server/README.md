@@ -1,0 +1,279 @@
+# Развёртывание стенда «Мой ТПУ» на тестовом сервере Сбера
+
+Инструкция по развёртыванию и проверке предпрод-стенда (postgres, rag, gateway, assistant) на тестовом сервере Ubuntu 24.04 рядом с работающим ml-server и системным Caddy.
+
+---
+
+## 1. Один раз (владелец, с правами администратора)
+
+Команды выполняет владелец сервера с правами `sudo`.
+
+### Установка Docker Engine (Ubuntu 24.04 Noble)
+
+```bash
+# Обновление пакетов и установка зависимостей
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+
+# Добавление официального GPG-ключа Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Добавление репозитория Docker в apt
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Установка Docker Engine, CLI и Compose плагина
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+```
+
+### Добавление пользователя в группу docker
+
+> Внимание: добавление в группу `docker` предоставляет пользователю эквивалент root-прав на сервере через доступ к сокету Docker. Для тестового стенда это допустимо.
+
+```bash
+sudo usermod -aG docker $USER
+```
+После выполнения команды нужно перелогиниться по SSH или выполнить `newgrp docker`, чтобы права вступили в силу.
+
+### Подключение сайта в Caddy
+
+Системный Caddy не имеет доступа в домашний каталог пользователя (`~/mytpu`, права 750). Поэтому файл сайта копируется в `/etc/caddy/`:
+
+```bash
+# 1. После первого запуска upload.sh скопировать сгенерированный сайт
+sudo cp /home/$USER/mytpu/deploy/test-server/mytpu.caddy /etc/caddy/mytpu.caddy
+sudo chmod 644 /etc/caddy/mytpu.caddy
+
+# 2. Добавить строку импорта в конец системного Caddyfile
+echo "import mytpu.caddy" | sudo tee -a /etc/caddy/Caddyfile
+
+# 3. Проверить синтаксис конфигурации
+sudo caddy validate --config /etc/caddy/Caddyfile
+
+# 4. Применить конфигурацию без разрыва соединений
+sudo systemctl reload caddy
+```
+
+### Установка ключа ml-server
+
+После первого запуска `up.sh` (когда создастся каталог `~/mytpu/deploy/secrets/`):
+```bash
+cd ~/mytpu/deploy
+printf '%s' '<настоящий_ключ_ml-server>' > secrets/ml_api_key
+chmod 644 secrets/ml_api_key
+touch secrets/.ml_api_key_set
+```
+
+---
+
+## 2. Каждый раз (с ПК разработчика)
+
+### Настройка переменных окружения
+
+```bash
+cp deploy/test-server/server.env.example deploy/test-server/server.env
+# Отредактируйте deploy/test-server/server.env: укажите адрес SERVER, MYTPU_HOST, ML_BASE_URL и локальные пути
+```
+
+### Сборка и упаковка образов
+
+Запуск из Git Bash на Windows в корне проекта:
+```bash
+# Полная сборка jar и образов с сохранением архива:
+bash deploy/test-server/pack.sh
+
+# Если jar и образы уже собраны ранее, только повторная упаковка в архив:
+bash deploy/test-server/pack.sh --skip-build
+```
+
+### Перенос на сервер
+
+```bash
+# Перенос всех файлов, архива образов и данных (модель, корпус, GeoIP при первом запуске):
+bash deploy/test-server/upload.sh
+
+# Только образы (если изменился код сервисов):
+bash deploy/test-server/upload.sh --images-only
+
+# Только конфиги и скрипты (быстрое обновление настроек):
+bash deploy/test-server/upload.sh --files-only
+
+# Принудительная перезапись модели, корпуса и базы стран:
+bash deploy/test-server/upload.sh --force-data
+```
+
+### Запуск сервисов на сервере
+
+```bash
+# Запуск основного стека (postgres, rag, gateway, assistant):
+ssh <SERVER> 'cd ~/mytpu/deploy && bash test-server/up.sh'
+
+# Запуск с индексацией корпуса документов (rag-ingest):
+ssh <SERVER> 'cd ~/mytpu/deploy && bash test-server/up.sh --ingest'
+```
+
+---
+
+## 3. Выдача ключей доступа (issue-key)
+
+Команды выполняются на сервере в каталоге `~/mytpu/deploy`. Ключ печатается ровно один раз.
+
+### Ключ MCP-клиента (для Claude Code или других ИИ-агентов)
+
+```bash
+docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
+  run --rm --no-deps -T gateway \
+  --spring.profiles.active=issue-key --owner="Тестовый агент" --scopes=docs.read,rasp.read
+```
+
+### Ключ администратора консоли
+
+```bash
+docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
+  run --rm --no-deps -T gateway \
+  --spring.profiles.active=issue-key --owner="Администратор" --roles=console.admin
+```
+
+### Ключ сервера с ограничением по подсети
+
+```bash
+docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
+  run --rm --no-deps -T gateway \
+  --spring.profiles.active=issue-key --owner="Интеграционный сервис" --kind=server --networks=203.0.113.0/24 --scopes=docs.read
+```
+
+### Ключ-ловушка (decoy)
+
+```bash
+docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
+  run --rm --no-deps -T gateway \
+  --spring.profiles.active=issue-key --decoy --owner="Ловушка в тестовом репозитории"
+```
+
+---
+
+## 4. Чек-лист проверок
+
+- [ ] **Проверка доступности шлюза по HTTPS**:
+  ```bash
+  curl -fsS https://<MYTPU_HOST>/actuator/health
+  # Ожидаемый ответ: {"status":"UP"}
+  ```
+
+- [ ] **Защита консоли на уровне Caddy**:
+  ```bash
+  curl -i https://<MYTPU_HOST>/admin/api/me
+  # Ожидаемый ответ: HTTP/2 404
+  ```
+
+- [ ] **Подключение Claude Code к MCP-шлюзу**:
+  ```bash
+  claude mcp add --transport http mytpu https://<MYTPU_HOST>/mcp --header "Authorization: Bearer <мастер-ключ>"
+  ```
+  В Claude Code задать вопрос: «Как получить справку об обучении в ТПУ?». Инструмент `docs_search` должен вернуть выдержки из документов.
+
+- [ ] **Отказ при неверном ключе**:
+  ```bash
+  curl -i -X POST https://<MYTPU_HOST>/mcp \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer mtpu_invalid_key" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+  # Ожидаемый ответ: HTTP/2 401 Unauthorized
+  ```
+
+- [ ] **Защита ключа server по подсети**:
+  Вызов с ключом `server` с IP-адреса вне разрешённой подсети возвращает `403 Forbidden`. В логах gateway фиксируется отказ по подсети.
+
+- [ ] **Блокировка ключа с политикой «только РФ» через VPN**:
+  Ключ MCP выдан с политикой `ru` (по умолчанию). Первый же вызов с зарубежного адреса → `401 key_suspended`, событие
+  `key.foreign_country` с кодом страны и подсетью; снять — консоль «События ключей» или `issue-key --resume=<id>`.
+
+- [ ] **Срабатывание ключа-ловушки**:
+  Любой вызов с decoy-ключом генерирует событие `key.decoy_used`, группа ключей переводится в приостановленное состояние.
+
+- [ ] **Доступ к консоли через SSH-туннель**:
+  1. На ПК разработчика открыть SSH-туннель к порту шлюза:
+     ```bash
+     ssh -N -L 18081:127.0.0.1:8081 <SERVER>
+     ```
+  2. В каталоге `console/` на ПК запустить dev-сервер:
+     ```bash
+     npm run start:tunnel
+     ```
+  3. Открыть браузер по адресу `http://localhost:4200/console`.
+  4. Войти по выданному ключу администратора (`console.admin`).
+  5. Проверить, что без туннеля консоль недоступна.
+
+---
+
+## 5. Замер ресурсов и памяти
+
+Запуск на сервере в каталоге `~/mytpu/deploy`:
+
+```bash
+# 1. Замер в покое:
+bash test-server/measure.sh
+
+# 2. Сохранить ключ MCP во временный файл:
+printf '%s' '<мастер-ключ>' > /tmp/test-mcp-key
+
+# 3. Замер под нагрузкой (20 параллельных вызовов docs_search):
+bash test-server/measure.sh --load /tmp/test-mcp-key
+
+# 4. Удалить временный файл с ключом:
+rm -f /tmp/test-mcp-key
+```
+
+### Таблица результатов замеров памяти
+
+| Сервис | Лимит памяти | Покой (idle) | Загрузка корпуса (ingest) | Нагрузка (20 вызовов docs_search) |
+|---|---|---|---|---|
+| `postgres` | 640 МБ | | | |
+| `rag` | 380 МБ | | | |
+| `gateway` | 380 МБ | | | |
+| `assistant` | 300 МБ | | | |
+| `rag-ingest` | 512 МБ (профиль) | — | | — |
+| **Итого контейнеры** | ~2,2 ГБ | | | |
+| **Свободно на хосте** | — | | | |
+
+---
+
+## 6. Остановка стенда
+
+На сервере в каталоге `~/mytpu/deploy`:
+
+```bash
+# Остановка сервисов с сохранением томов данных (БД postgres, файлы rag):
+bash test-server/down.sh
+
+# Полная остановка с удалением томов и архива образов:
+bash test-server/down.sh --purge
+```
+
+Владельцу сервера для отключения сайта в Caddy:
+```bash
+# Удалить строку импорта mytpu.caddy из /etc/caddy/Caddyfile
+sudo sed -i '/import mytpu.caddy/d' /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+sudo rm -f /etc/caddy/mytpu.caddy
+```
+
+---
+
+## 7. Если что-то не работает
+
+1. **403 или 404 при входе в консоль через SSH-туннель**:
+   Проверьте значение `TRUSTED_PROXIES` в `server.env`. Оно должно совпадать со шлюзом docker-сети `edge` (`172.31.240.1/32`). Если адрес отличается, Docker передаёт запрос шлюзу от нераспознанного прокси, и заголовок `X-Forwarded-For: 127.0.0.1` игнорируется.
+
+2. **Ошибки 502 или 401 в assistant при обращении к LLM**:
+   Проверьте файл `secrets/ml_api_key`. В нём должен быть указан корректный токен ml-server без пробелов и символов переноса строки. Также проверьте, что `ML_BASE_URL` в `server.env` содержит суффикс `/v1`.
+
+3. **Завершение процесса rag-ingest по OOM (нехватка памяти)**:
+   Не запускайте загрузку корпуса одновременно с нагрузочным тестированием. Сервер располагает ~3,2 ГБ свободной памяти; одновременная работа всех сервисов и ingest может исчерпать доступный объем.
+
+4. **Caddy выдаёт ошибку валидации конфигурации**:
+   Убедитесь, что файл `/etc/caddy/mytpu.caddy` скопирован, имеет права на чтение (`chmod 644`) и в нём корректно подставлен домен вместо `{{MYTPU_HOST}}`.

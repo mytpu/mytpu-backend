@@ -46,3 +46,4 @@ build/
 ### Секреты локального стенда ###
 deploy/secrets/
 deploy/load/results/
+deploy/test-server/server.env

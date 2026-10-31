@@ -1,0 +1,39 @@
+# Оверлей поверх compose.dev.yml для тестового сервера Сбера.
+# Запуск на сервере (из каталога ~/mytpu/deploy):
+#   docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml up -d --no-build postgres rag gateway assistant
+#
+# Зачем:
+# 1. pull_policy: never — сервисы используют локальные образы, загруженные из архива mytpu-images.tar.gz (на сервере ничего не компилируется).
+# 2. Сеть edge фиксирует подсеть ${EDGE_SUBNET} (по умолчанию 172.31.240.0/24). Адрес шлюза этой сети (172.31.240.1)
+#    детерминирован и указан в TRUSTED_PROXIES. Именно с этого адреса Docker проксирует запросы от Caddy и SSH-туннеля к 127.0.0.1:8081.
+# 3. Консоль администратора (/admin/api/**) разрешена только для 127.0.0.1/32:
+#    - Caddy блокирует пути /admin/* с кодом 404 и перезаписывает входящий X-Forwarded-For реальным адресом клиента.
+#    - Доступ к консоли возможен исключительно через SSH-туннель с заголовком X-Forwarded-For: 127.0.0.1 (ng serve --proxy-config proxy.tunnel.json).
+# 4. assistant обращается к ml-server по его публичному адресу (${ML_BASE_URL}), так как loopback хоста из контейнера недоступен.
+
+services:
+  rag:
+    pull_policy: never
+
+  rag-ingest:
+    pull_policy: never
+
+  gateway:
+    pull_policy: never
+    environment:
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES — адрес шлюза сети edge в server.env (например 172.31.240.1/32)}
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:?GATEWAY_PUBLIC_URL — публичный адрес шлюза в server.env (https://${MYTPU_HOST})}
+      ADMIN_ALLOWED_NETWORKS: "127.0.0.1/32"
+
+  assistant:
+    pull_policy: never
+    environment:
+      ML_BASE_URL: ${ML_BASE_URL:?ML_BASE_URL — публичный адрес ml-server с /v1 в server.env}
+      ML_CHAT_MODEL: ${ML_CHAT_MODEL:-tpu-assistant}
+
+networks:
+  edge:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${EDGE_SUBNET:-172.31.240.0/24}
