@@ -12,7 +12,6 @@ import org.mytpu.gateway.access.ApiClientAdmin;
 import org.mytpu.gateway.access.ApiClientStore;
 import org.mytpu.gateway.access.KeyRules;
 import org.mytpu.gateway.access.McpKeyFilter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -65,17 +64,16 @@ public class KeysAdminController {
     private final KeyRules rules;
     private final AdminAuditLog audit;
     private final TransactionTemplate tx;
-    private final String publicUrl;
+    private final McpAddCommand mcpCommand;
 
     public KeysAdminController(ApiClientAdmin keys, ApiClientStore store, KeyRules rules, AdminAuditLog audit,
-                               PlatformTransactionManager transactions,
-                               @Value("${mytpu.gateway.public-url:http://127.0.0.1:8081}") String publicUrl) {
+                               PlatformTransactionManager transactions, McpAddCommand mcpCommand) {
         this.keys = keys;
         this.store = store;
         this.rules = rules;
         this.audit = audit;
         this.tx = new TransactionTemplate(transactions);
-        this.publicUrl = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
+        this.mcpCommand = mcpCommand;
     }
 
     @GetMapping("/admin/api/keys")
@@ -93,7 +91,7 @@ public class KeysAdminController {
         return tx.execute(status -> {
             ApiClientStore.IssuedKey issued = store.issue(client);
             audit.record(actor, "key.create", "key", issued.clientId(), null, view(issued.clientId()));
-            return new Issued(issued.clientId(), issued.key(), command(issued.key()));
+            return new Issued(issued.clientId(), issued.key(), mcpCommand.command(issued.key()));
         });
     }
 
@@ -122,7 +120,7 @@ public class KeysAdminController {
             KeyView before = view(id);
             ApiClientStore.IssuedKey issued = keys.reissue(existing(id), grace);
             audit.record(actor, "key.reissue", "key", id, before, view(id));
-            return new Issued(id, issued.key(), command(issued.key()));
+            return new Issued(id, issued.key(), mcpCommand.command(issued.key()));
         });
     }
 
@@ -154,10 +152,6 @@ public class KeysAdminController {
     private KeyView view(String id) {
         return keys.list().stream().filter(r -> r.client().id().equals(id)).findFirst().map(KeyView::of)
                 .orElseThrow(() -> AdminException.notFound("key_not_found", id));
-    }
-
-    private String command(String key) {
-        return "claude mcp add --transport http mytpu " + publicUrl + "/mcp --header \"Authorization: Bearer " + key + "\"";
     }
 
     private static ApiClient.Kind kind(String value) {

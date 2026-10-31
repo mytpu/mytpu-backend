@@ -51,10 +51,12 @@ public class McpKeyFilter extends OncePerRequestFilter {
     private final KeyNetworkWatch watch;
     private final Messages messages;
     private final JsonMapper json;
+    private final DecoyGroups decoys;
     private final LocalDate v1KeysUntil;
 
     public McpKeyFilter(ApiClientStore store, AuthFailureLimiter failures, ClientAddress addresses, KeyEvents events,
                         KeyNetworkWatch watch, Messages messages, JsonMapper json,
+                        DecoyGroups decoys,
                         @Value("${mytpu.gateway.access.v1-keys-until:}") String v1KeysUntil) {
         this.v1KeysUntil = v1KeysUntil.isBlank() ? null : LocalDate.parse(v1KeysUntil);
         this.store = store;
@@ -64,6 +66,7 @@ public class McpKeyFilter extends OncePerRequestFilter {
         this.watch = watch;
         this.messages = messages;
         this.json = json;
+        this.decoys = decoys;
     }
 
     @Override
@@ -88,7 +91,10 @@ public class McpKeyFilter extends OncePerRequestFilter {
                 .flatMap(store::findByKey);
         if (found.isPresent() && found.get().decoy()) {
             // Ловушка отвечает так же, как неверный ключ: тот, кто её нашёл, не должен понять, что попался
-            events.record(found.get().id(), KeyEvents.DECOY_USED, Cidr.subnetOf(address), null);
+            String id = found.get().id();
+            String subnet = Cidr.subnetOf(address);
+            events.record(id, KeyEvents.DECOY_USED, subnet, null);
+            decoys.tripLater(id, subnet);
             found = Optional.empty();
         }
         Optional<ApiClient> client = found.filter(c -> c.activeAt(Instant.now()));
@@ -134,7 +140,7 @@ public class McpKeyFilter extends OncePerRequestFilter {
         return readOnly ? client.hasConsoleRole() : client.roles().contains(ApiClient.CONSOLE_ADMIN);
     }
 
-    private static Optional<String> bearer(HttpServletRequest request) {
+    static Optional<String> bearer(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
             return Optional.empty();

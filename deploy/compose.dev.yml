@@ -111,7 +111,7 @@ services:
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://127.0.0.1:8081}
       # Живых данных в куче немного (кэш ограничен 32 МБ): потолок 40 % лимита, иначе Serial GC раздувает кучу до 55 %
       JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40"
-    secrets: [gateway_db_password, rag_internal_key, gateway_audit_key, connector_vault_key, rag_admin_key]
+    secrets: [gateway_db_password, rag_internal_key, gateway_audit_key, connector_vault_key, rag_admin_key, key_alert_webhook]
     tmpfs: ["/tmp:size=16m"]
     ports: ["127.0.0.1:8081:8080"]
     # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag; data — к своей БД
@@ -160,6 +160,7 @@ secrets:
   connector_vault_key: {file: ./secrets/connector_vault_key}
   rag_admin_key: {file: ./secrets/rag_admin_key}
   ml_api_key: {file: ./secrets/ml_api_key}
+  key_alert_webhook: {file: ./secrets/key_alert_webhook}
 
 volumes:
   pgdata:

@@ -28,3 +28,10 @@ for name in "${names[@]}"; do
         echo "создан $file"
     fi
 done
+
+# Адрес вебхука оповещений: пустой файл = выключено (не случайное значение)
+if [ ! -f "secrets/key_alert_webhook" ]; then
+    touch "secrets/key_alert_webhook"
+    chmod 644 "secrets/key_alert_webhook"
+    echo "создан secrets/key_alert_webhook"
+fi

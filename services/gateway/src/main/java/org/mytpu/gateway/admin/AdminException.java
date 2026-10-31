@@ -23,6 +23,10 @@ public class AdminException extends RuntimeException {
         return new AdminException(HttpStatus.NOT_FOUND, code, args);
     }
 
+    public static AdminException conflict(String code, Object... args) {
+        return new AdminException(HttpStatus.CONFLICT, code, args);
+    }
+
     public HttpStatus status() {
         return status;
     }

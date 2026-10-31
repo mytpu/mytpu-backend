@@ -71,9 +71,9 @@ public class ApiClientAdmin {
             throw new KeyRules.Violation("no_rights");
         }
         if (p.networks().isEmpty() && current.expiresAt() != null
-                && current.expiresAt().isAfter(Instant.now().plus(Duration.ofDays(KeyRules.MAX_DAYS_WITHOUT_NETWORKS)))) {
+                && current.expiresAt().isAfter(Instant.now().plus(Duration.ofDays(rules.maxDaysWithoutNetworks())))) {
             // Убрать сети у ключа на год — обойти срок 30 дней для ключа без сетей
-            throw new KeyRules.Violation("days_range_no_networks", KeyRules.MAX_DAYS_WITHOUT_NETWORKS);
+            throw new KeyRules.Violation("days_range_no_networks", rules.maxDaysWithoutNetworks());
         }
         jdbc.sql("""
                         UPDATE api_clients SET scopes = :scopes, denied_tools = :denied, rate_limits = CAST(:limits AS jsonb),

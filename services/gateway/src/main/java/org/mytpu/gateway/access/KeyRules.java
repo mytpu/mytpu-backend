@@ -14,17 +14,14 @@ import org.mytpu.gateway.runtime.ToolRegistry;
 import org.springframework.stereotype.Component;
 
 /**
- * Правила мастер-ключа — общие для команды {@code issue-key} и консоли (specs/mcp-key-and-agent-safety):
+ * Правила мастер-ключа — общие для команды {@code issue-key} и консоли (specs/mcp-key-and-agent-safety, specs/key-lifecycle-and-decoys):
  * известные scopes и инструменты, роли консоли, ловушка без прав, ключ {@code server} — только с сетями,
- * сеть не шире /8 (IPv4) и /32 (IPv6), без сетей — не дольше 30 дней, вообще — не дольше года.
+ * сеть не шире /8 (IPv4) и /32 (IPv6), сроки по типам и без сетей — из {@link KeyLifecycleProperties}.
  * Нарушение — {@link Violation} с кодом текста {@code key.error.<code>}.
  */
 @Component
 public class KeyRules {
     public static final Set<String> ROLES = Set.of(ApiClient.CONSOLE_ADMIN, ApiClient.CONSOLE_VIEWER);
-    static final long MAX_DAYS = 365;
-    static final long MAX_DAYS_WITHOUT_NETWORKS = 30;
-    static final long DEFAULT_DAYS = 90;
 
     /** Что хочет выдать администратор; {@code days == null} — срок по умолчанию. */
     public record Request(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
@@ -37,7 +34,7 @@ public class KeyRules {
         private final String code;
         private final transient Object[] args;
 
-        Violation(String code, Object... args) {
+        public Violation(String code, Object... args) {
             super(code);
             this.code = code;
             this.args = args;
@@ -54,10 +51,20 @@ public class KeyRules {
 
     private final IntegrationCatalog catalog;
     private final ToolRegistry registry;
+    private final KeyLifecycleProperties properties;
 
-    public KeyRules(IntegrationCatalog catalog, ToolRegistry registry) {
+    public KeyRules(IntegrationCatalog catalog, ToolRegistry registry, KeyLifecycleProperties properties) {
         this.catalog = catalog;
         this.registry = registry;
+        this.properties = properties;
+    }
+
+    public int maxDaysWithoutNetworks() {
+        return properties.maxDaysWithoutNetworks();
+    }
+
+    public KeyLifecycleProperties properties() {
+        return properties;
     }
 
     public ApiClientStore.NewClient newClient(Request r) {
@@ -75,15 +82,65 @@ public class KeyRules {
             throw new Violation("no_rights");
         }
         checkNetworks(r.kind(), r.networks());
-        long maxDays = r.networks().isEmpty() && !r.decoy() ? MAX_DAYS_WITHOUT_NETWORKS : MAX_DAYS;
-        long days = r.days() == null ? Math.min(DEFAULT_DAYS, maxDays) : r.days();
-        if (days < 1 || days > maxDays) {
-            throw new Violation(maxDays == MAX_DAYS_WITHOUT_NETWORKS ? "days_range_no_networks" : "days_range", maxDays);
+
+        ApiClient.Kind kind = r.kind() == null ? ApiClient.Kind.PERSON : r.kind();
+        List<String> networks = r.networks() == null ? List.of() : r.networks();
+        Instant expiresAt;
+        if (r.days() == null) {
+            expiresAt = defaultExpiry(kind, r.decoy(), networks);
+        } else {
+            checkDays(kind, r.decoy(), networks, r.days());
+            expiresAt = Instant.now().plus(Duration.ofDays(r.days()));
         }
+
         checkTools(r.deniedTools(), r.rateLimits());
         return new ApiClientStore.NewClient(r.owner().strip(), Set.copyOf(r.scopes()), Set.copyOf(r.roles()),
                 Set.copyOf(r.deniedTools()), Map.copyOf(r.rateLimits()), r.decoy() || !r.write(),
-                Instant.now().plus(Duration.ofDays(days)), r.kind(), List.copyOf(r.networks()), r.decoy());
+                expiresAt, kind, List.copyOf(networks), r.decoy());
+    }
+
+    /** Предельный срок ключа в днях: по типу, без сетей — не дольше {@code maxDaysWithoutNetworks}, ловушка — {@code decoyDays}. */
+    public long maxDays(ApiClient.Kind kind, boolean decoy, List<String> networks) {
+        if (decoy) {
+            return properties.decoyDays();
+        }
+        long kindMax = properties.ttl(kind == null ? ApiClient.Kind.PERSON : kind).maxDays();
+        return networks == null || networks.isEmpty() ? Math.min(kindMax, properties.maxDaysWithoutNetworks()) : kindMax;
+    }
+
+    public void checkDays(ApiClient.Kind kind, boolean decoy, List<String> networks, Long days) {
+        if (days == null) {
+            return;
+        }
+        ApiClient.Kind k = kind == null ? ApiClient.Kind.PERSON : kind;
+        long maxDays = maxDays(k, decoy, networks);
+        boolean limitedByNoNetworks = !decoy && maxDays < properties.ttl(k).maxDays();
+
+        if (days < 1 || days > maxDays) {
+            if (limitedByNoNetworks) {
+                throw new Violation("days_range_no_networks", maxDays);
+            } else {
+                String typeName = decoy ? "decoy" : k.db();
+                throw new Violation("days_range_kind", typeName, maxDays);
+            }
+        }
+    }
+
+    public long defaultDays(ApiClient.Kind kind, boolean decoy, List<String> networks) {
+        if (decoy) {
+            return properties.decoyDays();
+        }
+        ApiClient.Kind k = kind == null ? ApiClient.Kind.PERSON : kind;
+        KeyLifecycleProperties.Ttl ttl = properties.ttl(k);
+        if (networks == null || networks.isEmpty()) {
+            return Math.min(ttl.defaultDays(), properties.maxDaysWithoutNetworks());
+        }
+        return ttl.defaultDays();
+    }
+
+    /** Срок действия по умолчанию: текущий момент плюс число дней по правилам типа и наличия сетей. */
+    public Instant defaultExpiry(ApiClient.Kind kind, boolean decoy, List<String> networks) {
+        return Instant.now().plus(Duration.ofDays(defaultDays(kind, decoy, networks)));
     }
 
     public void checkScopes(Set<String> scopes) {

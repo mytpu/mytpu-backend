@@ -21,8 +21,8 @@ import org.springframework.stereotype.Component;
  * <pre>
  * java -jar gateway.jar --spring.profiles.active=issue-key --owner="Иванов И. И." --scopes=rasp.read,docs.read
  *      [--roles=console.admin] [--deny=rasp_week] [--rate=rasp_day:30] [--days=30] [--write]
- *      [--kind=person|server] [--networks=203.0.113.0/24,2001:db8::/48]
- * java -jar gateway.jar --spring.profiles.active=issue-key --decoy --owner="ловушка: репозиторий X"
+ *      [--kind=person|server|demo] [--networks=203.0.113.0/24,2001:db8::/48]
+ * java -jar gateway.jar --spring.profiles.active=issue-key --decoy --owner="ловушка: репозиторий X" [--decoy-group=cli_a,cli_b]
  * java -jar gateway.jar --spring.profiles.active=issue-key --resume=cli_…
  * </pre>
  * Ключ {@code server} — только с сетями; ключ {@code person} без сетей — не дольше 30 дней (specs/mcp-key-and-agent-safety).
@@ -34,14 +34,16 @@ public class ApiKeyIssuer implements ApplicationRunner {
     private final KeyRules rules;
     private final Messages messages;
     private final KeyEvents events;
+    private final DecoyGroups decoys;
     private final ConfigurableApplicationContext context;
 
     public ApiKeyIssuer(ApiClientStore store, KeyRules rules, Messages messages, KeyEvents events,
-                        ConfigurableApplicationContext context) {
+                        DecoyGroups decoys, ConfigurableApplicationContext context) {
         this.store = store;
         this.rules = rules;
         this.messages = messages;
         this.events = events;
+        this.decoys = decoys;
         this.context = context;
     }
 
@@ -57,6 +59,10 @@ public class ApiKeyIssuer implements ApplicationRunner {
             exit();
         }
         boolean decoy = args.containsOption("decoy");
+        boolean hasDecoyGroup = args.containsOption("decoy-group");
+        if (hasDecoyGroup && !decoy) {
+            fail("Опция --decoy-group задаётся только вместе с --decoy");
+        }
         String days = single(args, "days");
         ApiClientStore.NewClient client;
         try {
@@ -67,12 +73,26 @@ public class ApiKeyIssuer implements ApplicationRunner {
         } catch (KeyRules.Violation v) {
             throw new IllegalArgumentException(messages.text("key.error." + v.code(), v.args()));
         }
+        if (decoy && hasDecoyGroup) {
+            try {
+                decoys.checkMembers(List.copyOf(list(args, "decoy-group")));
+            } catch (KeyRules.Violation v) {
+                throw new IllegalArgumentException(messages.text("key.error." + v.code(), v.args()));
+            }
+        }
         Instant expires = client.expiresAt();
         List<String> networks = client.allowedNetworks();
         ApiClient.Kind kind = client.kind();
         String owner = client.owner();
 
         var issued = store.issue(client);
+        if (decoy && hasDecoyGroup) {
+            try {
+                decoys.replace(issued.clientId(), List.copyOf(list(args, "decoy-group")));
+            } catch (KeyRules.Violation v) {
+                throw new IllegalArgumentException(messages.text("key.error." + v.code(), v.args()));
+            }
+        }
         System.out.println();
         System.out.println((decoy ? "Ключ-ловушка выдан: " : "Мастер-ключ выдан: ") + issued.clientId() + " (" + owner + "), "
                 + kind.db() + (networks.isEmpty() ? ", любые сети" : ", сети " + networks) + ", до " + expires);
@@ -94,7 +114,7 @@ public class ApiKeyIssuer implements ApplicationRunner {
         try {
             return ApiClient.Kind.fromDb(value);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Тип ключа — person или server");
+            throw new IllegalArgumentException("Тип ключа — person, server или demo");
         }
     }
 

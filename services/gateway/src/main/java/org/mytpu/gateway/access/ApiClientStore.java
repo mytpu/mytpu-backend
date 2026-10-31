@@ -129,7 +129,8 @@ public class ApiClientStore {
     }
 
     public boolean resume(String clientId) {
-        int changed = jdbc.sql("UPDATE api_clients SET suspended_at = NULL, suspended_reason = NULL "
+        // Отсчёт неактивности — заново с момента снятия, иначе ночная уборка приостановит ключ снова
+        int changed = jdbc.sql("UPDATE api_clients SET suspended_at = NULL, suspended_reason = NULL, last_used_at = now() "
                         + "WHERE id = :id AND suspended_at IS NOT NULL")
                 .param("id", clientId).update();
         invalidate(clientId);

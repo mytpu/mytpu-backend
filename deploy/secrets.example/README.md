@@ -16,3 +16,4 @@
 | `connector_vault_key` | gateway | мастер-ключ сейфа секретов коннекторов (AES-256-GCM, 32 байта base64url); без него секреты коннекторам не задать |
 | `rag_admin_key` | gateway, rag | сервисный ключ консоли gateway → rag (`/admin/…`), отличный от `rag_internal_key` |
 | `ml_api_key` | assistant | ключ assistant → ml-server (`ML_API_KEY` ml-server) |
+| `key_alert_webhook` | gateway | адрес вебхука оповещений (например, Telegram-бот; пусто — оповещения выключены, не коммитить) |

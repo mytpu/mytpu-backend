@@ -13,7 +13,7 @@ import java.util.Set;
  * @param deniedTools     выключенные инструменты внутри включённых интеграций
  * @param rateLimits      свои лимиты вызовов в минуту: инструмент → число
  * @param readOnly        только чтение: инструменты записи недоступны
- * @param kind            {@code person} — человек; {@code server} — интеграция с постоянным адресом (сети обязательны)
+ * @param kind            {@code person} — человек; {@code server} — интеграция с постоянным адресом (сети обязательны); {@code demo} — показ, хакатон
  * @param allowedNetworks сети CIDR, с которых ключ принимается; пусто — любые
  * @param suspendedAt     ключ приостановлен (подозрение на утечку) — вызовы отвергаются до снятия
  * @param decoy           ключ-ловушка: прав нет, любое использование — событие {@code key.decoy_used}
@@ -38,7 +38,7 @@ public record ApiClient(
     public static final String CONSOLE_VIEWER = "console.viewer";
 
     public enum Kind {
-        PERSON, SERVER;
+        PERSON, SERVER, DEMO;
 
         public String db() {
             return name().toLowerCase();

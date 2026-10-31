@@ -83,6 +83,38 @@ mytpu:
       max-events-per-minute: 20
       # Одновременных фоновых записей учёта; лишние отбрасываются
       background-writes: 2
+    # Жизненный цикл мастер-ключей (сроки, неактивность, напоминания, самоперевыпуск)
+    keys:
+      # Сроки действия по типам ключей: по умолчанию и максимум (в днях)
+      ttl:
+        person: {default-days: 30, max-days: 90}
+        server: {default-days: 90, max-days: 365}
+        demo: {default-days: 7, max-days: 14}
+      # Предел срока ключа без указания сетей (в днях)
+      max-days-without-networks: 30
+      # Срок действия ключа-ловушки (в днях)
+      decoy-days: 365
+      # Приостановка ключа после неактивности
+      inactive-after: 45d
+      # Отзыв ни разу не использованного ключа через этот срок; не задано — выключено
+      # revoke-unused-after: 14d
+      # Дни до конца срока ключа для предупреждений
+      expiry-warn-days: [14, 3]
+      # Переходный срок старого ключа при самоперевыпуске
+      self-rotate-grace: 24h
+      # Минимальный интервал между самоперевыпусками
+      self-rotate-every: 1d
+      # Расписание ночной проверки неактивности и истечения ключей
+      housekeeping-cron: "0 15 4 * * *"
+      # Оповещения о событиях ключей (ловушки, группы, всплески подсетей, истечение)
+      # Подключение Telegram:
+      #   в файл deploy/secrets/key_alert_webhook записать https://api.telegram.org/bot<токен>/sendMessage
+      #   в chat-id указать id чата команды
+      alerts:
+        events: [key.decoy_used, key.group_suspended, key.network_burst, key.expiring, key.self_rotated]
+        chat-id: ""
+        timeout: 5s
+        repeat-after: 10m
     mcp:
       max-body-bytes: 65536
     # Адрес шлюза для команды claude mcp add в консоли

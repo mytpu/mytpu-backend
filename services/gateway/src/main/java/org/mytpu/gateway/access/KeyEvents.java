@@ -25,11 +25,17 @@ public class KeyEvents {
     public static final String RESUMED = "key.resumed";
     public static final String DECOY_USED = "key.decoy_used";
     public static final String NETWORK_DENIED = "key.network_denied";
+    public static final String SELF_ROTATED = "key.self_rotated";
+    public static final String INACTIVE_SUSPENDED = "key.inactive_suspended";
+    public static final String UNUSED_REVOKED = "key.unused_revoked";
+    public static final String EXPIRING = "key.expiring";
+    public static final String GROUP_SUSPENDED = "key.group_suspended";
 
     private static final Logger log = LoggerFactory.getLogger(KeyEvents.class);
 
     private final JdbcClient jdbc;
     private final BackgroundWriter writer;
+    private final KeyAlerts alerts;
     private final int maxPerMinute;
     private final Cache<String, Boolean> recent = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofMinutes(1))
@@ -40,10 +46,11 @@ public class KeyEvents {
             .maximumSize(10_000)
             .build();
 
-    public KeyEvents(JdbcClient jdbc, BackgroundWriter writer,
+    public KeyEvents(JdbcClient jdbc, BackgroundWriter writer, KeyAlerts alerts,
                      @Value("${mytpu.gateway.key-watch.max-events-per-minute:20}") int maxPerMinute) {
         this.jdbc = jdbc;
         this.writer = writer;
+        this.alerts = alerts;
         this.maxPerMinute = maxPerMinute;
     }
 
@@ -57,6 +64,7 @@ public class KeyEvents {
             return;
         }
         log.warn("Событие ключа {}: {} подсеть={} {}", clientId, event, subnet, detail == null ? "" : detail);
+        alerts.send(clientId, event, subnet, detail);
         writer.submit("событие " + event, () -> jdbc
                 .sql("INSERT INTO key_events (client_id, event, network, detail) VALUES (:client, :event, CAST(:network AS cidr), :detail)")
                 .param("client", clientId)
@@ -68,6 +76,7 @@ public class KeyEvents {
 
     /** Для команды {@code issue-key}: запись сразу, без фона — процесс сейчас завершится. */
     public void recordNow(String clientId, String event, String detail) {
+        alerts.send(clientId, event, null, detail);
         jdbc.sql("INSERT INTO key_events (client_id, event, detail) VALUES (:client, :event, :detail)")
                 .param("client", clientId)
                 .param("event", event)
