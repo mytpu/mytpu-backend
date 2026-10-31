@@ -30,7 +30,7 @@ import { IconComponent } from '../../../ui/icon/icon.component';
         </div>
         <div class="stat-value">{{ suspendedCount() }}</div>
         <div class="stat-sub">
-          {{ 'mcp.events.statSuspendedSub' | t: { decoyCount: groupSuspendedCount(), inactivityCount: inactiveCount() } }}
+          {{ 'mcp.events.statSuspendedSub' | t: { decoyCount: groupSuspendedCount(), inactivityCount: inactiveCount(), otherCount: otherSuspendedCount() } }}
         </div>
       </div>
 
@@ -127,6 +127,7 @@ export class KeyEventsStatsComponent {
   readonly suspendedCount = input.required<number>();
   readonly groupSuspendedCount = input.required<number>();
   readonly inactiveCount = input.required<number>();
+  readonly otherSuspendedCount = input.required<number>();
   readonly expiringCount = input.required<number>();
   readonly selfRotatedCount = input.required<number>();
 }

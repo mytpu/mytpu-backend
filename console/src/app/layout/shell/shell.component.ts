@@ -9,6 +9,7 @@ import {
   RouterLinkActive,
   RouterOutlet,
 } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { SessionStore } from '../../core/session/session.store';
 import { IdleService } from '../../core/session/idle.service';
@@ -46,6 +47,7 @@ interface NavGroup {
   styleUrl: './shell.component.css',
 })
 export class ShellComponent {
+  readonly isDemo = environment.demo;
   readonly sessionStore = inject(SessionStore);
   readonly idleService = inject(IdleService);
   readonly themeService = inject(ThemeService);

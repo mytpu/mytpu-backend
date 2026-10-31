@@ -54,6 +54,11 @@
         <span class="meta-row">{{ currentMeta() | t }}</span>
         <h1 class="page-title">{{ currentTitle() | t }}</h1>
       </div>
+      @if (isDemo) {
+        <div class="demo-banner">
+          {{ 'demo.banner' | t }}
+        </div>
+      }
       <div class="header-spacer"></div>
       <button
         type="button"

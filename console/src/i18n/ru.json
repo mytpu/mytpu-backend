@@ -1,4 +1,8 @@
 {
+  "demo": {
+    "banner": "Демо-режим — данные ненастоящие",
+    "loginHint": "Демо: любой ключ, начинающийся с demo; demo-viewer — только чтение"
+  },
   "brand": {
     "title": "Мой ТПУ",
     "subtitle": "Консоль администратора"
@@ -323,7 +327,7 @@
       "statDecoySub": "место: {{place}}",
       "statDecoyNone": "срабатываний нет",
       "statSuspended": "Приостановлено",
-      "statSuspendedSub": "{{decoyCount}} по ловушке · {{inactivityCount}} за неактивность",
+      "statSuspendedSub": "{{decoyCount}} по ловушке · {{inactivityCount}} за неактивность · {{otherCount}} утечка или зарубеж",
       "statExpiring": "Истекают за 14 дней",
       "statExpiringSub": "напомнили за 3 дня",
       "statSelfRotated": "Сами перевыпустили",

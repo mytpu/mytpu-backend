@@ -80,6 +80,22 @@
                   "with": "src/environments/environment.development.ts"
                 }
               ]
+            },
+            "demo": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "outputHashing": "none",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.demo.ts"
+                },
+                {
+                  "replace": "src/app/core/demo/demo-interceptors.ts",
+                  "with": "src/app/core/demo/demo-interceptors.demo.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -95,6 +111,9 @@
             },
             "development": {
               "buildTarget": "console:build:development"
+            },
+            "demo": {
+              "buildTarget": "console:build:demo"
             }
           },
           "defaultConfiguration": "development"

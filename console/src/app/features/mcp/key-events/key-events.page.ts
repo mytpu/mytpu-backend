@@ -55,7 +55,11 @@ export class KeyEventsPage implements OnInit {
   readonly decoyCount = computed(() => this.events().filter((e) => e.event === 'key.decoy_used').length);
   readonly groupSuspendedCount = computed(() => this.events().filter((e) => e.event === 'key.group_suspended').length);
   readonly inactiveCount = computed(() => this.events().filter((e) => e.event === 'key.inactive_suspended').length);
-  readonly suspendedCount = computed(() => this.groupSuspendedCount() + this.inactiveCount());
+  // Прочие приостановки: признаки утечки (key.suspended) и вызов из-за рубежа (key.foreign_country)
+  readonly otherSuspendedCount = computed(
+    () => this.events().filter((e) => e.event === 'key.suspended' || e.event === 'key.foreign_country').length,
+  );
+  readonly suspendedCount = computed(() => this.groupSuspendedCount() + this.inactiveCount() + this.otherSuspendedCount());
   readonly selfRotatedCount = computed(() => this.events().filter((e) => e.event === 'key.self_rotated').length);
   readonly expiringCount = computed(() => this.expiringKeys().length);
   readonly decoyPlace = computed(() => this.decoyEvent()?.owner || '');

@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { I18n } from '../../core/i18n/i18n.service';
 import { SessionStore } from '../../core/session/session.store';
@@ -23,6 +24,7 @@ import { IconComponent } from '../../ui/icon/icon.component';
   styleUrl: './login.component.css',
 })
 export class LoginComponent {
+  readonly isDemo = environment.demo;
   private readonly sessionStore = inject(SessionStore);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18n);

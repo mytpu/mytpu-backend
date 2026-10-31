@@ -11,13 +11,20 @@
       <p class="login-subtitle">{{ 'login.subtitle' | t }}</p>
     </div>
 
+    @if (isDemo) {
+      <div class="demo-login-hint">
+        <app-icon name="shield" [size]="16" class="demo-hint-icon" />
+        <span class="demo-hint-text">{{ 'demo.loginHint' | t }}</span>
+      </div>
+    }
+
     <form class="login-form" (submit)="onSubmit($event)">
       <app-field
         type="password"
         icon="lock"
         [label]="'login.keyLabel' | t"
         [placeholder]="'login.keyPlaceholder' | t"
-        [hint]="errorMessage() || ('login.keyHint' | t)"
+        [hint]="errorMessage() || (isDemo ? ('demo.loginHint' | t) : ('login.keyHint' | t))"
         [state]="errorMessage() ? 'error' : null"
         [error]="!!errorMessage()"
         [value]="apiKey()"

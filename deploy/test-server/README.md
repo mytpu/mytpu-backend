@@ -57,6 +57,15 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
+### Обновление сайта Caddy (после изменения `Caddyfile.mytpu`)
+
+`upload.sh --files-only` кладёт новый `mytpu.caddy` на сервер; применить:
+```bash
+sudo cp /home/$USER/mytpu/deploy/test-server/mytpu.caddy /etc/caddy/mytpu.caddy
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
 ### Установка ключа ml-server
 
 После первого запуска `up.sh` (когда создастся каталог `~/mytpu/deploy/secrets/`):
@@ -117,43 +126,38 @@ ssh <SERVER> 'cd ~/mytpu/deploy && bash test-server/up.sh --ingest'
 
 ---
 
-## 3. Выдача ключей доступа (issue-key)
+## 3. Ключи и тестовые данные
 
-Команды выполняются на сервере в каталоге `~/mytpu/deploy`. Ключ печатается ровно один раз.
-
-### Ключ MCP-клиента (для Claude Code или других ИИ-агентов)
-
+Ключи выдаёт `issue-key.sh` (на сервере, в `~/mytpu/deploy`); вывод с ключом — сразу в файл, ключ печатается один раз:
 ```bash
-docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
-  run --rm --no-deps -T gateway \
-  --spring.profiles.active=issue-key --owner="Тестовый агент" --scopes=docs.read,rasp.read
+bash test-server/issue-key.sh --owner=console-admin --roles=console.admin > ~/keys/console.out
+bash test-server/issue-key.sh --owner="Тестовый агент" --scopes=docs.read,rasp.read > ~/keys/mcp.out
+bash test-server/issue-key.sh --owner="Сервис" --kind=server --networks=203.0.113.0/24 --scopes=docs.read
+bash test-server/issue-key.sh --decoy --owner="ловушка: репозиторий X" --decoy-group=cli_…,cli_…
 ```
 
-### Ключ администратора консоли
+Наполнить стенд для проверки консоли (ключи всех типов, заявки, события: новая сеть, чужая сеть, вызов из-за
+рубежа, ловушка с приостановкой группы) — `bash test-server/seed.sh`. Ключи — в `~/keys/seed/` (права 600);
+ключ консоли «только чтение» — `~/keys/seed/viewer.key`. Повторный запуск создаёт ещё один набор.
+Адреса клиентов имитируются заголовком `X-Forwarded-For` в запросах с самого сервера (они приходят от доверенного
+прокси); снаружи через Caddy подменить адрес нельзя.
 
+## Консоль: две проверки
+
+**Демо без сервера** — подставные данные, все экраны и действия, ничего не уходит в сеть:
 ```bash
-docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
-  run --rm --no-deps -T gateway \
-  --spring.profiles.active=issue-key --owner="Администратор" --roles=console.admin
+cd console && npm run start:demo
 ```
+Открыть http://localhost:4300/console, ключ `demo` (администратор) или `demo-viewer` (только чтение).
 
-### Ключ сервера с ограничением по подсети
-
+**Живой стенд** — с ПК, из корня репозитория, одной командой:
 ```bash
-docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
-  run --rm --no-deps -T gateway \
-  --spring.profiles.active=issue-key --owner="Интеграционный сервис" --kind=server --networks=203.0.113.0/24 --scopes=docs.read
+bash deploy/test-server/console.sh            # администратор
+bash deploy/test-server/console.sh --viewer   # только чтение
 ```
-
-### Ключ-ловушка (decoy)
-
-```bash
-docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
-  run --rm --no-deps -T gateway \
-  --spring.profiles.active=issue-key --decoy --owner="Ловушка в тестовом репозитории"
-```
-
----
+Скрипт открывает SSH-туннель, кладёт ключ входа в буфер обмена (на экран не выводит) и запускает консоль:
+http://localhost:4200/console → вставить ключ (Ctrl+V). Ctrl+C — закрыть консоль и туннель. После входа буфер
+лучше очистить (скопировать что-нибудь другое): история буфера Windows хранит скопированное.
 
 ## 4. Чек-лист проверок
 
@@ -227,19 +231,21 @@ bash test-server/measure.sh --load /tmp/test-mcp-key
 rm -f /tmp/test-mcp-key
 ```
 
-### Таблица результатов замеров памяти
+### Результаты замера (31.10.2026, сервер 2 ядра / 4 ГБ, корпус 126 документов / 698 фрагментов)
 
-| Сервис | Лимит памяти | Покой (idle) | Загрузка корпуса (ingest) | Нагрузка (20 вызовов docs_search) |
+| Сервис | Лимит | Покой | Загрузка корпуса (пик) | 20 клиентов × 60 с через HTTPS (пик) |
 |---|---|---|---|---|
-| `postgres` | 640 МБ | | | |
-| `rag` | 380 МБ | | | |
-| `gateway` | 380 МБ | | | |
-| `assistant` | 300 МБ | | | |
-| `rag-ingest` | 512 МБ (профиль) | — | | — |
-| **Итого контейнеры** | ~2,2 ГБ | | | |
-| **Свободно на хосте** | — | | | |
+| `postgres` | 640 МБ | 54 МБ | — | 82 МБ, ЦП 111 % |
+| `rag` | 380 МБ | 269 МБ | 279 МБ | 299 МБ, ЦП 66 % |
+| `gateway` | 380 МБ | 158 МБ | 154 МБ | 182 МБ, ЦП 21 % |
+| `assistant` | 300 МБ | 131 МБ | 131 МБ | 131 МБ |
+| `rag-ingest` | 512 МБ | — | 336 МБ (49 с) | — |
+| **Контейнеры вместе** | 2,2 ГБ | ≈ 0,6 ГБ | ≈ 0,9 ГБ | ≈ 0,7 ГБ |
+| **Свободно на хосте** | — | 2,7 ГБ | 2,7 ГБ | 2,6 ГБ |
 
----
+Нагрузка (`deploy/load/mcp-load.py`): 6456 вызовов за 60 с (107 в секунду); прошли 854, остальные —
+`rate_limited` (лимиты ключа работают); `docs_search` p50 86 мс, p95 1030 мс. ml-server на время замера
+остановлен (чат не проверялся).
 
 ## 6. Остановка стенда
 

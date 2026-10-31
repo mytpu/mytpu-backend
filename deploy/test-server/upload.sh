@@ -78,6 +78,9 @@ if [ "$IMAGES_ONLY" = false ]; then
     scp "$ROOT_DIR/deploy/test-server/up.sh" \
         "$ROOT_DIR/deploy/test-server/down.sh" \
         "$ROOT_DIR/deploy/test-server/measure.sh" \
+        "$ROOT_DIR/deploy/test-server/issue-key.sh" \
+        "$ROOT_DIR/deploy/test-server/seed.sh" \
+        "$ROOT_DIR/deploy/load/mcp-load.py" \
         "$SERVER:$REMOTE_DIR/deploy/test-server/"
 
     scp "$ENV_FILE" "$SERVER:$REMOTE_DIR/deploy/test-server/server.env"

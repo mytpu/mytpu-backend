@@ -49,6 +49,26 @@
   flex-direction: column;
   gap: var(--space-4);
 }
+.demo-login-hint {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  border: 1px solid var(--warn-icon);
+  border-radius: var(--radius-tile);
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.demo-hint-icon {
+  flex-shrink: 0;
+  color: var(--warn-icon);
+}
+.demo-hint-text {
+  color: var(--warn-text);
+}
 .login-note {
   background: var(--bg-nested);
   border-radius: var(--radius-tile);

@@ -168,6 +168,19 @@
 .header-spacer {
   flex: 1;
 }
+.demo-banner {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  border: 1px solid var(--warn-icon);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
 .theme-btn {
   width: 40px;
   height: 40px;
