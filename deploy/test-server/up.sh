@@ -40,6 +40,13 @@ fi
 # 4. Создание секретов (если ещё не созданы)
 bash dev-secrets.sh
 
+# Ключ клиента чата: чат открыт наружу, без ключа он доступен всем. Пустой файл выключил бы проверку — не допускаем
+if [ ! -s secrets/assistant_client_key ]; then
+    head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n' > secrets/assistant_client_key
+    chmod 644 secrets/assistant_client_key
+    echo "создан secrets/assistant_client_key (заголовок X-Assistant-Key для /api/ai/*)"
+fi
+
 # 5. Проверка ключа ml-server
 if [ ! -f "secrets/.ml_api_key_set" ]; then
     echo "------------------------------------------------------------------"

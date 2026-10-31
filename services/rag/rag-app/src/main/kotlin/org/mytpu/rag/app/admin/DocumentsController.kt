@@ -1,5 +1,6 @@
 package org.mytpu.rag.app.admin
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import java.time.Instant
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
  * уровень доступа (`public` / `students` / `staff`; пока поиск отдаёт только `public`), выключение и удаление —
  * документ уходит из поиска сразу (поиск фильтрует по состоянию в том же запросе).
  */
+@ConditionalOnWebApplication
 @RestController
 class DocumentsController(private val jdbc: JdbcClient) {
 

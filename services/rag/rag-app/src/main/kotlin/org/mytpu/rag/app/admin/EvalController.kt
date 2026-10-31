@@ -1,5 +1,6 @@
 package org.mytpu.rag.app.admin
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import java.time.Instant
 import org.mytpu.rag.search.search.EvalQuestion
 import org.mytpu.rag.search.search.RagEval
@@ -18,6 +19,7 @@ import tools.jackson.databind.json.JsonMapper
  * Замер качества из консоли: набор вопросов (`eval_questions`: вопрос, ожидаемые адреса документов, есть ли ответ),
  * импорт стартового набора, прогон → hit@3 / hit@5 / ложные «нашёл» и история прогонов (`eval_runs`).
  */
+@ConditionalOnWebApplication
 @RestController
 class EvalController(private val jdbc: JdbcClient, private val eval: RagEval, private val json: JsonMapper) {
 

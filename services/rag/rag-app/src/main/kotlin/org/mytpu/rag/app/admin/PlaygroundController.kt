@@ -1,5 +1,6 @@
 package org.mytpu.rag.app.admin
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.mytpu.rag.api.SearchFilter
 import org.mytpu.rag.search.RagProperties
 import org.mytpu.rag.search.search.Candidate
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController
  * Песочница и обзор консоли rag. Песочница: все кандидаты с оценкой по векторам, совпадением по тексту и местом RRF,
  * пороги и причина «не нашлось». Запрос песочницы в журнал запросов не пишется — это не вопрос пользователя.
  */
+@ConditionalOnWebApplication
 @RestController
 class PlaygroundController(
     private val search: HybridDocsSearch,

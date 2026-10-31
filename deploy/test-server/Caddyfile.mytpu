@@ -22,8 +22,15 @@
         -Server
     }
 
+    # Пути, которые Caddy и Tomcat понимают по-разному (/mcp/..;/admin/...), — отказ до проксирования
+    @suspicious path_regexp (?i)(;|\.\.|%2e|%2f|%3b|%5c|\\)
+    handle @suspicious {
+        respond 400
+    }
+
     # MCP-шлюз (Streamable HTTP и SSE события)
-    handle /mcp* {
+    @mcp path /mcp /mcp/*
+    handle @mcp {
         reverse_proxy 127.0.0.1:8081 {
             flush_interval -1
         }
@@ -46,8 +53,14 @@
         respond 404
     }
 
+    # Caddy сам скрывает только Authorization и Cookie; ключ клиента чата из журнала убирается здесь
     log {
         output stdout
-        format console
+        format filter {
+            wrap console
+            fields {
+                request>headers>X-Assistant-Key delete
+            }
+        }
     }
 }

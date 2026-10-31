@@ -24,12 +24,22 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES — адрес шлюза сети edge в server.env (например 172.31.240.1/32)}
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:?GATEWAY_PUBLIC_URL — публичный адрес шлюза в server.env (https://${MYTPU_HOST})}
       ADMIN_ALLOWED_NETWORKS: "127.0.0.1/32"
+      # На стенде только ключи v2 (с контрольной суммой): случайные строки формата v1 не доходят до поиска в БД
+      V1_KEYS_UNTIL: "2026-10-01"
 
   assistant:
     pull_policy: never
     environment:
       ML_BASE_URL: ${ML_BASE_URL:?ML_BASE_URL — публичный адрес ml-server с /v1 в server.env}
       ML_CHAT_MODEL: ${ML_CHAT_MODEL:-tpu-assistant}
+      # Без доверенного прокси все клиенты чата приходят с адреса шлюза сети edge и делят один лимит на адрес
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES — адрес шлюза сети edge в server.env}
+    # /api/ai/* открыт наружу через Caddy: без ключа клиента (заголовок X-Assistant-Key) любой тратил бы квоту модели.
+    # Файл создаёт up.sh; пустой файл выключил бы проверку — up.sh этого не допускает.
+    secrets: [ml_api_key, assistant_client_key]
+
+secrets:
+  assistant_client_key: {file: ./secrets/assistant_client_key}
 
 networks:
   edge:

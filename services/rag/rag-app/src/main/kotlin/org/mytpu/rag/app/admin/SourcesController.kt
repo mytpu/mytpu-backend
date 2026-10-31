@@ -1,5 +1,6 @@
 package org.mytpu.rag.app.admin
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import java.io.ByteArrayInputStream
 import java.net.URI
 import java.time.Instant
@@ -24,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile
  * шлюз (у rag нет выхода в интернет) и передаёт сюда. Загрузка — задачей [IngestJobs]; выключить источник —
  * его документы сразу уходят из поиска; удалить — вместе с документами и файлом.
  */
+@ConditionalOnWebApplication
 @RestController
 class SourcesController(
     private val jdbc: JdbcClient,

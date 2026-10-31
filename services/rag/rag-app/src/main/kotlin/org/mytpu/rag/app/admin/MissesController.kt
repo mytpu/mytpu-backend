@@ -1,10 +1,12 @@
 package org.mytpu.rag.app.admin
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /** «Ненайденные запросы»: чего не хватает в базе знаний — группы похожих вопросов с числом повторов. */
+@ConditionalOnWebApplication
 @RestController
 class MissesController(private val queryLog: QueryLog) {
 

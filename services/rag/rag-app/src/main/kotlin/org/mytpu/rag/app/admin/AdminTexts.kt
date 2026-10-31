@@ -1,5 +1,6 @@
 package org.mytpu.rag.app.admin
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import java.util.Locale
 import org.slf4j.LoggerFactory
 import org.springframework.context.support.ResourceBundleMessageSource
@@ -37,6 +38,7 @@ class AdminProblem(val status: HttpStatus, val code: String, vararg val args: An
     }
 }
 
+@ConditionalOnWebApplication
 @RestControllerAdvice(basePackageClasses = [AdminTexts::class])
 class AdminErrors(private val texts: AdminTexts) {
     private val log = LoggerFactory.getLogger(AdminErrors::class.java)

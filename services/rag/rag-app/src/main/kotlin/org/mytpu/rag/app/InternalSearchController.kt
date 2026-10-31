@@ -1,5 +1,6 @@
 package org.mytpu.rag.app
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.mytpu.rag.app.admin.QueryLog
 import org.mytpu.rag.api.SearchFilter
 import org.mytpu.rag.api.SearchResult
@@ -23,6 +24,7 @@ data class SearchRequest(
  * `POST /internal/search`. Какие уровни доступа документов можно запрашивать этим ключом, решает rag сам
  * (`mytpu.rag.internal.allowed-access`), а не доверяет gateway: сейчас — только `public`.
  */
+@ConditionalOnWebApplication
 @RestController
 class InternalSearchController(
     private val search: HybridDocsSearch,
