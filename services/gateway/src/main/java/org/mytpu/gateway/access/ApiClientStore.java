@@ -98,9 +98,9 @@ public class ApiClientStore {
         String id = "cli_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         jdbc.sql("""
                 INSERT INTO api_clients (id, owner, key_prefix, key_hash, scopes, roles, denied_tools, rate_limits, read_only,
-                                         expires_at, kind, allowed_networks, decoy)
+                                         expires_at, kind, allowed_networks, decoy, geo_policy, geo_reason)
                 VALUES (:id, :owner, :prefix, :hash, :scopes, :roles, :denied, CAST(:limits AS jsonb), :readOnly,
-                        :expires, :kind, CAST(:networks AS cidr[]), :decoy)
+                        :expires, :kind, CAST(:networks AS cidr[]), :decoy, :geoPolicy, :geoReason)
                 """)
                 .param("id", id)
                 .param("owner", request.owner())
@@ -115,6 +115,8 @@ public class ApiClientStore {
                 .param("kind", request.kind().db())
                 .param("networks", request.allowedNetworks().toArray(String[]::new))
                 .param("decoy", request.decoy())
+                .param("geoPolicy", (request.geo() == null ? ApiClient.GeoPolicy.RU_ONLY : request.geo()).db())
+                .param("geoReason", request.geoReason())
                 .update();
         return new IssuedKey(id, key);
     }
@@ -129,10 +131,24 @@ public class ApiClientStore {
     }
 
     public boolean resume(String clientId) {
+        return resume(clientId, null, null);
+    }
+
+    public boolean resume(String clientId, ApiClient.GeoPolicy geo, String geoReason) {
         // Отсчёт неактивности — заново с момента снятия, иначе ночная уборка приостановит ключ снова
-        int changed = jdbc.sql("UPDATE api_clients SET suspended_at = NULL, suspended_reason = NULL, last_used_at = now() "
-                        + "WHERE id = :id AND suspended_at IS NOT NULL")
-                .param("id", clientId).update();
+        int changed;
+        if (geo != null) {
+            changed = jdbc.sql("UPDATE api_clients SET suspended_at = NULL, suspended_reason = NULL, last_used_at = now(), "
+                            + "geo_policy = :geoPolicy, geo_reason = :geoReason WHERE id = :id AND suspended_at IS NOT NULL")
+                    .param("id", clientId)
+                    .param("geoPolicy", geo.db())
+                    .param("geoReason", geoReason)
+                    .update();
+        } else {
+            changed = jdbc.sql("UPDATE api_clients SET suspended_at = NULL, suspended_reason = NULL, last_used_at = now() "
+                            + "WHERE id = :id AND suspended_at IS NOT NULL")
+                    .param("id", clientId).update();
+        }
         invalidate(clientId);
         return changed > 0;
     }
@@ -155,6 +171,8 @@ public class ApiClientStore {
     ApiClient map(ResultSet rs, int row) throws SQLException {
         Timestamp expires = rs.getTimestamp("expires_at");
         Timestamp suspended = rs.getTimestamp("suspended_at");
+        String geoStr = rs.getString("geo_policy");
+        ApiClient.GeoPolicy geo = geoStr != null ? ApiClient.GeoPolicy.fromDb(geoStr) : ApiClient.GeoPolicy.RU_ONLY;
         return new ApiClient(
                 rs.getString("id"),
                 rs.getString("owner"),
@@ -169,7 +187,9 @@ public class ApiClientStore {
                 ApiClient.Kind.fromDb(rs.getString("kind")),
                 List.copyOf(strings(rs.getArray("networks_text"))),
                 suspended == null ? null : suspended.toInstant(),
-                rs.getBoolean("decoy"));
+                rs.getBoolean("decoy"),
+                geo,
+                rs.getString("geo_reason"));
     }
 
     private static Set<String> strings(Array array) throws SQLException {
@@ -178,7 +198,8 @@ public class ApiClientStore {
 
     public record NewClient(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
                             Map<String, Integer> rateLimits, boolean readOnly, Instant expiresAt,
-                            ApiClient.Kind kind, List<String> allowedNetworks, boolean decoy) {
+                            ApiClient.Kind kind, List<String> allowedNetworks, boolean decoy,
+                            ApiClient.GeoPolicy geo, String geoReason) {
     }
 
     public record IssuedKey(String clientId, String key) {

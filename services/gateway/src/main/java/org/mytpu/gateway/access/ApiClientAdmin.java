@@ -27,7 +27,11 @@ public class ApiClientAdmin {
 
     /** Что администратор меняет у выданного ключа. */
     public record Permissions(Set<String> scopes, Set<String> deniedTools, Map<String, Integer> rateLimits,
-                              boolean readOnly, List<String> networks) {
+                              boolean readOnly, List<String> networks, ApiClient.GeoPolicy geo, String geoReason) {
+        public Permissions(Set<String> scopes, Set<String> deniedTools, Map<String, Integer> rateLimits,
+                           boolean readOnly, List<String> networks) {
+            this(scopes, deniedTools, rateLimits, readOnly, networks, null, null);
+        }
     }
 
     private final JdbcClient jdbc;
@@ -64,6 +68,7 @@ public class ApiClientAdmin {
         rules.checkScopes(p.scopes());
         rules.checkTools(p.deniedTools(), p.rateLimits());
         rules.checkNetworks(current.kind(), p.networks());
+        KeyRules.GeoDecision geo = rules.checkGeoUpdate(current, p.geo(), p.geoReason());
         if (current.decoy()) {
             throw new KeyRules.Violation("decoy_with_rights");
         }
@@ -77,7 +82,8 @@ public class ApiClientAdmin {
         }
         jdbc.sql("""
                         UPDATE api_clients SET scopes = :scopes, denied_tools = :denied, rate_limits = CAST(:limits AS jsonb),
-                               read_only = :readOnly, allowed_networks = CAST(:networks AS cidr[])
+                               read_only = :readOnly, allowed_networks = CAST(:networks AS cidr[]),
+                               geo_policy = :geoPolicy, geo_reason = :geoReason
                         WHERE id = :id
                         """)
                 .param("id", current.id())
@@ -86,6 +92,8 @@ public class ApiClientAdmin {
                 .param("limits", json.writeValueAsString(p.rateLimits()))
                 .param("readOnly", p.readOnly())
                 .param("networks", p.networks().toArray(String[]::new))
+                .param("geoPolicy", geo.policy().db())
+                .param("geoReason", geo.reason())
                 .update();
         store.invalidate(current.id());
         return find(current.id()).orElseThrow();
@@ -119,8 +127,46 @@ public class ApiClientAdmin {
         store.invalidate(current.id());
     }
 
+    public boolean resume(ApiClient current, ApiClient.GeoPolicy geo, String geoReason) {
+        if (geo != null) {
+            KeyRules.GeoDecision decision = rules.checkGeo(current.decoy(), current.roles(), geo, geoReason);
+            boolean wasSuspended = current.suspended();
+            boolean geoChanged = decision.policy() != current.geo()
+                    || !java.util.Objects.equals(decision.reason(), current.geoReason());
+            if (!wasSuspended && !geoChanged) {
+                return false;
+            }
+            jdbc.sql("""
+                    UPDATE api_clients
+                    SET suspended_at = NULL, suspended_reason = NULL,
+                        last_used_at = CASE WHEN suspended_at IS NOT NULL THEN now() ELSE last_used_at END,
+                        geo_policy = :geoPolicy, geo_reason = :geoReason
+                    WHERE id = :id
+                    """)
+                    .param("id", current.id())
+                    .param("geoPolicy", decision.policy().db())
+                    .param("geoReason", decision.reason())
+                    .update();
+            store.invalidate(current.id());
+            return true;
+        } else {
+            if (!current.suspended()) {
+                return false;
+            }
+            int updated = jdbc.sql("""
+                    UPDATE api_clients
+                    SET suspended_at = NULL, suspended_reason = NULL, last_used_at = now()
+                    WHERE id = :id AND suspended_at IS NOT NULL
+                    """)
+                    .param("id", current.id())
+                    .update();
+            store.invalidate(current.id());
+            return updated > 0;
+        }
+    }
+
     public boolean resume(ApiClient current) {
-        return store.resume(current.id());
+        return resume(current, null, null);
     }
 
     private static Instant instant(Timestamp value) {

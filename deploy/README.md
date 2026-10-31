@@ -47,3 +47,16 @@
 - Секреты консоли: `connector_vault_key` (сейф секретов коннекторов), `rag_admin_key` (шлюз → rag `/admin`) —
   `bash deploy/dev-secrets.sh` создаёт их на стенде.
 
+## База стран для ключей «только РФ»
+- Скачать базу: `https://download.db-ip.com/free/dbip-country-lite-YYYY-MM.mmdb.gz` (где `YYYY-MM` — текущий месяц).
+- Распаковать как `dbip-country-lite.mmdb` в папку `GEO_DB_HOST_DIR` (по умолчанию `../geo` рядом с репозиторием).
+- Обновлять раз в месяц (перезапуск gateway).
+- Лицензия CC BY 4.0 — атрибуция «IP Geolocation by DB-IP» (ссылка https://db-ip.com) в документации и в подвале консоли.
+- `KEY_GEO_ENABLED=true` без файла — gateway не стартует.
+- `TRUSTED_PROXIES` обязателен: без него шлюз видит адрес прокси или моста Docker (частная сеть) и страну не проверяет
+  (при старте — WARN). Указать адрес caddy или шлюза сети `edge` (`docker network inspect … -f '{{(index .IPAM.Config 0).Gateway}}'`).
+- Перед первым включением: миграция V7 ставит всем выданным ключам `person` и `server` политику `ru_only`. Ключи облачных
+  агентов (ChatGPT-коннекторы, Claude в браузере) иначе приостановятся на первом вызове — найти их и перевести заранее:
+  `issue-key --resume=<id> --geo=any --geo-reason="облачный агент …"` или консоль; список — по `gateway.key_events`
+  (подсети вне России) или у владельцев ключей.
+

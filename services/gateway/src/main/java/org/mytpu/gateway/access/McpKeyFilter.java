@@ -49,13 +49,14 @@ public class McpKeyFilter extends OncePerRequestFilter {
     private final ClientAddress addresses;
     private final KeyEvents events;
     private final KeyNetworkWatch watch;
+    private final GeoPolicy geoPolicy;
     private final Messages messages;
     private final JsonMapper json;
     private final DecoyGroups decoys;
     private final LocalDate v1KeysUntil;
 
     public McpKeyFilter(ApiClientStore store, AuthFailureLimiter failures, ClientAddress addresses, KeyEvents events,
-                        KeyNetworkWatch watch, Messages messages, JsonMapper json,
+                        KeyNetworkWatch watch, GeoPolicy geoPolicy, Messages messages, JsonMapper json,
                         DecoyGroups decoys,
                         @Value("${mytpu.gateway.access.v1-keys-until:}") String v1KeysUntil) {
         this.v1KeysUntil = v1KeysUntil.isBlank() ? null : LocalDate.parse(v1KeysUntil);
@@ -64,6 +65,7 @@ public class McpKeyFilter extends OncePerRequestFilter {
         this.addresses = addresses;
         this.events = events;
         this.watch = watch;
+        this.geoPolicy = geoPolicy;
         this.messages = messages;
         this.json = json;
         this.decoys = decoys;
@@ -111,6 +113,14 @@ public class McpKeyFilter extends OncePerRequestFilter {
             failures.recordFailure(ip);
             events.record(client.get().id(), KeyEvents.NETWORK_DENIED, Cidr.subnetOf(address), null);
             reject(response, HttpServletResponse.SC_FORBIDDEN, "network_not_allowed", "access.network_not_allowed");
+            return;
+        }
+        GeoPolicy.Decision geo = geoPolicy.check(client.get(), addresses.known(request));
+        if (geo instanceof GeoPolicy.Decision.Foreign foreign) {
+            String id = client.get().id();
+            store.suspend(id, "foreign:" + foreign.country());
+            events.record(id, KeyEvents.FOREIGN_COUNTRY, Cidr.subnetOf(address), "country=" + foreign.country());
+            reject(response, HttpServletResponse.SC_UNAUTHORIZED, "key_suspended", "access.key_suspended");
             return;
         }
         String path = PATHS.getPathWithinApplication(request);

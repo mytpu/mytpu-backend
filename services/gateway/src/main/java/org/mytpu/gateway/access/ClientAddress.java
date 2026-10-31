@@ -56,6 +56,18 @@ public class ClientAddress {
         return client.equals(remote) || trusted(client) ? Optional.empty() : Optional.of(client);
     }
 
+    public boolean trustedEmpty() {
+        return trusted.isEmpty();
+    }
+
+    public boolean hasTrusted() {
+        return !trusted.isEmpty();
+    }
+
+    public boolean isTrusted(InetAddress address) {
+        return address != null && trusted(address);
+    }
+
     private boolean trusted(InetAddress address) {
         return trusted.stream().anyMatch(c -> c.contains(address));
     }

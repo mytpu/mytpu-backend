@@ -22,8 +22,9 @@ import org.springframework.stereotype.Component;
  * java -jar gateway.jar --spring.profiles.active=issue-key --owner="Иванов И. И." --scopes=rasp.read,docs.read
  *      [--roles=console.admin] [--deny=rasp_week] [--rate=rasp_day:30] [--days=30] [--write]
  *      [--kind=person|server|demo] [--networks=203.0.113.0/24,2001:db8::/48]
+ *      [--geo=ru|any] [--geo-reason="облачный агент ChatGPT"]
  * java -jar gateway.jar --spring.profiles.active=issue-key --decoy --owner="ловушка: репозиторий X" [--decoy-group=cli_a,cli_b]
- * java -jar gateway.jar --spring.profiles.active=issue-key --resume=cli_…
+ * java -jar gateway.jar --spring.profiles.active=issue-key --resume=cli_… [--geo=ru|any] [--geo-reason="..."]
  * </pre>
  * Ключ {@code server} — только с сетями; ключ {@code person} без сетей — не дольше 30 дней (specs/mcp-key-and-agent-safety).
  */
@@ -31,15 +32,17 @@ import org.springframework.stereotype.Component;
 @Profile("issue-key")
 public class ApiKeyIssuer implements ApplicationRunner {
     private final ApiClientStore store;
+    private final ApiClientAdmin admin;
     private final KeyRules rules;
     private final Messages messages;
     private final KeyEvents events;
     private final DecoyGroups decoys;
     private final ConfigurableApplicationContext context;
 
-    public ApiKeyIssuer(ApiClientStore store, KeyRules rules, Messages messages, KeyEvents events,
+    public ApiKeyIssuer(ApiClientStore store, ApiClientAdmin admin, KeyRules rules, Messages messages, KeyEvents events,
                         DecoyGroups decoys, ConfigurableApplicationContext context) {
         this.store = store;
+        this.admin = admin;
         this.rules = rules;
         this.messages = messages;
         this.events = events;
@@ -51,12 +54,31 @@ public class ApiKeyIssuer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         String resume = single(args, "resume");
         if (resume != null) {
-            boolean resumed = store.resume(resume);
+            ApiClient.GeoPolicy geo = parseGeo(single(args, "geo"));
+            String geoReason = single(args, "geo-reason");
+            boolean resumed;
+            KeyRules.GeoDecision decision = null;
+            if (geo != null) {
+                ApiClient client = admin.find(resume).orElse(null);
+                if (client == null) {
+                    System.out.println("Ключ " + resume + " не найден.");
+                    exit();
+                    return;
+                }
+                decision = rules.checkGeo(client.decoy(), client.roles(), geo, geoReason);
+                resumed = admin.resume(client, decision.policy(), decision.reason());
+            } else {
+                resumed = store.resume(resume);
+            }
             if (resumed) {
-                events.recordNow(resume, KeyEvents.RESUMED, "issue-key --resume");
+                String detail = geo != null
+                        ? "geo=" + decision.policy().db() + (decision.reason() != null ? " reason=" + decision.reason() : "")
+                        : "issue-key --resume";
+                events.recordNow(resume, KeyEvents.RESUMED, detail);
             }
             System.out.println(resumed ? "Приостановка ключа " + resume + " снята." : "Ключ " + resume + " не найден или не приостановлен.");
             exit();
+            return;
         }
         boolean decoy = args.containsOption("decoy");
         boolean hasDecoyGroup = args.containsOption("decoy-group");
@@ -64,12 +86,14 @@ public class ApiKeyIssuer implements ApplicationRunner {
             fail("Опция --decoy-group задаётся только вместе с --decoy");
         }
         String days = single(args, "days");
+        ApiClient.GeoPolicy geo = parseGeo(single(args, "geo"));
+        String geoReason = single(args, "geo-reason");
         ApiClientStore.NewClient client;
         try {
             client = rules.newClient(new KeyRules.Request(single(args, "owner"), list(args, "scopes"), list(args, "roles"),
                     list(args, "deny"), rateLimits(list(args, "rate")), args.containsOption("write"),
                     days == null ? null : Long.parseLong(days), kind(single(args, "kind")),
-                    List.copyOf(list(args, "networks")), decoy));
+                    List.copyOf(list(args, "networks")), decoy, geo, geoReason));
         } catch (KeyRules.Violation v) {
             throw new IllegalArgumentException(messages.text("key.error." + v.code(), v.args()));
         }
@@ -95,7 +119,8 @@ public class ApiKeyIssuer implements ApplicationRunner {
         }
         System.out.println();
         System.out.println((decoy ? "Ключ-ловушка выдан: " : "Мастер-ключ выдан: ") + issued.clientId() + " (" + owner + "), "
-                + kind.db() + (networks.isEmpty() ? ", любые сети" : ", сети " + networks) + ", до " + expires);
+                + kind.db() + (networks.isEmpty() ? ", любые сети" : ", сети " + networks)
+                + ", geo: " + client.geo().db() + ", до " + expires);
         System.out.println("Ключ показывается один раз — сохраните его сейчас:");
         System.out.println(issued.key());
         System.out.println();
@@ -105,6 +130,20 @@ public class ApiKeyIssuer implements ApplicationRunner {
     /** Планировщик держит JVM живой — команда завершается явно. */
     private void exit() {
         System.exit(SpringApplication.exit(context, () -> 0));
+    }
+
+    private ApiClient.GeoPolicy parseGeo(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String v = value.trim().toLowerCase();
+        if ("ru".equals(v) || "ru_only".equals(v)) {
+            return ApiClient.GeoPolicy.RU_ONLY;
+        }
+        if ("any".equals(v)) {
+            return ApiClient.GeoPolicy.ANY;
+        }
+        throw new IllegalArgumentException(messages.text("key.error.geo_unknown"));
     }
 
     private static ApiClient.Kind kind(String value) {

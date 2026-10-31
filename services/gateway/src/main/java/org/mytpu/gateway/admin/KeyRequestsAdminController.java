@@ -52,7 +52,7 @@ public class KeyRequestsAdminController {
 
     public record ApproveBody(String owner, Set<String> scopes, Set<String> deniedTools,
                              Map<String, Integer> rateLimits, Boolean write, Long days,
-                             String kind, List<String> networks) {
+                             String kind, List<String> networks, String geo, String geoReason) {
     }
 
     public record RejectBody(String reason) {
@@ -126,9 +126,12 @@ public class KeyRequestsAdminController {
         ApiClient.Kind kind = body != null && body.kind() != null && !body.kind().isBlank()
                 ? kind(body.kind()) : req.kind();
         List<String> networks = body != null && body.networks() != null ? body.networks() : req.networks();
+        ApiClient.GeoPolicy geo = body != null ? parseGeo(body.geo()) : null;
+        String geoReason = body != null ? body.geoReason() : null;
 
         ApiClientStore.NewClient client = rules.newClient(new KeyRules.Request(
-                owner, scopes, Set.of(), deniedTools, rateLimits, write, days, kind, networks, false
+                owner, scopes, Set.of(), deniedTools, rateLimits, write, days, kind, networks, false,
+                geo, geoReason
         ));
 
         return tx.execute(status -> {
@@ -168,6 +171,20 @@ public class KeyRequestsAdminController {
             audit.record(actor, "key_request.reject", "key_request", id, KeyRequestView.of(req).forAudit(), KeyRequestView.of(after).forAudit());
             return KeyRequestView.of(after);
         });
+    }
+
+    private static ApiClient.GeoPolicy parseGeo(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String v = value.trim().toLowerCase();
+        if ("ru".equals(v) || "ru_only".equals(v)) {
+            return ApiClient.GeoPolicy.RU_ONLY;
+        }
+        if ("any".equals(v)) {
+            return ApiClient.GeoPolicy.ANY;
+        }
+        throw AdminException.badRequest("geo_unknown");
     }
 
     private static ApiClient.Kind kind(String value) {

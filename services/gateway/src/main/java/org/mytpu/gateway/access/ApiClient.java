@@ -17,6 +17,8 @@ import java.util.Set;
  * @param allowedNetworks сети CIDR, с которых ключ принимается; пусто — любые
  * @param suspendedAt     ключ приостановлен (подозрение на утечку) — вызовы отвергаются до снятия
  * @param decoy           ключ-ловушка: прав нет, любое использование — событие {@code key.decoy_used}
+ * @param geo             политика ограничения по странам (specs/key-geo-ru-only)
+ * @param geoReason       причина выбора политики {@code any}
  */
 public record ApiClient(
         String id,
@@ -32,7 +34,9 @@ public record ApiClient(
         Kind kind,
         List<String> allowedNetworks,
         Instant suspendedAt,
-        boolean decoy
+        boolean decoy,
+        GeoPolicy geo,
+        String geoReason
 ) {
     public static final String CONSOLE_ADMIN = "console.admin";
     public static final String CONSOLE_VIEWER = "console.viewer";
@@ -45,6 +49,18 @@ public record ApiClient(
         }
 
         public static Kind fromDb(String value) {
+            return valueOf(value.toUpperCase());
+        }
+    }
+
+    public enum GeoPolicy {
+        RU_ONLY, ANY;
+
+        public String db() {
+            return name().toLowerCase();
+        }
+
+        public static GeoPolicy fromDb(String value) {
             return valueOf(value.toUpperCase());
         }
     }

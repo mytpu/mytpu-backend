@@ -30,6 +30,8 @@ public class KeyEvents {
     public static final String UNUSED_REVOKED = "key.unused_revoked";
     public static final String EXPIRING = "key.expiring";
     public static final String GROUP_SUSPENDED = "key.group_suspended";
+    public static final String FOREIGN_COUNTRY = "key.foreign_country";
+    public static final String GEO_UNKNOWN = "key.geo_unknown";
 
     private static final Logger log = LoggerFactory.getLogger(KeyEvents.class);
 

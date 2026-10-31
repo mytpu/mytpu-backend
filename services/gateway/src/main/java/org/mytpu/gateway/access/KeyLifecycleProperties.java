@@ -21,6 +21,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param selfRotateEvery        минимальный интервал между самоперевыпусками
  * @param housekeepingCron       расписание регламентной уборки ключей
  * @param alerts                 настройки оповещений по вебхуку о событиях ключей
+ * @param geo                    настройки географических ограничений (specs/key-geo-ru-only)
  */
 @ConfigurationProperties("mytpu.gateway.keys")
 public record KeyLifecycleProperties(
@@ -33,7 +34,8 @@ public record KeyLifecycleProperties(
         Duration selfRotateGrace,
         Duration selfRotateEvery,
         String housekeepingCron,
-        Alerts alerts
+        Alerts alerts,
+        Geo geo
 ) {
     /**
      * Сроки действия ключа: по умолчанию и предел в днях.
@@ -42,6 +44,31 @@ public record KeyLifecycleProperties(
      * @param maxDays     максимальный срок в днях
      */
     public record Ttl(Integer defaultDays, Integer maxDays) {
+    }
+
+    /**
+     * Настройки географических ограничений мастер-ключей (specs/key-geo-ru-only).
+     *
+     * @param enabled           включена ли проверка страны по локальной базе MMDB
+     * @param dbPath            путь к файлу базы MMDB (DB-IP Country Lite)
+     * @param allowedCountries  список разрешённых ISO-кодов стран для политики ru_only
+     * @param unknownEventEvery минимальный интервал логирования события неизвестной страны на один ключ
+     * @param errorLogEvery     минимальный интервал логирования ошибки чтения базы гео-IP
+     */
+    public record Geo(
+            Boolean enabled,
+            String dbPath,
+            List<String> allowedCountries,
+            Duration unknownEventEvery,
+            Duration errorLogEvery
+    ) {
+        public Geo {
+            enabled = enabled != null && enabled;
+            allowedCountries = allowedCountries == null || allowedCountries.isEmpty()
+                    ? List.of("RU") : List.copyOf(allowedCountries);
+            unknownEventEvery = unknownEventEvery == null ? Duration.ofHours(1) : unknownEventEvery;
+            errorLogEvery = errorLogEvery == null ? Duration.ofMinutes(10) : errorLogEvery;
+        }
     }
 
     /**
@@ -59,7 +86,8 @@ public record KeyLifecycleProperties(
             Duration repeatAfter
     ) {
         private static final List<String> DEFAULT_EVENTS = List.of(
-                "key.decoy_used", "key.group_suspended", "key.network_burst", "key.expiring", "key.self_rotated");
+                "key.decoy_used", "key.group_suspended", "key.network_burst", "key.expiring", "key.self_rotated",
+                "key.foreign_country");
 
         public Alerts {
             events = events == null || events.isEmpty() ? DEFAULT_EVENTS : List.copyOf(events);
@@ -84,6 +112,7 @@ public record KeyLifecycleProperties(
         selfRotateEvery = selfRotateEvery == null ? Duration.ofDays(1) : selfRotateEvery;
         housekeepingCron = housekeepingCron == null || housekeepingCron.isBlank() ? "0 15 4 * * *" : housekeepingCron;
         alerts = alerts == null ? new Alerts(null, null, null, null) : alerts;
+        geo = geo == null ? new Geo(false, null, List.of("RU"), Duration.ofHours(1), Duration.ofMinutes(10)) : geo;
         Map<String, Ttl> merged = new LinkedHashMap<>(DEFAULT_TTL);
         if (ttl != null) {
             ttl.forEach((kind, value) -> {

@@ -109,9 +109,12 @@ services:
       ADMIN_ALLOWED_NETWORKS: ${ADMIN_ALLOWED_NETWORKS:-127.0.0.1/32,::1/128}
       CONNECTORS_DENIED_NETWORKS: ${CONNECTORS_DENIED_NETWORKS:-}
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://127.0.0.1:8081}
+      KEY_GEO_ENABLED: "true"
       # Живых данных в куче немного (кэш ограничен 32 МБ): потолок 40 % лимита, иначе Serial GC раздувает кучу до 55 %
       JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40"
     secrets: [gateway_db_password, rag_internal_key, gateway_audit_key, connector_vault_key, rag_admin_key, key_alert_webhook]
+    volumes:
+      - ${GEO_DB_HOST_DIR:-../geo}:/geo:ro
     tmpfs: ["/tmp:size=16m"]
     ports: ["127.0.0.1:8081:8080"]
     # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag; data — к своей БД

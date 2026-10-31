@@ -78,6 +78,12 @@
             <version>${jsoup.version}</version>
         </dependency>
         <dependency>
+            <!-- Определение страны по локальной базе MMDB (specs/key-geo-ru-only) -->
+            <groupId>com.maxmind.geoip2</groupId>
+            <artifactId>geoip2</artifactId>
+            <version>4.3.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>

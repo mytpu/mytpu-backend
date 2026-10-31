@@ -13,7 +13,6 @@ import org.mytpu.gateway.access.ApiClientStore;
 import org.mytpu.gateway.access.KeyRules;
 import org.mytpu.gateway.access.McpKeyFilter;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,17 +34,20 @@ public class KeysAdminController {
     public record KeyView(String id, String owner, String keyPrefix, String kind, Set<String> scopes, Set<String> roles,
                           Set<String> deniedTools, Map<String, Integer> rateLimits, boolean readOnly, boolean enabled,
                           Instant expiresAt, List<String> networks, boolean suspended, boolean decoy,
-                          Instant createdAt, Instant lastUsedAt, long calls30d, Instant previousKeyUntil) {
+                          Instant createdAt, Instant lastUsedAt, long calls30d, Instant previousKeyUntil,
+                          String geo, String geoReason) {
         static KeyView of(ApiClientAdmin.KeyRow row) {
             ApiClient c = row.client();
             return new KeyView(c.id(), c.owner(), c.keyPrefix(), c.kind().db(), c.scopes(), c.roles(), c.deniedTools(),
                     c.rateLimits(), c.readOnly(), c.enabled(), c.expiresAt(), c.allowedNetworks(), c.suspended(), c.decoy(),
-                    row.createdAt(), row.lastUsedAt(), row.calls30d(), row.previousKeyUntil());
+                    row.createdAt(), row.lastUsedAt(), row.calls30d(), row.previousKeyUntil(),
+                    c.geo() != null ? c.geo().db() : "ru_only", c.geoReason());
         }
     }
 
     public record NewKey(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
-                         Map<String, Integer> rateLimits, Boolean write, Long days, String kind, List<String> networks, Boolean decoy) {
+                         Map<String, Integer> rateLimits, Boolean write, Long days, String kind, List<String> networks,
+                         Boolean decoy, String geo, String geoReason) {
     }
 
     public record Issued(String clientId, String key, String command) {
@@ -53,7 +55,10 @@ public class KeysAdminController {
 
     /** Не указано {@code readOnly} — только чтение (безопасное значение). */
     public record PermissionsChange(Set<String> scopes, Set<String> deniedTools, Map<String, Integer> rateLimits,
-                                    Boolean readOnly, List<String> networks) {
+                                    Boolean readOnly, List<String> networks, String geo, String geoReason) {
+    }
+
+    public record ResumeKey(String geo, String geoReason) {
     }
 
     public record Reissue(Integer graceHours) {
@@ -87,7 +92,8 @@ public class KeysAdminController {
         ApiClient actor = McpKeyFilter.caller(request);
         ApiClientStore.NewClient client = rules.newClient(new KeyRules.Request(body.owner(), set(body.scopes()), set(body.roles()),
                 set(body.deniedTools()), map(body.rateLimits()), Boolean.TRUE.equals(body.write()), body.days(), kind(body.kind()),
-                body.networks() == null ? List.of() : body.networks(), Boolean.TRUE.equals(body.decoy())));
+                body.networks() == null ? List.of() : body.networks(), Boolean.TRUE.equals(body.decoy()),
+                parseGeo(body.geo()), body.geoReason()));
         return tx.execute(status -> {
             ApiClientStore.IssuedKey issued = store.issue(client);
             audit.record(actor, "key.create", "key", issued.clientId(), null, view(issued.clientId()));
@@ -99,7 +105,8 @@ public class KeysAdminController {
     public KeyView permissions(@PathVariable String id, @RequestBody PermissionsChange body, HttpServletRequest request) {
         ApiClient actor = McpKeyFilter.caller(request);
         ApiClientAdmin.Permissions p = new ApiClientAdmin.Permissions(set(body.scopes()), set(body.deniedTools()),
-                map(body.rateLimits()), !Boolean.FALSE.equals(body.readOnly()), body.networks() == null ? List.of() : body.networks());
+                map(body.rateLimits()), !Boolean.FALSE.equals(body.readOnly()), body.networks() == null ? List.of() : body.networks(),
+                parseGeo(body.geo()), body.geoReason());
         return tx.execute(status -> {
             KeyView before = view(id);
             keys.updatePermissions(existing(id), p);
@@ -130,8 +137,21 @@ public class KeysAdminController {
     }
 
     @PostMapping("/admin/api/keys/{id}/resume")
-    public KeyView resume(@PathVariable String id, HttpServletRequest request) {
-        return change(id, "key.resume", request, keys::resume);
+    public KeyView resume(@PathVariable String id, @RequestBody(required = false) ResumeKey body, HttpServletRequest request) {
+        ApiClient actor = McpKeyFilter.caller(request);
+        return tx.execute(status -> {
+            KeyView before = view(id);
+            ApiClient client = existing(id);
+            ApiClient.GeoPolicy requestedGeo = body == null ? null : parseGeo(body.geo());
+            String reason = body == null ? null : body.geoReason();
+            boolean changed = keys.resume(client, requestedGeo, reason);
+            if (!changed) {
+                throw AdminException.conflict("key_not_suspended", id);
+            }
+            KeyView after = view(id);
+            audit.record(actor, "key.resume", "key", id, before, after);
+            return after;
+        });
     }
 
     private KeyView change(String id, String action, HttpServletRequest request, java.util.function.Consumer<ApiClient> operation) {
@@ -152,6 +172,20 @@ public class KeysAdminController {
     private KeyView view(String id) {
         return keys.list().stream().filter(r -> r.client().id().equals(id)).findFirst().map(KeyView::of)
                 .orElseThrow(() -> AdminException.notFound("key_not_found", id));
+    }
+
+    private static ApiClient.GeoPolicy parseGeo(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String v = value.trim().toLowerCase();
+        if ("ru".equals(v) || "ru_only".equals(v)) {
+            return ApiClient.GeoPolicy.RU_ONLY;
+        }
+        if ("any".equals(v)) {
+            return ApiClient.GeoPolicy.ANY;
+        }
+        throw AdminException.badRequest("geo_unknown");
     }
 
     private static ApiClient.Kind kind(String value) {

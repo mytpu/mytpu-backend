@@ -26,7 +26,16 @@ public class KeyRules {
     /** Что хочет выдать администратор; {@code days == null} — срок по умолчанию. */
     public record Request(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
                           Map<String, Integer> rateLimits, boolean write, Long days, ApiClient.Kind kind,
-                          List<String> networks, boolean decoy) {
+                          List<String> networks, boolean decoy, ApiClient.GeoPolicy geo, String geoReason) {
+        public Request(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
+                       Map<String, Integer> rateLimits, boolean write, Long days, ApiClient.Kind kind,
+                       List<String> networks, boolean decoy) {
+            this(owner, scopes, roles, deniedTools, rateLimits, write, days, kind, networks, decoy, null, null);
+        }
+    }
+
+    /** Результат проверки географической политики. */
+    public record GeoDecision(ApiClient.GeoPolicy policy, String reason) {
     }
 
     /** Нарушение правила: код текста и подстановки. */
@@ -94,9 +103,41 @@ public class KeyRules {
         }
 
         checkTools(r.deniedTools(), r.rateLimits());
+        GeoDecision geo = checkGeo(r.decoy(), r.roles(), r.geo(), r.geoReason());
         return new ApiClientStore.NewClient(r.owner().strip(), Set.copyOf(r.scopes()), Set.copyOf(r.roles()),
                 Set.copyOf(r.deniedTools()), Map.copyOf(r.rateLimits()), r.decoy() || !r.write(),
-                expiresAt, kind, List.copyOf(networks), r.decoy());
+                expiresAt, kind, List.copyOf(networks), r.decoy(), geo.policy(), geo.reason());
+    }
+
+    /**
+     * Проверка географической политики: консольные ключи и ловушки — всегда ANY без причины;
+     * обычные ключи — по умолчанию RU_ONLY; ANY требует непустой причины;
+     * причина в любой ветке — не длиннее 200 символов.
+     */
+    public GeoDecision checkGeo(boolean decoy, Set<String> roles, ApiClient.GeoPolicy geo, String geoReason) {
+        if (decoy || (roles != null && !roles.isEmpty())) {
+            return new GeoDecision(ApiClient.GeoPolicy.ANY, null);
+        }
+        String reason = geoReason == null || geoReason.isBlank() ? null : geoReason.strip();
+        if (reason != null && reason.length() > 200) {
+            throw new Violation("geo_reason_length", 200);
+        }
+        ApiClient.GeoPolicy policy = geo == null ? ApiClient.GeoPolicy.RU_ONLY : geo;
+        if (policy == ApiClient.GeoPolicy.ANY) {
+            if (reason == null) {
+                throw new Violation("geo_reason_required");
+            }
+            return new GeoDecision(policy, reason);
+        }
+        return new GeoDecision(policy, reason);
+    }
+
+    /** При смене прав без geo оставляем текущие geo и причину ключа; меняем — только если передан. */
+    public GeoDecision checkGeoUpdate(ApiClient current, ApiClient.GeoPolicy geo, String geoReason) {
+        if (geo == null) {
+            return new GeoDecision(current.geo(), current.geoReason());
+        }
+        return checkGeo(current.decoy(), current.roles(), geo, geoReason);
     }
 
     /** Предельный срок ключа в днях: по типу, без сетей — не дольше {@code maxDaysWithoutNetworks}, ловушка — {@code decoyDays}. */
