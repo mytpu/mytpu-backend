@@ -2,3 +2,6 @@
 # 2026-10-23: ключ в старом application.properties (коммит 2026-09-27, файл удалён на этапе 0). История в main и на GitHub,
 # переписывать её нельзя — ключ нужно отозвать у провайдера (если он был настоящим). Новые утечки CI ловит как обычно.
 b45e075247cc820cdd0336e5ff571530eb05854e:backend-java/ai-backend/src/main/resources/application.properties:generic-api-key:3
+# 2026-11-01: ложная находка — пример «неверный ключ → 401» в памятке стенда (строка `Authorization: Bearer mtpu_invalid_key`,
+# не ключ). Пример переписан через переменную; находку в истории (коммит 5823d27) принимаем.
+5823d278589e94ee70afd0e813ca425ebe29ac45:deploy/test-server/README.md:curl-auth-header:180

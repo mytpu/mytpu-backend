@@ -193,9 +193,10 @@ http://localhost:4200/console → вставить ключ (Ctrl+V). Ctrl+C —
 
 - [ ] **Отказ при неверном ключе**:
   ```bash
+  WRONG_KEY=неверный-ключ   # нарочно неверный: шлюз должен ответить 401
   curl -i -X POST https://<MYTPU_HOST>/mcp \
     -H "Content-Type: application/json" \
-    -H "Authorization: Bearer mtpu_invalid_key" \
+    -H "Authorization: Bearer $WRONG_KEY" \
     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
   # Ожидаемый ответ: HTTP/2 401 Unauthorized
   ```
