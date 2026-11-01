@@ -3,6 +3,9 @@ package org.mytpu.gateway.stats;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.mytpu.gateway.runtime.AuditLog;
@@ -15,6 +18,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class StatsQueries {
+    public record SeriesPoint(Instant at, long calls, long errors) {
+    }
+
     public record Totals(long calls, long errors, long cacheHits) {
     }
 
@@ -24,7 +30,7 @@ public class StatsQueries {
     public record ClientStats(String clientId, String owner, long calls, long errors) {
     }
 
-    public record Overview(Instant from, Instant to, Totals totals, List<ToolStats> tools, List<ClientStats> topClients) {
+    public record Overview(Instant from, Instant to, Totals totals, List<ToolStats> tools, List<ClientStats> topClients, List<SeriesPoint> series) {
     }
 
     private static final int BUCKETS = AuditLog.LATENCY_BUCKETS_MS.length + 1;
@@ -70,7 +76,57 @@ public class StatsQueries {
                 .param("since", since).param("top", topClients)
                 .query((rs, n) -> new ClientStats(rs.getString("client_id"), rs.getString("owner"), rs.getLong("calls"), rs.getLong("errors")))
                 .list();
-        return new Overview(from, to, totals, tools, clients);
+
+        ZoneId zone = ZoneId.of("Asia/Tomsk");
+        ZonedDateTime nowZoned = to.atZone(zone);
+        int hours = (int) Math.max(1, window.toHours());
+        boolean hourly = hours <= 24;
+        int points = hourly ? 24 : (int) Math.ceil(hours / 24.0);
+        String step = hourly ? "1 hour" : "1 day";
+        String truncUnit = hourly ? "hour" : "day";
+        ZonedDateTime endZoned = hourly
+                ? nowZoned.truncatedTo(ChronoUnit.HOURS)
+                : nowZoned.truncatedTo(ChronoUnit.DAYS);
+        ZonedDateTime startZoned = hourly
+                ? endZoned.minusHours(points - 1)
+                : endZoned.minusDays(points - 1);
+        Timestamp startTs = Timestamp.from(startZoned.toInstant());
+        Timestamp endTs = Timestamp.from(endZoned.toInstant());
+
+        List<SeriesPoint> series = jdbc.sql("""
+                        WITH buckets AS (
+                            SELECT generate_series(
+                                CAST(:startTs AS timestamptz),
+                                CAST(:endTs AS timestamptz),
+                                CAST(:step AS interval)
+                            ) AS at
+                        ),
+                        agg AS (
+                            SELECT date_trunc(CAST(:truncUnit AS text), minute, 'Asia/Tomsk') AS at,
+                                   sum(calls) AS calls,
+                                   sum(errors) AS errors
+                            FROM audit_minute
+                            WHERE minute >= CAST(:startTs AS timestamptz)
+                            GROUP BY 1
+                        )
+                        SELECT b.at,
+                               coalesce(a.calls, 0) AS calls,
+                               coalesce(a.errors, 0) AS errors
+                        FROM buckets b
+                        LEFT JOIN agg a ON b.at = a.at
+                        ORDER BY b.at ASC
+                        """)
+                .param("startTs", startTs)
+                .param("endTs", endTs)
+                .param("step", step)
+                .param("truncUnit", truncUnit)
+                .query((rs, n) -> new SeriesPoint(
+                        rs.getTimestamp("at").toInstant(),
+                        rs.getLong("calls"),
+                        rs.getLong("errors")))
+                .list();
+
+        return new Overview(from, to, totals, tools, clients, series);
     }
 
     /** Верхняя граница корзины, в которую попадает 95-й процентиль; {@code null} — вызовов нет или дольше 30 с. */

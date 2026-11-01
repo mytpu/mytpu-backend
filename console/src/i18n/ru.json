@@ -98,6 +98,8 @@
       "nowWorking": "Сейчас · шлюз работает · {{mode}}",
       "nowCalls": "{{calls}} вызовов · {{period}}",
       "nowStats": "Ошибок {{errors}} ({{percent}}%) · p95 ответа {{p95}} · {{keys}} активных ключей",
+      "nowStatsErrors": "Ошибок",
+      "nowStatsRest": "({{percent}}%) · p95 ответа {{p95}} · {{keys}} активных ключей",
       "integrations": "Интеграции",
       "allIntegrations": "Все интеграции",
       "toolsCount": "{{count}} инстр.",
@@ -120,7 +122,14 @@
       "axis06": "06:00",
       "axis12": "12:00",
       "axis18": "18:00",
-      "axisNow": "сейчас"
+      "axisNow": "сейчас",
+      "weekdayMon": "пн",
+      "weekdayTue": "вт",
+      "weekdayWed": "ср",
+      "weekdayThu": "чт",
+      "weekdayFri": "пт",
+      "weekdaySat": "сб",
+      "weekdaySun": "вс"
     },
     "keys": {
       "title": "Мастер-ключи",

@@ -41,12 +41,19 @@ export interface ClientStats {
   errors: number;
 }
 
+export interface SeriesPoint {
+  at: string;
+  calls: number;
+  errors: number;
+}
+
 export interface StatsOverview {
   from: string;
   to: string;
   totals: Totals;
   tools: ToolStats[];
   topClients: ClientStats[];
+  series: SeriesPoint[];
 }
 
 export interface OverviewView {

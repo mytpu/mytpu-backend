@@ -38,27 +38,29 @@
     </div>
   </div>
 
-  @if (resource.isLoading() && !resource.value()) {
-    <div class="overview-grid">
-      <div class="col-left">
-        <app-skeleton height="190px" radius="var(--radius-now)" />
-        <app-skeleton height="320px" radius="var(--radius-card)" />
+  @if (!view()) {
+    @if (resource.error()) {
+      <app-empty-state
+        icon="alert"
+        [title]="'mcp.overview.error' | t"
+        [actionText]="'mcp.overview.retry' | t"
+        (action)="reload()"
+      />
+    } @else {
+      <div class="overview-grid">
+        <div class="col-left">
+          <app-skeleton height="190px" radius="var(--radius-now)" />
+          <app-skeleton height="320px" radius="var(--radius-card)" />
+        </div>
+        <div class="col-right">
+          <app-skeleton height="130px" radius="var(--radius-card)" />
+          <app-skeleton height="200px" radius="var(--radius-card)" />
+          <app-skeleton height="160px" radius="var(--radius-card)" />
+        </div>
       </div>
-      <div class="col-right">
-        <app-skeleton height="130px" radius="var(--radius-card)" />
-        <app-skeleton height="200px" radius="var(--radius-card)" />
-        <app-skeleton height="160px" radius="var(--radius-card)" />
-      </div>
-    </div>
-  } @else if (resource.error() && !resource.value()) {
-    <app-empty-state
-      icon="alert"
-      [title]="'mcp.overview.error' | t"
-      [actionText]="'mcp.overview.retry' | t"
-      (action)="reload()"
-    />
-  } @else if (resource.value(); as data) {
-    <div class="overview-grid">
+    }
+  } @else if (view(); as data) {
+    <div class="overview-grid" [class.is-updating]="resource.isLoading()">
       <div class="col-left">
         <app-now-tile
           [mode]="data.mode"
@@ -68,6 +70,8 @@
           [errorPercent]="errorPercent()"
           [p95Overall]="p95Overall()"
           [activeClientsCount]="activeClientsCount()"
+          [series]="data.stats.series"
+          [hours]="hours()"
         />
 
         <app-card

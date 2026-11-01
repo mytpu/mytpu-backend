@@ -45,6 +45,10 @@
   grid-template-columns: 1fr 380px;
   gap: var(--space-4);
   align-items: start;
+  transition: opacity var(--dur-base) var(--ease);
+}
+.overview-grid.is-updating {
+  opacity: 0.55;
 }
 .col-left, .col-right {
   display: flex;

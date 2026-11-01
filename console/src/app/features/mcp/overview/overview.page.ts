@@ -3,6 +3,7 @@ import {
   computed,
   DestroyRef,
   inject,
+  linkedSignal,
   OnInit,
   signal,
 } from '@angular/core';
@@ -17,7 +18,7 @@ import { EmptyStateComponent } from '../../../ui/empty-state/empty-state.compone
 import { getOverviewResource } from './overview.api';
 import { LiveNumComponent } from './live-num.component';
 import { NowTileComponent } from './now-tile.component';
-import { ToolStats } from './overview.model';
+import { OverviewView, ToolStats } from './overview.model';
 
 @Component({
   selector: 'app-overview-page',
@@ -43,6 +44,11 @@ export class OverviewPage implements OnInit {
   readonly hours = signal<number>(24);
   readonly resource = getOverviewResource(this.hours);
 
+  readonly view = linkedSignal<OverviewView | undefined, OverviewView | undefined>({
+    source: () => this.resource.value(),
+    computation: (v, prev) => v ?? prev?.value,
+  });
+
   readonly periodKey = computed(() => {
     switch (this.hours()) {
       case 168:
@@ -55,11 +61,11 @@ export class OverviewPage implements OnInit {
   });
 
   readonly totalCalls = computed(() => {
-    return this.resource.value()?.stats.totals.calls ?? 0;
+    return this.view()?.stats.totals.calls ?? 0;
   });
 
   readonly totalErrors = computed(() => {
-    return this.resource.value()?.stats.totals.errors ?? 0;
+    return this.view()?.stats.totals.errors ?? 0;
   });
 
   readonly errorPercent = computed(() => {
@@ -70,23 +76,23 @@ export class OverviewPage implements OnInit {
   });
 
   readonly p95Overall = computed(() => {
-    const tools = this.resource.value()?.stats.tools ?? [];
+    const tools = this.view()?.stats.tools ?? [];
     if (!tools.length) return '—';
     const maxP95 = Math.max(...tools.map((t) => t.p95Ms ?? 0));
     return maxP95 > 0 ? `${maxP95} мс` : '—';
   });
 
   readonly activeClientsCount = computed(() => {
-    return this.resource.value()?.stats.topClients.length ?? 0;
+    return this.view()?.stats.topClients.length ?? 0;
   });
 
   readonly maxClientCalls = computed(() => {
-    const clients = this.resource.value()?.stats.topClients ?? [];
+    const clients = this.view()?.stats.topClients ?? [];
     return clients.length ? Math.max(...clients.map((c) => c.calls), 1) : 1;
   });
 
   readonly slowestTools = computed<ToolStats[]>(() => {
-    const tools = this.resource.value()?.stats.tools ?? [];
+    const tools = this.view()?.stats.tools ?? [];
     return [...tools]
       .filter((t) => (t.p95Ms ?? 0) > 0)
       .sort((a, b) => (b.p95Ms ?? 0) - (a.p95Ms ?? 0))
@@ -117,12 +123,12 @@ export class OverviewPage implements OnInit {
   }
 
   toolP95(toolName: string): string {
-    const t = this.resource.value()?.stats.tools.find((item) => item.tool === toolName);
+    const t = this.view()?.stats.tools.find((item) => item.tool === toolName);
     return t?.p95Ms ? `${t.p95Ms} мс` : '—';
   }
 
   toolCalls(toolName: string): string {
-    const t = this.resource.value()?.stats.tools.find((item) => item.tool === toolName);
+    const t = this.view()?.stats.tools.find((item) => item.tool === toolName);
     return t ? String(t.calls) : '—';
   }
 }
