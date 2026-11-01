@@ -50,10 +50,13 @@ export class ApiClient {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = '/admin/api';
 
-  get<T>(path: string, options?: { headers?: HttpHeaders; params?: HttpParams }): Observable<T> {
-    return this.http
-      .get<T>(`${this.baseUrl}${path.startsWith('/') ? path : '/' + path}`, options)
-      .pipe(catchError((err) => throwError(() => parseAdminError(err))));
+  get<T>(path: string, options?: { headers?: HttpHeaders; params?: HttpParams; responseType?: 'json' | 'text' }): Observable<T> {
+    return (
+      this.http.get(
+        `${this.baseUrl}${path.startsWith('/') ? path : '/' + path}`,
+        options as object,
+      ) as Observable<T>
+    ).pipe(catchError((err) => throwError(() => parseAdminError(err))));
   }
 
   post<T>(path: string, body: unknown, options?: { headers?: HttpHeaders; params?: HttpParams }): Observable<T> {

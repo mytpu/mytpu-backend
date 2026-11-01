@@ -12,6 +12,7 @@ export type IconName =
   | 'userCheck'
   | 'db'
   | 'upload'
+  | 'download'
   | 'file'
   | 'search'
   | 'target'
@@ -32,6 +33,12 @@ export type IconName =
   | 'copy'
   | 'chevDown'
   | 'chevRight'
+  | 'chevLeft'
+  | 'calendar'
+  | 'cap'
+  | 'wrench'
+  | 'book'
+  | 'toggleOff'
   | 'more';
 
 const ICONS: Record<IconName, string> = {
@@ -46,6 +53,7 @@ const ICONS: Record<IconName, string> = {
   userCheck: 'M6 8a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M3 21c0-4 3-6 7-6s7 2 7 6M16 11l2 2 4-4',
   db: 'M4 5c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
   upload: 'M12 16V4M6 10l6-6 6 6M4 20h16',
+  download: 'M12 4v12M6 10l6 6 6-6M4 20h16',
   file: 'M6 2h8l5 5v15H6zM14 2v5h5M9 13h7M9 17h4',
   search: 'M4 11a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M20 20l-4-4',
   target: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0 M12 12h.01',
@@ -66,6 +74,12 @@ const ICONS: Record<IconName, string> = {
   copy: 'M10 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-9a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2z M4 16V6a2 2 0 0 1 2-2h10',
   chevDown: 'M6 9l6 6 6-6',
   chevRight: 'M9 6l6 6-6 6',
+  chevLeft: 'M15 6l-6 6 6 6',
+  calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z M3 10h18M8 3v4M16 3v4',
+  cap: 'M2 9l10-5 10 5-10 5zM6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5',
+  wrench: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z',
+  book: 'M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z',
+  toggleOff: 'M7 7h10a5 5 0 0 1 5 5v0a5 5 0 0 1 -5 5h-10a5 5 0 0 1 -5 -5v0a5 5 0 0 1 5 -5z M4.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0',
   more: 'M12 5h.01M12 12h.01M12 19h.01',
 };
 

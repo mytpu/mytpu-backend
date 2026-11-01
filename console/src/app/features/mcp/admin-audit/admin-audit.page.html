@@ -1,0 +1,86 @@
+<div class="admin-audit-page animate-enter">
+  <div class="filters-bar">
+    <div class="filter-item">
+      <app-icon name="calendar" [size]="16" class="select-icon" />
+      <select
+        class="custom-select"
+        [ngModel]="periodFilter()"
+        (ngModelChange)="onPeriodChange($event)"
+      >
+        <option value="today">{{ 'mcp.adminAudit.filterPeriodToday' | t }}</option>
+        <option value="24h">{{ 'mcp.adminAudit.filterPeriod24h' | t }}</option>
+        <option value="7d">{{ 'mcp.adminAudit.filterPeriod7d' | t }}</option>
+        <option value="30d">{{ 'mcp.adminAudit.filterPeriod30d' | t }}</option>
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <select
+        class="custom-select"
+        [ngModel]="actorFilter()"
+        (ngModelChange)="onActorChange($event)"
+      >
+        <option value="">{{ 'mcp.adminAudit.filterActorAll' | t }}</option>
+        @for (act of actors(); track act.id) {
+          <option [value]="act.id">{{ act.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <select
+        class="custom-select"
+        [ngModel]="typeFilter()"
+        (ngModelChange)="onTypeChange($event)"
+      >
+        <option value="">{{ 'mcp.adminAudit.filterActionAll' | t }}</option>
+        <option value="mode">{{ 'mcp.adminAudit.filterTypeMode' | t }}</option>
+        <option value="tool">{{ 'mcp.adminAudit.filterTypeTool' | t }}</option>
+        <option value="integration">{{ 'mcp.adminAudit.filterTypeIntegration' | t }}</option>
+        <option value="key">{{ 'mcp.adminAudit.filterTypeKey' | t }}</option>
+      </select>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <app-skeleton height="480px" radius="16px" />
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.adminAudit.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadData()"
+    />
+  } @else if (rows().length === 0) {
+    <app-empty-state
+      icon="search"
+      [title]="'mcp.adminAudit.emptyTitle' | t"
+      [description]="'mcp.adminAudit.emptyDesc' | t"
+      [actionText]="'mcp.adminAudit.emptyReset' | t"
+      (action)="resetFilters()"
+    />
+  } @else {
+    <app-table [columns]="columns">
+      @for (row of rows(); track row.id) {
+        <tr>
+          <td class="date-cell">{{ formatDate(row.at) }}</td>
+          <td>
+            <div class="actor-col">
+              <span class="actor-name">{{ row.actorOwner }}</span>
+              <span class="actor-tag">{{ row.actorId }}</span>
+            </div>
+          </td>
+          <td>
+            <app-badge [kind]="getActionBadgeKind(row.action)">
+              {{ getActionKey(row.action) | t }}
+            </app-badge>
+          </td>
+          <td>
+            <span class="object-tag">{{ row.objectType }}: {{ row.objectId }}</span>
+          </td>
+          <td class="diff-cell">{{ parseDiff(row) }}</td>
+        </tr>
+      }
+    </app-table>
+  }
+</div>

@@ -1,0 +1,90 @@
+<div class="integrations-page animate-enter">
+  <div class="search-bar">
+    <div class="search-box">
+      <app-icon name="search" [size]="18" class="search-icon" />
+      <input
+        type="text"
+        class="search-input"
+        [placeholder]="'mcp.integrations.searchPlaceholder' | t"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="layout-grid">
+      <div class="main-column">
+        <app-skeleton height="480px" radius="16px" />
+      </div>
+      <div class="side-column">
+        <app-skeleton height="380px" radius="16px" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.integrations.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadCatalog()"
+    />
+  } @else if (filteredItems().length === 0) {
+    <app-empty-state
+      icon="search"
+      [title]="'mcp.integrations.emptyTitle' | t"
+      [description]="'mcp.integrations.emptyDesc' | t: { query: searchQuery() }"
+      [actionText]="'empty.action' | t"
+      (action)="searchQuery.set('')"
+    />
+  } @else {
+    <div class="layout-grid">
+      <div class="main-column">
+        <app-card [label]="'mcp.integrations.catalogLabel' | t" icon="plug">
+          <app-integrations-tree
+            [items]="filteredItems()"
+            [selectedTool]="selectedTool()"
+            [canChange]="canChange()"
+            (toolSelect)="onToolSelect($event)"
+            (integToggle)="onIntegToggle($event)"
+            (toolToggle)="onToolToggle($event)"
+          />
+        </app-card>
+      </div>
+
+      <div class="side-column">
+        @if (selectedTool()) {
+          <app-tool-limits-card
+            [tool]="selectedTool()!"
+            [integration]="selectedIntegration()"
+            [canChange]="canChange()"
+            [saving]="savingLimits()"
+            (save)="onSaveLimits($event)"
+            (reset)="onResetLimits()"
+          />
+        } @else {
+          <app-card [label]="'mcp.integrations.customLimits' | t" icon="shield">
+            <p class="select-hint">{{ 'mcp.integrations.selectToolPrompt' | t }}</p>
+          </app-card>
+        }
+      </div>
+    </div>
+  }
+
+  @if (pendingDisable()) {
+    <app-disable-confirm-dialog
+      [targetName]="pendingDisable()!.name"
+      [submitting]="submittingDisable()"
+      (confirm)="confirmDisable($event)"
+      (cancel)="pendingDisable.set(null)"
+    />
+  }
+
+  @if (disabledToastItem()) {
+    <app-countdown-toast
+      [itemName]="disabledToastItem()!.name"
+      [canUndo]="canChange()"
+      (undo)="undoDisable()"
+      (dismiss)="disabledToastItem.set(null)"
+    />
+  }
+</div>

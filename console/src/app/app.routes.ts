@@ -59,10 +59,10 @@ export const routes: Routes = [
       {
         path: 'mcp/integrations',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/integrations/integrations.page').then(
+            (m) => m.IntegrationsPage,
           ),
-        data: { step: 9, title: 'nav.integrations', meta: 'nav.groupMcp' },
+        data: { title: 'nav.integrations', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/connectors',
@@ -75,26 +75,26 @@ export const routes: Routes = [
       {
         path: 'mcp/mode',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/mode/mode.page').then(
+            (m) => m.ModePage,
           ),
-        data: { step: 9, title: 'nav.mode', meta: 'nav.groupMcp' },
+        data: { title: 'nav.mode', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/audit',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/audit/audit.page').then(
+            (m) => m.AuditPage,
           ),
-        data: { step: 9, title: 'nav.audit', meta: 'nav.groupMcp' },
+        data: { title: 'nav.audit', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/admin-audit',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/admin-audit/admin-audit.page').then(
+            (m) => m.AdminAuditPage,
           ),
-        data: { step: 9, title: 'nav.adminAudit', meta: 'nav.groupMcp' },
+        data: { title: 'nav.adminAudit', meta: 'nav.groupMcp' },
       },
       {
         path: 'rag/overview',

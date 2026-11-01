@@ -1,0 +1,56 @@
+<div class="audit-page animate-enter">
+  <div class="top-actions">
+    <div class="spacer"></div>
+    <app-button kind="outline" (btnClick)="exportCsv()">
+      {{ 'mcp.audit.btnExportCsv' | t }}
+    </app-button>
+  </div>
+
+  <app-audit-filters
+    [period]="period()"
+    [clientFilter]="clientFilter()"
+    [toolFilter]="toolFilter()"
+    [segment]="segment()"
+    [liveWatch]="liveWatch()"
+    [clients]="availableClients()"
+    [tools]="availableTools()"
+    (periodChange)="onPeriodChange($event)"
+    (clientChange)="onClientChange($event)"
+    (toolChange)="onToolChange($event)"
+    (segmentChange)="onSegmentChange($event)"
+    (liveWatchChange)="onLiveWatchChange($event)"
+  />
+
+  @if (loading()) {
+    <app-skeleton height="480px" radius="16px" />
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.audit.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadCalls()"
+    />
+  } @else if (isErrorsEmpty()) {
+    <app-empty-state
+      icon="check"
+      [title]="'mcp.audit.emptyErrorsTitle' | t"
+      [description]="'mcp.audit.emptyErrorsDesc' | t"
+      [actionText]="'mcp.audit.emptyErrorsAction' | t"
+      (action)="segment.set('all')"
+    />
+  } @else if (filteredCalls().length === 0) {
+    <app-empty-state
+      icon="search"
+      [title]="'mcp.audit.emptyCallsTitle' | t"
+      [description]="'mcp.audit.emptyCallsDesc' | t"
+      [actionText]="'mcp.audit.emptyCallsAction' | t"
+      (action)="resetAllFilters()"
+    />
+  } @else {
+    <app-audit-table
+      [rows]="filteredCalls()"
+      [highlightedIds]="highlightedIds()"
+      (scrollPaused)="onScrollPaused($event)"
+    />
+  }
+</div>

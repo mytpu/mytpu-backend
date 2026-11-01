@@ -1,5 +1,7 @@
 import { HttpRequest } from '@angular/common/http';
 import { DemoDb } from './demo-db';
+import { DemoMcpStore } from './demo-mcp-store';
+import { DemoMcpRoutes } from './demo-mcp-routes';
 
 export interface RouteResult {
   status: number;
@@ -7,6 +9,9 @@ export interface RouteResult {
 }
 
 export class DemoRoutes {
+  private readonly mcpStore = new DemoMcpStore();
+  private readonly mcpRoutes = new DemoMcpRoutes(this.mcpStore);
+
   constructor(private readonly db: DemoDb) {}
 
   handle(req: HttpRequest<unknown>): RouteResult {
@@ -14,6 +19,11 @@ export class DemoRoutes {
     const path = url.pathname;
     const method = req.method.toUpperCase();
     const getParam = (name: string): string | null => url.searchParams.get(name) ?? req.params?.get(name) ?? null;
+
+    const mcpRes = this.mcpRoutes.handle(req, path, method, getParam);
+    if (mcpRes) {
+      return mcpRes;
+    }
 
     if (path === '/admin/api/me' && method === 'GET') {
       return this.handleMe(req);
@@ -23,7 +33,7 @@ export class DemoRoutes {
       return { status: 200, body: this.db.getOverview(hours) };
     }
     if (path === '/admin/api/catalog' && method === 'GET') {
-      return { status: 200, body: this.db.getCatalog() };
+      return { status: 200, body: this.mcpStore.getCatalog() };
     }
     if (path === '/admin/api/keys/expiring' && method === 'GET') {
       const days = Number(getParam('days')) || 14;

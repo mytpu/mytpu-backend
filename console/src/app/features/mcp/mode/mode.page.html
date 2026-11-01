@@ -1,0 +1,88 @@
+<div class="mode-page animate-enter">
+  @if (loading()) {
+    <div class="skeleton-grid">
+      <app-skeleton height="176px" radius="16px" />
+      <app-skeleton height="176px" radius="16px" />
+      <app-skeleton height="176px" radius="16px" />
+    </div>
+    <app-skeleton height="140px" radius="16px" />
+    <app-skeleton height="240px" radius="16px" />
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'mcp.mode.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadData()"
+    />
+  } @else {
+    @if (modeData(); as cur) {
+      <app-mode-cards
+        [currentMode]="cur.mode"
+        [selectedMode]="selectedTargetMode()"
+        [canSelect]="canChange()"
+        (modeSelect)="onModeSelect($event)"
+      />
+
+      <app-card [label]="'mcp.mode.cardTitle' | t" icon="shield">
+        <div class="change-card-body">
+          <div class="field-item">
+            <label class="field-label">{{ 'mcp.mode.reasonLabel' | t }}</label>
+            <input
+              type="text"
+              class="field-input"
+              [disabled]="!canChange() || submitting()"
+              [placeholder]="'mcp.mode.reasonPlaceholder' | t"
+              [ngModel]="draftReason()"
+              (ngModelChange)="draftReason.set($event)"
+            />
+          </div>
+
+          @if (!canChange()) {
+            <span class="readonly-note">{{ 'actions.readonly' | t }}</span>
+          }
+
+          <div class="actions-row">
+            <app-button
+              kind="primary"
+              [disabled]="!canChange() || submitting() || selectedTargetMode() === cur.mode || !draftReason().trim()"
+              (btnClick)="openChangeDialog()"
+            >
+              {{ 'mcp.mode.btnApply' | t }}
+            </app-button>
+          </div>
+        </div>
+      </app-card>
+
+      <app-card [label]="'mcp.mode.historyLabel' | t" icon="clock">
+        @if (history().length === 0) {
+          <p class="history-empty">{{ 'mcp.mode.historyEmpty' | t }}</p>
+        } @else {
+          <app-table [columns]="columns">
+            @for (row of history(); track row.id) {
+              <tr>
+                <td class="date-cell">{{ formatDate(row.at) }}</td>
+                <td>
+                  <app-badge kind="graphite">{{ row.mode }}</app-badge>
+                </td>
+                <td class="reason-cell">{{ row.reason }}</td>
+                <td>
+                  <span class="actor-tag">{{ row.actorId }}</span>
+                </td>
+              </tr>
+            }
+          </app-table>
+        }
+      </app-card>
+    }
+  }
+
+  @if (showConfirmDialog()) {
+    <app-mode-dialog
+      [targetMode]="selectedTargetMode()"
+      [initialReason]="draftReason()"
+      [submitting]="submitting()"
+      (confirm)="confirmModeChange($event)"
+      (cancel)="showConfirmDialog.set(false)"
+    />
+  }
+</div>
