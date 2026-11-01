@@ -88,6 +88,12 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <!-- Юнит-тесты защиты (specs/gateway-abuse-limits): JUnit 5, AssertJ, MockHttpServletRequest -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

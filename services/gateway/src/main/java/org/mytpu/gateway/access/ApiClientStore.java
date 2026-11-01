@@ -62,15 +62,23 @@ public class ApiClientStore {
         return ++lookups <= maxLookupsPerSecond;
     }
 
-    public Optional<ApiClient> findByKey(String key) {
+    /** Ключ уже найден и лежит в кэше — без обращения к БД. */
+    public boolean cached(String key) {
+        return byHash.getIfPresent(HexFormat.of().formatHex(ApiKeys.hash(key))) != null;
+    }
+
+    public KeyLookup lookup(String key) {
         byte[] hash = ApiKeys.hash(key);
         String hex = HexFormat.of().formatHex(hash);
         ApiClient cached = byHash.getIfPresent(hex);
         if (cached != null) {
-            return Optional.of(cached);
+            return KeyLookup.found(cached);
         }
-        if (misses.getIfPresent(hex) != null || !lookupAllowed()) {
-            return Optional.empty();
+        if (misses.getIfPresent(hex) != null) {
+            return KeyLookup.NOT_FOUND;
+        }
+        if (!lookupAllowed()) {
+            return KeyLookup.BUSY;
         }
         Optional<ApiClient> found = jdbc.sql("SELECT *, allowed_networks::text[] AS networks_text FROM api_clients "
                         + "WHERE key_hash = :hash OR (previous_key_hash = :hash AND previous_key_until > now())")
@@ -78,7 +86,7 @@ public class ApiClientStore {
                 .query(this::map)
                 .optional();
         found.ifPresentOrElse(c -> byHash.put(hex, c), () -> misses.put(hex, Boolean.TRUE));
-        return found;
+        return found.map(KeyLookup::found).orElse(KeyLookup.NOT_FOUND);
     }
 
     /** Время последнего вызова — не чаще раза в минуту на ключ, чтобы не писать в БД на каждый вызов. */

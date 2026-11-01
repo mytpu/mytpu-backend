@@ -57,6 +57,18 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
+### Закрыть ml-server от интернета (основной Caddyfile)
+
+`upload.sh` кладёт на сервер `Caddyfile.main` — основной `/etc/caddy/Caddyfile`, где сайт ml-server отвечает только
+помощнику стенда (сеть edge) и самому серверу, остальным — 403. Применить (старый файл сохраняется рядом):
+```bash
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-20261101
+sudo cp /home/$USER/mytpu/deploy/test-server/Caddyfile.main /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+Вернуть как было: `sudo cp /etc/caddy/Caddyfile.bak-20261101 /etc/caddy/Caddyfile` и `sudo systemctl reload caddy`.
+
 ### Обновление сайта Caddy (после изменения `Caddyfile.mytpu`)
 
 `upload.sh --files-only` кладёт новый `mytpu.caddy` на сервер; применить:

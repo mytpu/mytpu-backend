@@ -89,6 +89,22 @@ if [ "$IMAGES_ONLY" = false ]; then
     TMP_CADDY="$(mktemp)"
     sed "s/{{MYTPU_HOST}}/${MYTPU_HOST}/g" "$ROOT_DIR/deploy/test-server/Caddyfile.mytpu" > "$TMP_CADDY"
     scp "$TMP_CADDY" "$SERVER:$REMOTE_DIR/deploy/test-server/mytpu.caddy"
+
+    # Основной Caddyfile (сайт ml-server только для помощника стенда); применяет владелец — README, раздел 1
+    ML_SITE="$(printf '%s' "$ML_BASE_URL" | sed -E 's#^https?://([^/]+).*#\1#')"
+    SERVER_IP="$(printf '%s' "$SERVER" | sed -E 's#.*@##')"
+    # Шаблон ждёт IPv4-адрес сервера и домен без порта: ssh-алиас или порт дали бы неверное правило Caddy
+    if ! printf '%s' "$SERVER_IP" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+        echo "Ошибка: в SERVER нужен IPv4-адрес (user@1.2.3.4), а не алиас: $SERVER_IP" >&2
+        exit 1
+    fi
+    if ! printf '%s' "$ML_SITE" | grep -qE '^[A-Za-z0-9.-]+$'; then
+        echo "Ошибка: в ML_BASE_URL ожидается домен без порта: $ML_SITE" >&2
+        exit 1
+    fi
+    sed -e "s#{{ML_SITE}}#${ML_SITE}#g" -e "s#{{EDGE_SUBNET}}#${EDGE_SUBNET:-172.31.240.0/24}#g" \
+        -e "s#{{SERVER_IP}}#${SERVER_IP}#g" "$ROOT_DIR/deploy/test-server/Caddyfile.main" > "$TMP_CADDY"
+    scp "$TMP_CADDY" "$SERVER:$REMOTE_DIR/deploy/test-server/Caddyfile.main"
     rm -f "$TMP_CADDY"
 
     ssh "$SERVER" "chmod +x $REMOTE_DIR/deploy/dev-secrets.sh $REMOTE_DIR/deploy/test-server/*.sh"

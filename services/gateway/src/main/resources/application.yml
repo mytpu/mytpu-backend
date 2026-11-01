@@ -70,7 +70,11 @@ mytpu:
       client-calls-per-minute: 600
     access:
       max-failures-per-minute: 30
-      # Поисков ключа в БД в секунду (не из кэша); сверх — 401 без БД
+      # То же по широкой подсети (/24 IPv4, /48 IPv6): у кого IPv6 /48, у того 65 536 адресов /64
+      max-failures-per-subnet-per-minute: 300
+      # Одновременных запросов /mcp на ключ; сверх — 429 too_many_concurrent
+      max-concurrent-per-key: 8
+      # Поисков ключа в БД в секунду (не из кэша); сверх — 503 key_lookup_busy без БД
       max-key-lookups-per-second: 50
       # Ключи v1 (без контрольной суммы) принимаются до этой даты (ГГГГ-ММ-ДД); пусто — без срока
       v1-keys-until: ${V1_KEYS_UNTIL:}
@@ -124,6 +128,8 @@ mytpu:
         repeat-after: 10m
     mcp:
       max-body-bytes: 65536
+      # Origin страниц, которым можно звать /mcp из браузера (через запятую); пусто — никому. Без Origin — как раньше
+      allowed-origins: ${MCP_ALLOWED_ORIGINS:}
     # Адрес шлюза для команды claude mcp add в консоли
     public-url: ${GATEWAY_PUBLIC_URL:http://127.0.0.1:8081}
     # Выдача личного внешним агентам (specs/personal-data-for-agents)

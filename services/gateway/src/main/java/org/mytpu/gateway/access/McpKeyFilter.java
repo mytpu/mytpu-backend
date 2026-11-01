@@ -82,26 +82,32 @@ public class McpKeyFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         InetAddress address = addresses.of(request);
         String ip = Cidr.limiterKeyOf(address);
-        if (failures.blocked(ip)) {
+        String wide = Cidr.subnetOf(address);
+        Optional<String> key = bearer(request).filter(ApiKeys::wellFormed).filter(k -> !(ApiKeys.isV1(k) && v1Expired()));
+        // Ключ, уже найденный и закэшированный, блокировка не держит: перебор соседа по NAT или облаку не отключает чужие ключи
+        if (!key.map(store::cached).orElse(false) && failures.blocked(ip, wide)) {
             response.setHeader("Retry-After", String.valueOf(failures.retryAfterSeconds()));
             reject(response, 429, "too_many_attempts", "access.too_many_attempts");
             return;
         }
-        Optional<ApiClient> found = bearer(request)
-                .filter(ApiKeys::wellFormed)
-                .filter(k -> !(ApiKeys.isV1(k) && v1Expired()))
-                .flatMap(store::findByKey);
+        KeyLookup lookup = key.map(store::lookup).orElse(KeyLookup.NOT_FOUND);
+        if (lookup.busy()) {
+            // Бюджет поисков в БД исчерпан (перебор): «повторите», а не «ключ неверный» — и не неудача этого адреса
+            response.setHeader("Retry-After", "1");
+            reject(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "key_lookup_busy", "access.key_lookup_busy");
+            return;
+        }
+        Optional<ApiClient> found = lookup.found();
         if (found.isPresent() && found.get().decoy()) {
             // Ловушка отвечает так же, как неверный ключ: тот, кто её нашёл, не должен понять, что попался
             String id = found.get().id();
-            String subnet = Cidr.subnetOf(address);
-            events.record(id, KeyEvents.DECOY_USED, subnet, null);
-            decoys.tripLater(id, subnet);
+            events.record(id, KeyEvents.DECOY_USED, wide, null);
+            decoys.tripLater(id, wide);
             found = Optional.empty();
         }
         Optional<ApiClient> client = found.filter(c -> c.activeAt(Instant.now()));
         if (client.isEmpty()) {
-            failures.recordFailure(ip);
+            failures.recordFailure(ip, wide);
             reject(response, HttpServletResponse.SC_UNAUTHORIZED, "invalid_token", "access.invalid_token");
             return;
         }
@@ -110,8 +116,8 @@ public class McpKeyFilter extends OncePerRequestFilter {
             return;
         }
         if (!NetworkPolicy.allows(client.get(), address)) {
-            failures.recordFailure(ip);
-            events.record(client.get().id(), KeyEvents.NETWORK_DENIED, Cidr.subnetOf(address), null);
+            failures.recordFailure(ip, wide);
+            events.record(client.get().id(), KeyEvents.NETWORK_DENIED, wide, null);
             reject(response, HttpServletResponse.SC_FORBIDDEN, "network_not_allowed", "access.network_not_allowed");
             return;
         }
@@ -119,7 +125,7 @@ public class McpKeyFilter extends OncePerRequestFilter {
         if (geo instanceof GeoPolicy.Decision.Foreign foreign) {
             String id = client.get().id();
             store.suspend(id, "foreign:" + foreign.country());
-            events.record(id, KeyEvents.FOREIGN_COUNTRY, Cidr.subnetOf(address), "country=" + foreign.country());
+            events.record(id, KeyEvents.FOREIGN_COUNTRY, wide, "country=" + foreign.country());
             reject(response, HttpServletResponse.SC_UNAUTHORIZED, "key_suspended", "access.key_suspended");
             return;
         }

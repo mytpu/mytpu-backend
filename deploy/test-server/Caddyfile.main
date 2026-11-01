@@ -1,0 +1,17 @@
+# Основной /etc/caddy/Caddyfile тестового сервера (шаблон; upload.sh подставляет домен ml-server из ML_BASE_URL).
+# ml-server отвечает только помощнику стенда (сеть edge: Caddy видит контейнеры с их адресов, без подмены) и самому
+# серверу; остальным — 403. Сайт стенда — в mytpu.caddy (import ниже).
+
+{{ML_SITE}} {
+    @outside not remote_ip {{EDGE_SUBNET}} 127.0.0.1/32 {{SERVER_IP}}/32
+    respond @outside 403
+
+    request_body {
+        max_size 10MB
+    }
+    reverse_proxy 127.0.0.1:8080 {
+        flush_interval -1
+    }
+}
+
+import mytpu.caddy
