@@ -80,6 +80,7 @@
     "cancel": "Отмена",
     "save": "Сохранить",
     "delete": "Удалить",
+    "remove": "Убрать",
     "close": "Закрыть",
     "retry": "Повторить",
     "readonly": "Действие недоступно для роли console.viewer (только чтение)"
@@ -314,6 +315,9 @@
       "errorEmailInvalid": "Укажите корректный адрес рабочей почты (например, user@tpu.ru)",
       "errorPurposeRequired": "Укажите цель получения ключа",
       "errorRequesterRequired": "Укажите имя заявителя",
+      "errorNetworksRequired": "Для типа «сервер» необходимо указать хотя бы одну подсеть",
+      "errorNetworkInvalid": "Неверный формат подсети (CIDR)",
+      "removeScope": "Убрать {{scope}}",
       "errorReasonRequired": "Укажите причину отклонения",
       "errorReasonLength": "Причина не должна превышать 500 символов",
       "daysFormat": "{{days}} дн."

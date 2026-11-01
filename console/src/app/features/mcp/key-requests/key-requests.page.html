@@ -7,7 +7,7 @@
     [approvedCount]="approvedCount()"
     [rejectedCount]="rejectedCount()"
     [canChange]="canChange()"
-    (createClick)="showCreateDialog.set(true)"
+    (createClick)="openCreateDialog()"
   />
 
   @if (loading()) {
@@ -120,8 +120,10 @@
             [request]="sel"
             [canChange]="canChange()"
             [submitting]="submitting()"
+            [availableScopes]="availableScopes()"
+            [serverError]="approveServerError()"
             (approve)="handleApprove($event)"
-            (reject)="showRejectDialog.set(true)"
+            (reject)="openRejectDialog()"
           />
         } @else {
           <div class="empty-side">
@@ -135,6 +137,8 @@
   @if (showCreateDialog()) {
     <app-create-request-dialog
       [submitting]="submitting()"
+      [serverError]="createServerError()"
+      [availableScopes]="availableScopes()"
       (submitRequest)="handleCreate($event)"
       (cancel)="showCreateDialog.set(false)"
     />
@@ -144,6 +148,7 @@
     <app-reject-request-dialog
       [requester]="sel.requester"
       [submitting]="submitting()"
+      [serverError]="rejectServerError()"
       (confirmReject)="handleReject($event)"
       (cancel)="showRejectDialog.set(false)"
     />

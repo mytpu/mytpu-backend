@@ -4,6 +4,13 @@
     [subtitle]="'mcp.requests.dialogCreateSubtitle' | t"
     (closed)="cancel.emit()"
   >
+    @if (serverError()) {
+      <div class="server-error-banner">
+        <app-icon name="alert" [size]="16" />
+        <span>{{ serverError() }}</span>
+      </div>
+    }
+
     <form [formGroup]="form" class="request-form">
       <div class="field-col">
         <label class="label">{{ 'mcp.requests.fieldRequester' | t }}</label>
@@ -13,8 +20,8 @@
           formControlName="requester"
           [placeholder]="'mcp.requests.fieldRequesterPlaceholder' | t"
         />
-        @if (fieldError('requester')) {
-          <span class="error-msg">{{ fieldError('requester') }}</span>
+        @if (fieldErrors()['requester']) {
+          <span class="error-msg">{{ fieldErrors()['requester'] }}</span>
         }
       </div>
 
@@ -26,8 +33,8 @@
           formControlName="contact"
           [placeholder]="'mcp.requests.fieldContactPlaceholder' | t"
         />
-        @if (fieldError('contact')) {
-          <span class="error-msg">{{ fieldError('contact') }}</span>
+        @if (fieldErrors()['contact']) {
+          <span class="error-msg">{{ fieldErrors()['contact'] }}</span>
         }
       </div>
 
@@ -39,8 +46,8 @@
           formControlName="purpose"
           [placeholder]="'mcp.requests.fieldPurposePlaceholder' | t"
         ></textarea>
-        @if (fieldError('purpose')) {
-          <span class="error-msg">{{ fieldError('purpose') }}</span>
+        @if (fieldErrors()['purpose']) {
+          <span class="error-msg">{{ fieldErrors()['purpose'] }}</span>
         }
       </div>
 
@@ -67,19 +74,21 @@
           formControlName="networks"
           [placeholder]="'mcp.requests.fieldNetworksPlaceholder' | t"
         />
-        @if (fieldError('networks')) {
-          <span class="error-msg">{{ fieldError('networks') }}</span>
+        @if (fieldErrors()['networks']) {
+          <span class="error-msg">{{ fieldErrors()['networks'] }}</span>
         }
       </div>
 
       <div class="field-col">
         <label class="label">{{ 'mcp.requests.fieldScopes' | t }}</label>
         <div class="scopes-wrap">
-          @for (s of availableScopes; track s) {
+          @for (s of availableScopes(); track s) {
             <button
               type="button"
               class="scope-chip"
               [class.selected]="selectedScopes().includes(s)"
+              [attr.title]="selectedScopes().includes(s) ? ('actions.remove' | t) : null"
+              [attr.aria-label]="selectedScopes().includes(s) ? (('actions.remove' | t) + ' ' + s) : s"
               (click)="toggleScope(s)"
             >
               {{ s }}

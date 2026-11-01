@@ -37,60 +37,62 @@
     </div>
   </app-card>
 
-  <app-card
-    [label]="selectedDecoy() ? ('mcp.events.decoyGroupCardTitle' | t: { name: selectedDecoy()!.owner }) : ('mcp.events.decoyGroupCardTitleEmpty' | t)"
-    icon="target"
-  >
-    @if (decoyKeys().length > 1) {
-      <div class="decoy-picker">
-        <label class="picker-label">{{ 'mcp.events.decoyGroupSelectDecoy' | t }}</label>
-        <select
-          class="picker-select"
-          [ngModel]="selectedDecoy()?.id"
-          (ngModelChange)="selectDecoy.emit($event)"
-        >
-          @for (d of decoyKeys(); track d.id) {
-            <option [value]="d.id">{{ d.owner }} ({{ d.keyPrefix }})</option>
-          }
-        </select>
-      </div>
-    }
-
-    <p class="group-sub">{{ 'mcp.events.decoyGroupSubtitle' | t }}</p>
-
-    <div class="members-box">
-      @if (groupMembers().length === 0) {
-        <div class="members-empty">{{ 'mcp.events.decoyGroupEmpty' | t }}</div>
-      } @else {
-        @for (m of groupMembers(); track m.id) {
-          <div class="member-tile">
-            <div class="member-desc">
-              <span class="member-name">{{ m.owner }}</span>
-              <code class="member-code">{{ m.keyPrefix }}</code>
-            </div>
-            <button
-              type="button"
-              class="remove-btn"
-              [disabled]="!canChange()"
-              [attr.title]="'mcp.events.decoyGroupRemoveMember' | t"
-              (click)="removeMember.emit(m.id)"
-            >
-              <app-icon name="x" [size]="14" />
-            </button>
-          </div>
-        }
-      }
-    </div>
-
-    <app-button
-      kind="quiet"
-      icon="plus"
-      [fullWidth]="true"
-      [disabled]="!canChange() || !selectedDecoy()"
-      [disabledTitle]="'actions.readonly' | t"
-      (btnClick)="openAddMember.emit()"
+  <div id="decoy-group-card" class="decoy-card-wrapper" [class.is-highlighted]="highlightDecoyGroup()">
+    <app-card
+      [label]="selectedDecoy() ? ('mcp.events.decoyGroupCardTitle' | t: { name: selectedDecoy()!.owner }) : ('mcp.events.decoyGroupCardTitleEmpty' | t)"
+      icon="target"
     >
-      {{ 'mcp.events.decoyGroupAddKey' | t }}
-    </app-button>
-  </app-card>
+      @if (decoyKeys().length > 1) {
+        <div class="decoy-picker">
+          <label class="picker-label">{{ 'mcp.events.decoyGroupSelectDecoy' | t }}</label>
+          <select
+            class="picker-select"
+            [ngModel]="selectedDecoy()?.id"
+            (ngModelChange)="selectDecoy.emit($event)"
+          >
+            @for (d of decoyKeys(); track d.id) {
+              <option [value]="d.id">{{ d.owner }} ({{ d.keyPrefix }})</option>
+            }
+          </select>
+        </div>
+      }
+
+      <p class="group-sub">{{ 'mcp.events.decoyGroupSubtitle' | t }}</p>
+
+      <div class="members-box">
+        @if (groupMembers().length === 0) {
+          <div class="members-empty">{{ 'mcp.events.decoyGroupEmpty' | t }}</div>
+        } @else {
+          @for (m of groupMembers(); track m.id) {
+            <div class="member-tile">
+              <div class="member-desc">
+                <span class="member-name">{{ m.owner }}</span>
+                <code class="member-code">{{ m.keyPrefix }}</code>
+              </div>
+              <button
+                type="button"
+                class="remove-btn"
+                [disabled]="!canChange()"
+                [attr.title]="'mcp.events.decoyGroupRemoveMember' | t"
+                (click)="removeMember.emit(m.id)"
+              >
+                <app-icon name="x" [size]="14" />
+              </button>
+            </div>
+          }
+        }
+      </div>
+
+      <app-button
+        kind="quiet"
+        icon="plus"
+        [fullWidth]="true"
+        [disabled]="!canChange() || !selectedDecoy()"
+        [disabledTitle]="'actions.readonly' | t"
+        (btnClick)="openAddMember.emit()"
+      >
+        {{ 'mcp.events.decoyGroupAddKey' | t }}
+      </app-button>
+    </app-card>
+  </div>
 </div>

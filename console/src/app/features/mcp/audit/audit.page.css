@@ -20,7 +20,7 @@
 }
 
 .animate-enter {
-  animation: pageEnter var(--dur-base) var(--ease) forwards;
+  animation: pageEnter var(--dur-base) var(--ease);
 }
 
 @keyframes pageEnter {
@@ -30,7 +30,7 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 

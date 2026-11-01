@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -135,12 +135,9 @@ export class ModeDialogComponent {
   readonly confirm = output<string>();
   readonly cancel = output<void>();
 
-  readonly reason = signal<string>('');
+  // Причина, введённая на странице, переносится в окно (входы известны только после конструктора)
+  readonly reason = linkedSignal(() => this.initialReason());
   readonly error = signal<string | null>(null);
-
-  constructor() {
-    this.reason.set(this.initialReason());
-  }
 
   readonly modeTitle = computed(() => {
     switch (this.targetMode()) {

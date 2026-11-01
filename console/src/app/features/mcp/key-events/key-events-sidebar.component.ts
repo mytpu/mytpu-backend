@@ -28,6 +28,7 @@ export class KeyEventsSidebarComponent {
   readonly groupMemberIds = input<string[]>([]);
   readonly allKeys = input<KeyView[]>([]);
   readonly canChange = input.required<boolean>();
+  readonly highlightDecoyGroup = input<boolean>(false);
 
   readonly selectDecoy = output<string>();
   readonly openAddMember = output<void>();

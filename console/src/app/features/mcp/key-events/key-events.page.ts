@@ -42,6 +42,7 @@ export class KeyEventsPage implements OnInit {
   readonly error = signal<string | null>(null);
   readonly submitting = signal<boolean>(false);
   readonly highlightedIds = signal<Set<number>>(new Set());
+  readonly highlightDecoyGroup = signal<boolean>(false);
   private readonly knownEventIds = new Set<number>();
 
   readonly eventTypeFilter = signal<string>('all');
@@ -50,12 +51,10 @@ export class KeyEventsPage implements OnInit {
   readonly resumingKey = signal<{ id: string; owner: string } | null>(null);
 
   readonly canChange = computed(() => this.sessionStore.canChange());
-
   readonly decoyEvent = computed(() => this.events().find((e) => e.event === 'key.decoy_used') ?? null);
   readonly decoyCount = computed(() => this.events().filter((e) => e.event === 'key.decoy_used').length);
   readonly groupSuspendedCount = computed(() => this.events().filter((e) => e.event === 'key.group_suspended').length);
   readonly inactiveCount = computed(() => this.events().filter((e) => e.event === 'key.inactive_suspended').length);
-  // Прочие приостановки: признаки утечки (key.suspended) и вызов из-за рубежа (key.foreign_country)
   readonly otherSuspendedCount = computed(
     () => this.events().filter((e) => e.event === 'key.suspended' || e.event === 'key.foreign_country').length,
   );
@@ -80,11 +79,7 @@ export class KeyEventsPage implements OnInit {
       if (e.event === 'key.group_suspended' && (!dId || e.detail?.includes(`decoy=${dId}`)) && !seen.has(e.clientId)) {
         seen.add(e.clientId);
         const found = keyMap.get(e.clientId);
-        list.push({
-          id: e.clientId,
-          owner: e.owner || found?.owner || e.clientId,
-          prefix: found?.keyPrefix || 'mtpu_…',
-        });
+        list.push({ id: e.clientId, owner: e.owner || found?.owner || e.clientId, prefix: found?.keyPrefix || 'mtpu_…' });
       }
     }
     return list;
@@ -110,9 +105,9 @@ export class KeyEventsPage implements OnInit {
         this.expiringKeys.set(expiring);
         this.allKeys.set(keys);
         this.loading.set(false);
-        const triggeredDecoy = events.find((e) => e.event === 'key.decoy_used');
-        const defaultDecoyId = triggeredDecoy?.clientId || keys.find((k) => k.decoy)?.id;
-        if (defaultDecoyId) this.selectDecoy(defaultDecoyId);
+        const triggered = events.find((e) => e.event === 'key.decoy_used');
+        const defaultId = triggered?.clientId || keys.find((k) => k.decoy)?.id;
+        if (defaultId) this.selectDecoy(defaultId);
       },
       error: () => {
         this.error.set(this.i18n.t('mcp.events.error'));
@@ -122,10 +117,7 @@ export class KeyEventsPage implements OnInit {
   }
 
   pollEvents(): void {
-    forkJoin({
-      events: this.api.getEvents(),
-      expiring: this.api.getExpiring(),
-    }).subscribe({
+    forkJoin({ events: this.api.getEvents(), expiring: this.api.getExpiring() }).subscribe({
       next: ({ events, expiring }) => {
         const newIds = new Set<number>();
         for (const e of events) {
@@ -152,6 +144,17 @@ export class KeyEventsPage implements OnInit {
     });
   }
 
+  onSelectDecoyGroup(decoyId: string): void {
+    this.selectDecoy(decoyId);
+    this.highlightDecoyGroup.set(true);
+    setTimeout(() => this.highlightDecoyGroup.set(false), 1000);
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const el = document.getElementById('decoy-group-card');
+    if (el) {
+      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    }
+  }
+
   removeDecoyMember(memberId: string): void {
     const decoyId = this.selectedDecoyId();
     if (!decoyId || !this.canChange()) return;
@@ -175,11 +178,8 @@ export class KeyEventsPage implements OnInit {
   }
 
   openResume(item: { id?: string | number; clientId?: string; owner?: string }): void {
-    // У события id — номер строки журнала; ключ — clientId
     const id = item.clientId || (typeof item.id === 'string' ? item.id : undefined);
-    if (id && this.canChange()) {
-      this.resumingKey.set({ id, owner: item.owner || id });
-    }
+    if (id && this.canChange()) this.resumingKey.set({ id, owner: item.owner || id });
   }
 
   submitResume(req: ResumeRequest): void {

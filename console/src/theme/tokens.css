@@ -2,6 +2,10 @@
    Пересобрать: variable.export css → этот файл с латинскими именами. Цвета вручную не править. */
 
 :root {
+  /* Полосы прокрутки и встроенные элементы браузера — в цвет темы */
+  color-scheme: light;
+  --scroll-thumb: #B9C6BE;
+  --scroll-thumb-hover: #93A49A;
   --bg-page: #F3F6F4;
   --bg-tile: #FFFFFF;
   --bg-nested: #EDF1EE;
@@ -55,6 +59,9 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+  --scroll-thumb: #34343A;
+  --scroll-thumb-hover: #4A4A52;
   --bg-page: #0C0C0E;
   --bg-tile: #161618;
   --bg-nested: #1E1E21;

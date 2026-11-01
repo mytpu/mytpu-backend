@@ -177,3 +177,14 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.decoy-card-wrapper {
+  border-radius: var(--radius-card);
+  transition: box-shadow var(--dur-slow) var(--ease),
+              background-color var(--dur-slow) var(--ease);
+}
+
+.decoy-card-wrapper.is-highlighted {
+  box-shadow: 0 0 0 2px var(--green-action), 0 0 16px var(--green-soft);
+  background-color: var(--green-soft);
+}

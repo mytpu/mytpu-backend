@@ -9,6 +9,7 @@ import { SkeletonComponent } from '../../../ui/skeleton/skeleton.component';
 import { EmptyStateComponent } from '../../../ui/empty-state/empty-state.component';
 import { KeyCreatedDialogComponent } from '../key-created/key-created-dialog.component';
 import { IssuedKey } from '../keys/keys.model';
+import { IntegrationCatalogView } from '../key-wizard/key-wizard.model';
 import { KeyRequestsApi } from './key-requests.api';
 import { ApproveBody, CreateKeyRequestBody, KeyRequestView, RequestStatus } from './key-requests.model';
 import { KeyRequestsFilterComponent } from './key-requests-filter.component';
@@ -33,6 +34,7 @@ export class KeyRequestsPage implements OnInit {
   readonly sessionStore = inject(SessionStore);
 
   readonly requests = signal<KeyRequestView[]>([]);
+  readonly catalog = signal<IntegrationCatalogView[]>([]);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
   readonly selectedId = signal<string | null>(null);
@@ -43,10 +45,23 @@ export class KeyRequestsPage implements OnInit {
 
   readonly showCreateDialog = signal<boolean>(false);
   readonly showRejectDialog = signal<boolean>(false);
+  readonly createServerError = signal<string | null>(null);
+  readonly approveServerError = signal<string | null>(null);
+  readonly rejectServerError = signal<string | null>(null);
   readonly createdKey = signal<IssuedKey | null>(null);
   readonly createdKeyOwner = signal<string>('');
 
   readonly canChange = computed(() => this.sessionStore.canChange());
+
+  readonly availableScopes = computed(() => {
+    const list: string[] = [];
+    for (const item of this.catalog()) {
+      for (const s of item.integration.scopes) {
+        if (!list.includes(s.name)) list.push(s.name);
+      }
+    }
+    return list.length ? list : ['docs.read', 'rasp.read'];
+  });
 
   readonly columns: TableColumn[] = [
     { title: this.i18n.t('mcp.requests.colRequesterPurpose') },
@@ -70,26 +85,16 @@ export class KeyRequestsPage implements OnInit {
     const q = this.searchQuery().trim().toLowerCase();
     const st = this.statusFilter();
     const k = this.kindFilter();
-
     return this.requests().filter((r) => {
       if (r.status !== st) return false;
       if (k !== 'all' && r.kind !== k) return false;
-      if (q) {
-        const text = `${r.requester} ${r.contact} ${r.purpose}`.toLowerCase();
-        return text.includes(q);
-      }
-      return true;
+      return !q || `${r.requester} ${r.contact} ${r.purpose}`.toLowerCase().includes(q);
     });
   });
 
   readonly decidedThisWeek = computed(() => {
     const now = Date.now();
-    return this.requests().filter((r) => {
-      if (r.status === 'new') return false;
-      if (!r.decidedAt) return true;
-      const t = new Date(r.decidedAt).getTime();
-      return now - t <= 7 * 86400000;
-    });
+    return this.requests().filter((r) => r.status !== 'new' && (!r.decidedAt || now - new Date(r.decidedAt).getTime() <= 7 * 86400000));
   });
 
   readonly selectedRequest = computed(() => {
@@ -100,28 +105,35 @@ export class KeyRequestsPage implements OnInit {
 
   ngOnInit(): void {
     this.loadRequests();
+    this.api.catalog().subscribe({ next: (cat) => this.catalog.set(cat) });
   }
 
   loadRequests(): void {
     this.loading.set(true);
     this.error.set(null);
     this.api.list().subscribe({
-      next: (data) => {
-        this.requests.set(data);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set(this.i18n.t('mcp.requests.error'));
-        this.loading.set(false);
-      },
+      next: (data) => { this.requests.set(data); this.loading.set(false); },
+      error: () => { this.error.set(this.i18n.t('mcp.requests.error')); this.loading.set(false); },
     });
   }
 
   selectRequest(req: KeyRequestView): void {
     this.selectedId.set(req.id);
+    this.approveServerError.set(null);
+  }
+
+  openCreateDialog(): void {
+    this.createServerError.set(null);
+    this.showCreateDialog.set(true);
+  }
+
+  openRejectDialog(): void {
+    this.rejectServerError.set(null);
+    this.showRejectDialog.set(true);
   }
 
   handleCreate(body: CreateKeyRequestBody): void {
+    this.createServerError.set(null);
     this.submitting.set(true);
     this.api.create(body).subscribe({
       next: (created) => {
@@ -130,13 +142,17 @@ export class KeyRequestsPage implements OnInit {
         this.loadRequests();
         this.selectedId.set(created.id);
       },
-      error: () => this.submitting.set(false),
+      error: (err: { message?: string }) => {
+        this.submitting.set(false);
+        this.createServerError.set(err.message || 'Ошибка сервера при создании');
+      },
     });
   }
 
   handleApprove(body: ApproveBody): void {
     const req = this.selectedRequest();
     if (!req) return;
+    this.approveServerError.set(null);
     this.createdKeyOwner.set(req.requester);
     this.submitting.set(true);
     this.api.approve(req.id, body).subscribe({
@@ -145,13 +161,17 @@ export class KeyRequestsPage implements OnInit {
         this.createdKey.set(issued);
         this.loadRequests();
       },
-      error: () => this.submitting.set(false),
+      error: (err: { message?: string }) => {
+        this.submitting.set(false);
+        this.approveServerError.set(err.message || 'Ошибка сервера при одобрении');
+      },
     });
   }
 
   handleReject(reason: string): void {
     const req = this.selectedRequest();
     if (!req) return;
+    this.rejectServerError.set(null);
     this.submitting.set(true);
     this.api.reject(req.id, { reason }).subscribe({
       next: () => {
@@ -159,14 +179,14 @@ export class KeyRequestsPage implements OnInit {
         this.showRejectDialog.set(false);
         this.loadRequests();
       },
-      error: () => this.submitting.set(false),
+      error: (err: { message?: string }) => {
+        this.submitting.set(false);
+        this.rejectServerError.set(err.message || 'Ошибка сервера при отклонении');
+      },
     });
   }
 
-  formatDate(iso: string | null): string {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('ru-RU');
-  }
+  formatDate(iso: string | null): string { return iso ? new Date(iso).toLocaleDateString('ru-RU') : '—'; }
 
   formatTime(iso: string): string {
     const d = new Date(iso);

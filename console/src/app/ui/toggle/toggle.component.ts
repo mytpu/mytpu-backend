@@ -1,22 +1,12 @@
 import {
   Component,
-  forwardRef,
   input,
-  model,
   output,
 } from '@angular/core';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 @Component({
   selector: 'app-toggle',
   standalone: true,
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => ToggleComponent),
-      multi: true,
-    },
-  ],
   template: `
     <button
       type="button"
@@ -68,32 +58,13 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
     }
   `,
 })
-export class ToggleComponent implements ControlValueAccessor {
-  readonly checked = model<boolean>(false);
+export class ToggleComponent {
+  readonly checked = input<boolean>(false);
   readonly disabled = input<boolean>(false);
   readonly changed = output<boolean>();
 
-  private onChange: (val: boolean) => void = () => {};
-  private onTouched: () => void = () => {};
-
-  writeValue(val: boolean | null): void {
-    this.checked.set(!!val);
-  }
-
-  registerOnChange(fn: (val: boolean) => void): void {
-    this.onChange = fn;
-  }
-
-  registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
-  }
-
   toggle(): void {
     if (this.disabled()) return;
-    const next = !this.checked();
-    this.checked.set(next);
-    this.onChange(next);
-    this.onTouched();
-    this.changed.emit(next);
+    this.changed.emit(!this.checked());
   }
 }

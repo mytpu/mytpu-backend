@@ -21,13 +21,31 @@ export class ThemeService {
 
   setTheme(theme: Theme): void {
     this.theme.set(theme);
-    this.applyTheme(theme);
+    this.applyAnimated(theme);
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, theme);
       }
     } catch {
       // localStorage may fail in private/sandbox mode
+    }
+  }
+
+  /**
+   * Смена темы с плавным переходом кадра. Без поддержки View Transitions, при «меньше движения» и в фоновой вкладке
+   * (там переход обрывается InvalidStateError) — сразу, без анимации.
+   */
+  private applyAnimated(theme: Theme): void {
+    const doc = typeof document !== 'undefined' ? (document as Document & { startViewTransition?: (cb: () => void) => unknown }) : null;
+    const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!doc?.startViewTransition || reduced || doc.visibilityState !== 'visible') {
+      this.applyTheme(theme);
+      return;
+    }
+    try {
+      doc.startViewTransition(() => this.applyTheme(theme));
+    } catch {
+      this.applyTheme(theme);
     }
   }
 

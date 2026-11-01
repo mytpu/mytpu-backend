@@ -44,6 +44,13 @@
   @if (request().status === 'new') {
     <div class="section-title">{{ 'mcp.requests.decisionTitle' | t }}</div>
 
+    @if (serverError()) {
+      <div class="server-error-banner">
+        <app-icon name="alert" [size]="16" />
+        <span>{{ serverError() }}</span>
+      </div>
+    }
+
     <div class="form-body">
       <div class="field-col">
         <label class="label">{{ 'mcp.requests.typeLabel' | t }}</label>
@@ -104,7 +111,15 @@
         <label class="label">{{ 'mcp.requests.servicesLabel' | t }}</label>
         <div class="scopes-list">
           @for (s of decisionScopes(); track s) {
-            <span class="scope-chip selected" (click)="toggleScope(s)">{{ s }}</span>
+            <button
+              type="button"
+              class="scope-chip selected"
+              [attr.title]="'actions.remove' | t"
+              [attr.aria-label]="('actions.remove' | t) + ' ' + s"
+              (click)="toggleScope(s)"
+            >
+              {{ s }}
+            </button>
           }
           <button
             type="button"
@@ -116,7 +131,7 @@
         </div>
         @if (showScopePicker()) {
           <div class="scope-picker">
-            @for (s of availableScopes; track s) {
+            @for (s of availableScopes(); track s) {
               @if (!decisionScopes().includes(s)) {
                 <button type="button" class="scope-chip" (click)="toggleScope(s)">
                   + {{ s }}

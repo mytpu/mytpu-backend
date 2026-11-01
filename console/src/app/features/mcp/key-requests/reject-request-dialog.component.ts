@@ -4,11 +4,12 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { ButtonComponent } from '../../../ui/button/button.component';
 import { DialogComponent } from '../../../ui/dialog/dialog.component';
+import { IconComponent } from '../../../ui/icon/icon.component';
 
 @Component({
   selector: 'app-reject-request-dialog',
   standalone: true,
-  imports: [FormsModule, TPipe, ButtonComponent, DialogComponent],
+  imports: [FormsModule, TPipe, ButtonComponent, DialogComponent, IconComponent],
   template: `
     <div class="overlay">
       <app-dialog
@@ -16,6 +17,13 @@ import { DialogComponent } from '../../../ui/dialog/dialog.component';
         [subtitle]="'mcp.requests.dialogRejectSubtitle' | t: { requester: requester() }"
         (closed)="cancel.emit()"
       >
+        @if (serverError()) {
+          <div class="server-error-banner">
+            <app-icon name="alert" [size]="16" />
+            <span>{{ serverError() }}</span>
+          </div>
+        }
+
         <div class="field-col">
           <label class="label">{{ 'mcp.requests.rejectReasonLabel' | t }}</label>
           <textarea
@@ -60,6 +68,18 @@ import { DialogComponent } from '../../../ui/dialog/dialog.component';
       padding: var(--space-4);
       box-sizing: border-box;
     }
+    .server-error-banner {
+      background: var(--danger-soft);
+      color: var(--danger-text);
+      border-radius: var(--radius-tile);
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
     .field-col {
       display: flex;
       flex-direction: column;
@@ -103,6 +123,7 @@ export class RejectRequestDialogComponent {
 
   readonly requester = input.required<string>();
   readonly submitting = input<boolean>(false);
+  readonly serverError = input<string | null>(null);
 
   readonly reason = signal<string>('');
   readonly error = signal<string | null>(null);

@@ -26,6 +26,7 @@
         class="search-input"
         [placeholder]="'mcp.wizard.searchToolPlaceholder' | t"
         [ngModel]="searchTool()"
+        [ngModelOptions]="{ standalone: true }"
         (ngModelChange)="searchTool.set($event)"
       />
     </div>

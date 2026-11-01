@@ -172,6 +172,19 @@
   color: var(--text-primary);
 }
 
+.server-error-banner {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-radius: var(--radius-tile);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
 .scopes-list {
   display: flex;
   flex-wrap: wrap;
@@ -184,16 +197,44 @@
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   padding: 3px 8px;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+
+.scope-chip:hover {
+  border-color: var(--border-tile);
 }
 
 .scope-chip.selected {
   background: var(--green-soft);
   color: var(--green-text);
   border-color: var(--green-action);
+}
+
+.scope-chip.selected:hover,
+.scope-chip.selected:focus,
+.scope-chip.selected:focus-visible {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: var(--danger-text);
+  outline: none;
+}
+
+.scope-chip.selected:hover::after,
+.scope-chip.selected:focus::after,
+.scope-chip.selected:focus-visible::after {
+  content: '×';
+  margin-left: 4px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .add-scope-btn {

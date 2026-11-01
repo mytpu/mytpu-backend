@@ -37,7 +37,7 @@
       <app-key-events-alarm
         [decoyEvent]="de"
         [suspendedKeys]="suspendedGroupKeys()"
-        (selectGroup)="selectDecoy($event)"
+        (selectGroup)="onSelectDecoyGroup($event)"
       />
     }
 
@@ -61,6 +61,7 @@
           [groupMemberIds]="decoyGroupMembers()"
           [allKeys]="allKeys()"
           [canChange]="canChange()"
+          [highlightDecoyGroup]="highlightDecoyGroup()"
           (selectDecoy)="selectDecoy($event)"
           (openAddMember)="showAddMemberDialog.set(true)"
           (removeMember)="removeDecoyMember($event)"

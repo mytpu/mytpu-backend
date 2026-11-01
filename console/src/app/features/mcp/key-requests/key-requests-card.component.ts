@@ -9,8 +9,6 @@ import { IconComponent } from '../../../ui/icon/icon.component';
 import { ToggleComponent } from '../../../ui/toggle/toggle.component';
 import { ApproveBody, KeyRequestView } from './key-requests.model';
 
-const ALL_SCOPES = ['rasp', 'docs', 'lk', 'lms', 'mail', 'help'];
-
 @Component({
   selector: 'app-key-requests-card',
   standalone: true,
@@ -24,6 +22,8 @@ export class KeyRequestsCardComponent {
   readonly request = input.required<KeyRequestView>();
   readonly canChange = input.required<boolean>();
   readonly submitting = input<boolean>(false);
+  readonly availableScopes = input<string[]>([]);
+  readonly serverError = input<string | null>(null);
 
   readonly approve = output<ApproveBody>();
   readonly reject = output<void>();
@@ -31,13 +31,11 @@ export class KeyRequestsCardComponent {
   readonly decisionKind = signal<'person' | 'server' | 'demo'>('server');
   readonly decisionDays = signal<number>(90);
   readonly decisionNetworks = signal<string>('10.2.0.0/24');
-  readonly decisionScopes = signal<string[]>(['rasp', 'docs']);
+  readonly decisionScopes = signal<string[]>(['docs.read']);
   readonly decisionRuOnly = signal<boolean>(true);
   readonly decisionGeoReason = signal<string>('');
   readonly showScopePicker = signal<boolean>(false);
   readonly geoError = signal<string | null>(null);
-
-  readonly availableScopes = ALL_SCOPES;
 
   readonly statusText = computed(() => {
     const s = this.request().status;
@@ -74,7 +72,7 @@ export class KeyRequestsCardComponent {
     this.decisionKind.set(k);
     this.decisionDays.set(req.days || (k === 'server' ? 90 : k === 'demo' ? 7 : 30));
     this.decisionNetworks.set(req.networks ? req.networks.join(', ') : '');
-    this.decisionScopes.set(req.scopes?.length ? [...req.scopes] : ['rasp', 'docs']);
+    this.decisionScopes.set(req.scopes?.length ? [...req.scopes] : ['docs.read']);
     this.decisionRuOnly.set(true);
     this.decisionGeoReason.set('');
     this.geoError.set(null);
