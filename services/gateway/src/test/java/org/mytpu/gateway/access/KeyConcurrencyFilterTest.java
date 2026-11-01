@@ -88,4 +88,61 @@ class KeyConcurrencyFilterTest {
         filter.doFilter(anonymous, response, new MockFilterChain());
         assertThat(response.getStatus()).isEqualTo(200);
     }
+
+    @Test
+    void defaultConfigurationLimits() {
+        KeyConcurrencyFilter defaultFilter = new KeyConcurrencyFilter(8, 64, FilterTestSupport.messages(), FilterTestSupport.json());
+        assertThat(defaultFilter.maxPerKey()).isEqualTo(8);
+        assertThat(defaultFilter.maxConcurrentChat()).isEqualTo(64);
+    }
+
+    @Test
+    void chatServiceHasHigherConcurrencyLimit() throws Exception {
+        KeyConcurrencyFilter configured = new KeyConcurrencyFilter(8, 64, FilterTestSupport.messages(), FilterTestSupport.json());
+        ApiClient chatClient = FilterTestSupport.client("cli_chat", java.util.Set.of(ApiClient.CHAT_SERVICE));
+
+        java.util.List<MockHttpServletRequest> requests = new java.util.ArrayList<>();
+        for (int i = 0; i < 64; i++) {
+            MockHttpServletRequest req = new MockHttpServletRequest("POST", "/chat/tools/docs_search");
+            req.setAsyncSupported(true);
+            req.setAttribute(McpKeyFilter.CLIENT_ATTRIBUTE, chatClient);
+            requests.add(req);
+            configured.doFilter(req, new MockHttpServletResponse(), STREAMING);
+        }
+        assertThat(configured.inFlight("cli_chat")).isEqualTo(64);
+
+        MockHttpServletRequest excess = new MockHttpServletRequest("POST", "/chat/tools/docs_search");
+        excess.setAsyncSupported(true);
+        excess.setAttribute(McpKeyFilter.CLIENT_ATTRIBUTE, chatClient);
+        MockHttpServletResponse excessResponse = new MockHttpServletResponse();
+        configured.doFilter(excess, excessResponse, new MockFilterChain());
+
+        assertThat(excessResponse.getStatus()).isEqualTo(429);
+        assertThat(excessResponse.getContentAsString()).contains("too_many_concurrent");
+
+        ((MockAsyncContext) requests.getFirst().getAsyncContext()).complete();
+        assertThat(configured.inFlight("cli_chat")).isEqualTo(63);
+    }
+
+    @Test
+    void regularMcpKeyLimitedToEightByDefault() throws Exception {
+        KeyConcurrencyFilter configured = new KeyConcurrencyFilter(8, 64, FilterTestSupport.messages(), FilterTestSupport.json());
+        ApiClient regularClient = FilterTestSupport.client("cli_regular");
+
+        for (int i = 0; i < 8; i++) {
+            MockHttpServletRequest req = new MockHttpServletRequest("POST", "/mcp");
+            req.setAsyncSupported(true);
+            req.setAttribute(McpKeyFilter.CLIENT_ATTRIBUTE, regularClient);
+            configured.doFilter(req, new MockHttpServletResponse(), STREAMING);
+        }
+        assertThat(configured.inFlight("cli_regular")).isEqualTo(8);
+
+        MockHttpServletRequest excess = new MockHttpServletRequest("POST", "/mcp");
+        excess.setAsyncSupported(true);
+        excess.setAttribute(McpKeyFilter.CLIENT_ATTRIBUTE, regularClient);
+        MockHttpServletResponse excessResponse = new MockHttpServletResponse();
+        configured.doFilter(excess, excessResponse, new MockFilterChain());
+
+        assertThat(excessResponse.getStatus()).isEqualTo(429);
+    }
 }

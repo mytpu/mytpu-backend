@@ -43,6 +43,16 @@ class McpOriginFilterTest {
     }
 
     @Test
+    void foreignOriginOnChatIsForbidden() throws Exception {
+        MockHttpServletResponse response = call("/chat/tools/docs_search", "https://evil.example");
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("origin_not_allowed");
+
+        assertThat(call("/chat/tools/docs_search", null).getStatus()).isEqualTo(200);
+        assertThat(call("/chat/tools/docs_search", "https://console.example").getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void emptyListAllowsNoOrigin() throws Exception {
         McpOriginFilter closed = new McpOriginFilter(List.of(""), FilterTestSupport.messages(), FilterTestSupport.json());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mcp/key/rotate");

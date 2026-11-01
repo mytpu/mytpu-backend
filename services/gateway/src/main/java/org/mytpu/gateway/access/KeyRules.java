@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class KeyRules {
-    public static final Set<String> ROLES = Set.of(ApiClient.CONSOLE_ADMIN, ApiClient.CONSOLE_VIEWER);
+    public static final Set<String> ROLES = Set.of(ApiClient.CONSOLE_ADMIN, ApiClient.CONSOLE_VIEWER, ApiClient.CHAT_SERVICE);
 
     /** Что хочет выдать администратор; {@code days == null} — срок по умолчанию. */
     public record Request(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
@@ -83,6 +83,9 @@ public class KeyRules {
         checkScopes(r.scopes());
         if (!ROLES.containsAll(r.roles())) {
             throw new Violation("role_unknown", ROLES);
+        }
+        if (r.roles().contains(ApiClient.CHAT_SERVICE) && r.kind() != ApiClient.Kind.SERVER) {
+            throw new Violation("chat_service_needs_server");
         }
         if (r.decoy() && !(r.scopes().isEmpty() && r.roles().isEmpty())) {
             throw new Violation("decoy_with_rights");

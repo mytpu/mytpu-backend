@@ -130,9 +130,9 @@ public class McpKeyFilter extends OncePerRequestFilter {
             return;
         }
         String path = PATHS.getPathWithinApplication(request);
-        // Консоль: /internal/** (каталог) и API консоли /admin/api/** — только ключам с ролью консоли
-        if (consolePath(path) && !allowedInternal(client.get(), request.getMethod())) {
-            reject(response, HttpServletResponse.SC_FORBIDDEN, "insufficient_scope", "access.console_role");
+        PathRoles.AccessCheck access = PathRoles.checkAccess(client.get(), path, request.getMethod());
+        if (!access.allowed()) {
+            reject(response, HttpServletResponse.SC_FORBIDDEN, access.error(), access.messageKey());
             return;
         }
         store.touch(client.get().id());
@@ -144,16 +144,6 @@ public class McpKeyFilter extends OncePerRequestFilter {
     /** Ключи v1 (без контрольной суммы) принимаются до {@code mytpu.gateway.access.v1-keys-until}; пусто — без срока. */
     private boolean v1Expired() {
         return v1KeysUntil != null && LocalDate.now(ZoneOffset.UTC).isAfter(v1KeysUntil);
-    }
-
-    private static boolean consolePath(String path) {
-        return path.startsWith("/internal/") || path.equals("/admin/api") || path.startsWith("/admin/api/");
-    }
-
-    /** Читать консоль может viewer, менять — только admin. */
-    private static boolean allowedInternal(ApiClient client, String method) {
-        boolean readOnly = "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
-        return readOnly ? client.hasConsoleRole() : client.roles().contains(ApiClient.CONSOLE_ADMIN);
     }
 
     static Optional<String> bearer(HttpServletRequest request) {

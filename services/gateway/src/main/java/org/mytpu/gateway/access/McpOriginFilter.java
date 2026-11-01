@@ -22,7 +22,7 @@ import org.springframework.web.util.UrlPathHelper;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * {@code /mcp}: запрос с заголовком {@code Origin} не из списка {@code mytpu.gateway.mcp.allowed-origins} — 403
+ * {@code /mcp} и {@code /chat/**}: запрос с заголовком {@code Origin} не из списка {@code mytpu.gateway.mcp.allowed-origins} — 403
  * (требование спецификации MCP против DNS rebinding: страница в браузере жертвы не должна говорить со шлюзом).
  * Без {@code Origin} — как раньше: так ходят Claude Code и серверные клиенты. Стоит до проверки ключа.
  */
@@ -45,12 +45,17 @@ public class McpOriginFilter extends OncePerRequestFilter {
 
     static boolean mcpPath(HttpServletRequest request) {
         String path = PATHS.getPathWithinApplication(request);
-        return path.equals("/mcp") || path.startsWith("/mcp/");
+        return PathRoles.isMcp(path);
+    }
+
+    static boolean isProtected(HttpServletRequest request) {
+        String path = PATHS.getPathWithinApplication(request);
+        return PathRoles.isMcp(path) || PathRoles.isChat(path);
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !mcpPath(request);
+        return !isProtected(request);
     }
 
     @Override

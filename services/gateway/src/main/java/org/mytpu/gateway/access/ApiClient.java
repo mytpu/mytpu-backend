@@ -40,6 +40,7 @@ public record ApiClient(
 ) {
     public static final String CONSOLE_ADMIN = "console.admin";
     public static final String CONSOLE_VIEWER = "console.viewer";
+    public static final String CHAT_SERVICE = "chat.service";
 
     public enum Kind {
         PERSON, SERVER, DEMO;
@@ -75,5 +76,9 @@ public record ApiClient(
 
     public boolean hasConsoleRole() {
         return roles.contains(CONSOLE_ADMIN) || roles.contains(CONSOLE_VIEWER);
+    }
+
+    public boolean hasChatServiceRole() {
+        return roles.contains(CHAT_SERVICE);
     }
 }

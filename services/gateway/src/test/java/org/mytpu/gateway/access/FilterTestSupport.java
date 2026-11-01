@@ -26,8 +26,15 @@ final class FilterTestSupport {
     }
 
     static ApiClient client(String id) {
+        return client(id, java.util.Set.of());
+    }
+
+    static ApiClient client(String id, java.util.Set<String> roles) {
         ApiClient client = mock(ApiClient.class);
         when(client.id()).thenReturn(id);
+        when(client.roles()).thenReturn(roles);
+        when(client.hasConsoleRole()).thenReturn(roles.contains(ApiClient.CONSOLE_ADMIN) || roles.contains(ApiClient.CONSOLE_VIEWER));
+        when(client.hasChatServiceRole()).thenReturn(roles.contains(ApiClient.CHAT_SERVICE));
         return client;
     }
 }

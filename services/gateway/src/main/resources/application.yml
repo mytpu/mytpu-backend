@@ -74,6 +74,8 @@ mytpu:
       max-failures-per-subnet-per-minute: 300
       # Одновременных запросов /mcp на ключ; сверх — 429 too_many_concurrent
       max-concurrent-per-key: 8
+      # Одновременных запросов /chat на сервисный ключ помощника (один ключ на всех студентов)
+      max-concurrent-chat: 64
       # Поисков ключа в БД в секунду (не из кэша); сверх — 503 key_lookup_busy без БД
       max-key-lookups-per-second: 50
       # Ключи v1 (без контрольной суммы) принимаются до этой даты (ГГГГ-ММ-ДД); пусто — без срока
