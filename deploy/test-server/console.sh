@@ -25,11 +25,20 @@ else
 fi
 
 echo "==> Туннель к шлюзу на сервере (127.0.0.1:18081)..."
-ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -N -L 18081:127.0.0.1:8081 "$SERVER" &
+# Соединение до сервера иногда сбрасывается: проверка связи раз в 15 с и переподключение, пока открыта консоль
+(
+    while true; do
+        ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o ConnectTimeout=15 -N -L 18081:127.0.0.1:8081 "$SERVER" || true
+        echo "Туннель оборвался — переподключение через 3 с" >&2
+        sleep 3
+    done
+) &
 TUNNEL_PID=$!
-trap 'kill $TUNNEL_PID 2>/dev/null || true' EXIT
-sleep 2
-kill -0 "$TUNNEL_PID" 2>/dev/null || { echo "Туннель не поднялся (порт 18081 занят?)" >&2; exit 1; }
+trap 'pkill -P $TUNNEL_PID 2>/dev/null; kill $TUNNEL_PID 2>/dev/null || true' EXIT
+sleep 3
+curl -s -o /dev/null --max-time 10 http://127.0.0.1:18081/actuator/health \
+    || echo "Туннель пока не отвечает (порт 18081 занят или нет связи с сервером) — повторяю в фоне" >&2
 
 echo "==> Консоль: http://localhost:4200/console"
 cd "$ROOT_DIR/console"
