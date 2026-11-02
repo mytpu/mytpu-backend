@@ -80,6 +80,7 @@ if [ "$IMAGES_ONLY" = false ]; then
         "$ROOT_DIR/deploy/test-server/measure.sh" \
         "$ROOT_DIR/deploy/test-server/issue-key.sh" \
         "$ROOT_DIR/deploy/test-server/seed.sh" \
+        "$ROOT_DIR/deploy/test-server/demo-data.sh" \
         "$ROOT_DIR/deploy/load/mcp-load.py" \
         "$SERVER:$REMOTE_DIR/deploy/test-server/"
 
