@@ -1,0 +1,169 @@
+<div class="document-page">
+  @if (loading() && !doc()) {
+    <app-skeleton height="80px" radius="var(--radius-card)" />
+    <div class="doc-grid">
+      <app-skeleton height="380px" radius="var(--radius-card)" />
+      <app-skeleton height="380px" radius="var(--radius-card)" />
+      <app-skeleton height="380px" radius="var(--radius-card)" />
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="reload()"
+    />
+  } @else if (doc(); as d) {
+    <div class="header-row">
+      <div class="title-group">
+        <h1 class="page-title">{{ d.title }}</h1>
+        <p class="page-subtitle">
+          {{ d.url }} · {{ sections().length }} {{ 'rag.common.sections' | t }} · {{ d.chunks }} {{ 'rag.common.chunks' | t }}
+        </p>
+      </div>
+
+      <div class="actions-group">
+        <app-button
+          kind="quiet"
+          icon="eye"
+          [disabled]="!sessionStore.canChange()"
+          [disabledTitle]="'rag.common.readOnlyHint' | t"
+          (btnClick)="toggleStatus()"
+        >
+          {{ d.status === 'active' ? ('rag.document.btnDisable' | t) : ('rag.document.btnEnable' | t) }}
+        </app-button>
+        <app-button
+          kind="danger"
+          icon="trash"
+          [disabled]="!sessionStore.canChange()"
+          [disabledTitle]="'rag.common.readOnlyHint' | t"
+          (btnClick)="showDeleteDialog.set(true)"
+        >
+          {{ 'rag.document.btnDelete' | t }}
+        </app-button>
+      </div>
+    </div>
+
+    <div class="doc-grid">
+      <app-card [label]="'rag.document.tocTitle' | t" icon="list">
+        @for (sec of sections(); track sec.id) {
+          <div
+            class="toc-item"
+            [class.active]="selectedSectionId() === sec.id"
+            (click)="selectSection(sec.id)"
+          >
+            <span class="toc-title">{{ sec.path }}</span>
+            <span class="toc-badge">{{ sec.chunks.length }}</span>
+          </div>
+        }
+      </app-card>
+
+      <app-card
+        [label]="(activeSection()?.path || ('rag.document.chunksTitle' | t: { count: activeChunks().length }))"
+        icon="file"
+      >
+        <div class="chunks-list">
+          @for (c of activeChunks(); track c.ord) {
+            <div class="chunk-card">
+              <div class="chunk-head">
+                <span class="chunk-tag">#{{ c.ord }}</span>
+                <span class="chunk-meta">
+                  {{ c.tokens }} {{ 'rag.common.tokens' | t }} · {{ c.heading }}
+                </span>
+              </div>
+              <p class="chunk-text">
+                @for (part of splitChunkText(c.text); track $index) {
+                  @if (part.redacted) {
+                    <span class="redacted-tag">{{ part.text }}</span>
+                  } @else {
+                    {{ part.text }}
+                  }
+                }
+              </p>
+            </div>
+          }
+        </div>
+      </app-card>
+
+      <app-card [label]="'rag.document.propsTitle' | t" icon="eye">
+        <div class="prop-kv">
+          <span class="prop-k">{{ 'rag.document.propSource' | t }}</span>
+          <span class="prop-v">{{ sourceName(d.sourceId) }}</span>
+        </div>
+        <div class="prop-kv">
+          <span class="prop-k">{{ 'rag.document.propUrl' | t }}</span>
+          <span class="prop-v">{{ d.url }}</span>
+        </div>
+        <div class="prop-kv">
+          <span class="prop-k">{{ 'rag.document.propRedactor' | t }}</span>
+          <span class="prop-v">
+            {{ d.redactions ? ('rag.common.redactionsCount' | t: { count: d.redactions }) : ('rag.common.noRedactions' | t) }}
+          </span>
+        </div>
+        <div class="prop-kv">
+          <span class="prop-k">{{ 'rag.document.propVectors' | t }}</span>
+          <span class="prop-v">multilingual-e5-small · v2</span>
+        </div>
+
+        <div class="prop-kv">
+          <span class="prop-k">{{ 'rag.document.propAccess' | t }}</span>
+          <div class="access-seg">
+            <button
+              type="button"
+              class="access-btn"
+              [class.active]="d.access === 'public'"
+              [disabled]="!sessionStore.canChange()"
+              (click)="changeAccess('public')"
+            >
+              public
+            </button>
+            <button
+              type="button"
+              class="access-btn"
+              [class.active]="d.access === 'students'"
+              [disabled]="!sessionStore.canChange()"
+              (click)="changeAccess('students')"
+            >
+              students
+            </button>
+            <button
+              type="button"
+              class="access-btn"
+              [class.active]="d.access === 'staff'"
+              [disabled]="!sessionStore.canChange()"
+              (click)="changeAccess('staff')"
+            >
+              staff
+            </button>
+          </div>
+        </div>
+      </app-card>
+    </div>
+  }
+
+  @if (showDeleteDialog() && doc(); as d) {
+    <div class="modal-overlay">
+      <app-dialog
+        [title]="'rag.documents.deleteDialogTitle' | t"
+        (closed)="showDeleteDialog.set(false)"
+      >
+        <div class="dialog-body">
+          <div class="doc-card">
+            <span class="doc-title">{{ d.title }}</span>
+            <span class="doc-meta">{{ d.url }} · {{ d.chunks }} {{ 'rag.common.chunks' | t }}</span>
+          </div>
+          <p class="dialog-desc">{{ 'rag.documents.deleteDialogDesc' | t }}</p>
+        </div>
+        <div actions class="actions-row">
+          <app-button kind="quiet" (btnClick)="showDeleteDialog.set(false)">
+            {{ 'rag.common.cancel' | t }}
+          </app-button>
+          <app-button kind="danger" icon="trash" (btnClick)="confirmDelete()">
+            {{ 'rag.common.delete' | t }}
+          </app-button>
+        </div>
+      </app-dialog>
+    </div>
+  }
+</div>

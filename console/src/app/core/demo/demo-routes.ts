@@ -2,6 +2,7 @@ import { HttpRequest } from '@angular/common/http';
 import { DemoDb } from './demo-db';
 import { DemoMcpStore } from './demo-mcp-store';
 import { DemoMcpRoutes } from './demo-mcp-routes';
+import { DemoRagRoutes } from './demo-rag-routes';
 
 export interface RouteResult {
   status: number;
@@ -11,6 +12,7 @@ export interface RouteResult {
 export class DemoRoutes {
   private readonly mcpStore = new DemoMcpStore();
   private readonly mcpRoutes = new DemoMcpRoutes(this.mcpStore);
+  private readonly ragRoutes = new DemoRagRoutes();
 
   constructor(private readonly db: DemoDb) {}
 
@@ -23,6 +25,11 @@ export class DemoRoutes {
     const mcpRes = this.mcpRoutes.handle(req, path, method, getParam);
     if (mcpRes) {
       return mcpRes;
+    }
+
+    const ragRes = this.ragRoutes.handle(req, path, method, getParam);
+    if (ragRes) {
+      return ragRes;
     }
 
     if (path === '/admin/api/me' && method === 'GET') {

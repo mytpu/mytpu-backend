@@ -1,0 +1,138 @@
+<div class="documents-page">
+  <div class="header-row">
+    <div class="title-group">
+      <h1 class="page-title">{{ 'rag.documents.title' | t }}</h1>
+      <p class="page-subtitle">{{ 'rag.documents.meta' | t }}</p>
+    </div>
+  </div>
+
+  <div class="filters-row">
+    <div class="search-box">
+      <app-icon name="search" [size]="16" class="search-icon" />
+      <input
+        type="search"
+        class="search-input"
+        [placeholder]="'rag.common.searchPlaceholder' | t"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="onSearchChange($event)"
+      />
+    </div>
+
+    <div class="seg-control">
+      <button
+        type="button"
+        class="seg-btn"
+        [class.active]="statusFilter() === 'active'"
+        (click)="setStatusFilter('active')"
+      >
+        {{ 'rag.documents.filterInSearch' | t }}
+      </button>
+      <button
+        type="button"
+        class="seg-btn"
+        [class.active]="statusFilter() === 'disabled'"
+        (click)="setStatusFilter('disabled')"
+      >
+        {{ 'rag.documents.filterDisabled' | t }}
+      </button>
+      <button
+        type="button"
+        class="seg-btn"
+        [class.active]="statusFilter() === 'all'"
+        (click)="setStatusFilter('all')"
+      >
+        {{ 'rag.documents.filterAll' | t }}
+      </button>
+    </div>
+  </div>
+
+  @if (loading() && items().length === 0) {
+    <app-skeleton height="360px" radius="var(--radius-card)" />
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="reload()"
+    />
+  } @else if (items().length === 0) {
+    <app-empty-state
+      icon="file"
+      [title]="'rag.documents.emptyTitle' | t"
+      [description]="'rag.documents.emptyDesc' | t"
+      [actionText]="'rag.documents.emptyAction' | t"
+      (action)="resetFilters()"
+    />
+  } @else {
+    <app-card>
+      <table class="docs-table">
+        <thead>
+          <tr>
+            <th>{{ 'rag.documents.colDocument' | t }}</th>
+            <th>{{ 'rag.documents.colSource' | t }}</th>
+            <th>{{ 'rag.documents.colSectionsChunks' | t }}</th>
+            <th>{{ 'rag.documents.colAccess' | t }}</th>
+            <th>{{ 'rag.documents.colRedactor' | t }}</th>
+            <th>{{ 'rag.documents.colUpdated' | t }}</th>
+            <th>{{ 'rag.documents.colStatus' | t }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of items(); track d.id) {
+            <tr>
+              <td>
+                <div class="doc-info-cell">
+                  <a class="doc-link" (click)="openDoc(d.id)">{{ d.title }}</a>
+                  <span class="doc-sub">{{ d.url }}</span>
+                </div>
+              </td>
+              <td>{{ sourceName(d.sourceId) }}</td>
+              <td>{{ d.sections }} / {{ d.chunks }}</td>
+              <td>
+                <app-badge kind="neutral">{{ d.access }}</app-badge>
+              </td>
+              <td>
+                {{ d.redactions ? ('rag.common.redactionsCount' | t: { count: d.redactions }) : ('rag.common.noRedactions' | t) }}
+              </td>
+              <td>{{ formatShortDate(d.updatedAt) }}</td>
+              <td>
+                <app-toggle
+                  [checked]="d.status === 'active'"
+                  [disabled]="!sessionStore.canChange()"
+                  (changed)="toggleStatus(d)"
+                />
+              </td>
+              <td>
+                <div class="actions-cell">
+                  <app-button
+                    kind="ghost"
+                    size="sm"
+                    icon="trash"
+                    [disabled]="!sessionStore.canChange()"
+                    [disabledTitle]="'rag.common.readOnlyHint' | t"
+                    (btnClick)="promptDelete(d)"
+                  />
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </app-card>
+
+    <div class="bottom-note">
+      <app-icon name="lock" [size]="16" />
+      <span>{{ 'rag.documents.noteAccess' | t }}</span>
+    </div>
+  }
+
+  @if (docToDelete(); as target) {
+    <app-document-delete-dialog
+      [doc]="target"
+      (cancel)="docToDelete.set(null)"
+      (confirm)="confirmDelete()"
+    />
+  }
+</div>

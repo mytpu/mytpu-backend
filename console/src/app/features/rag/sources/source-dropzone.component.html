@@ -1,0 +1,86 @@
+<div class="drop-card">
+  <div class="card-head">
+    <app-icon name="upload" [size]="16" />
+    <span class="head-title">{{ 'rag.sources.addDocCard' | t }}</span>
+  </div>
+
+  @if (fileError()) {
+    <div class="dropzone error-shake">
+      <div class="err-icon-box">
+        <app-icon name="file" [size]="22" />
+      </div>
+      <div class="err-title">«{{ rejectedName() }}» — {{ rejectedSize() }}</div>
+      <div class="err-desc">{{ fileError() }}</div>
+      <app-button kind="quiet" (btnClick)="resetError()">
+        {{ 'rag.sources.dropChooseAnother' | t }}
+      </app-button>
+    </div>
+  } @else if (uploadProgress() !== null) {
+    <div class="dropzone uploading-zone">
+      <app-icon name="upload" [size]="28" class="pulse-icon" />
+      <div class="progress-title">
+        {{ 'rag.sources.uploading' | t: { progress: uploadProgress() ?? 0 } }}
+      </div>
+      <div class="upload-track">
+        <div class="upload-fill" [style.width.%]="uploadProgress()"></div>
+      </div>
+    </div>
+  } @else {
+    <div
+      class="dropzone idle-zone"
+      [class.drag-over]="isDragOver()"
+      [class.is-disabled]="disabled()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+      (click)="onZoneClick(fileInput)"
+    >
+      <input
+        #fileInput
+        type="file"
+        class="hidden-input"
+        accept=".pdf,.docx,.html,.htm,.md,.txt"
+        [disabled]="disabled()"
+        (change)="onFileSelected($event)"
+      />
+      <div class="drop-icon-box">
+        <app-icon name="upload" [size]="22" />
+      </div>
+      <div class="drop-main-text">{{ 'rag.sources.dropTitle' | t }}</div>
+      <div class="drop-sub-text">{{ 'rag.sources.dropSubtitle' | t }}</div>
+    </div>
+  }
+
+  <div class="page-row">
+    <div class="field-col">
+      <label class="field-label">{{ 'rag.sources.pageLabel' | t }}</label>
+      <input
+        type="url"
+        class="url-input"
+        [class.input-err]="pageError()"
+        [placeholder]="'rag.sources.pagePlaceholder' | t"
+        [ngModel]="pageUrl()"
+        (ngModelChange)="onUrlChange($event)"
+        [disabled]="disabled() || pageSubmitting()"
+      />
+      @if (pageError()) {
+        <span class="err-hint">{{ pageError() }}</span>
+      } @else {
+        <span class="field-hint">{{ 'rag.sources.pageHint' | t }}</span>
+      }
+    </div>
+    <app-button
+      kind="outline"
+      [disabled]="disabled() || !pageUrl().trim() || pageSubmitting()"
+      [disabledTitle]="disabled() ? ('rag.common.readOnlyHint' | t) : ''"
+      (btnClick)="submitPage()"
+    >
+      {{ 'rag.sources.btnAdd' | t }}
+    </app-button>
+  </div>
+
+  <div class="redactor-note">
+    <app-icon name="shield" [size]="16" class="note-shield" />
+    <span class="note-text">{{ 'rag.sources.redactorNote' | t }}</span>
+  </div>
+</div>

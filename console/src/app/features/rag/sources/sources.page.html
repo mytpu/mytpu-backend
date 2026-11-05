@@ -1,0 +1,138 @@
+<div class="sources-page">
+  <div class="header-row">
+    <div class="title-group">
+      <h1 class="page-title">{{ 'rag.sources.title' | t }}</h1>
+      <p class="page-subtitle">{{ 'rag.sources.meta' | t }}</p>
+    </div>
+    <app-button
+      kind="quiet"
+      icon="refresh"
+      [disabled]="!sessionStore.canChange()"
+      [disabledTitle]="'rag.common.readOnlyHint' | t"
+      (btnClick)="reindexAll()"
+    >
+      {{ 'rag.sources.reindexAll' | t }}
+    </app-button>
+  </div>
+
+  @if (loading() && sources().length === 0) {
+    <div class="grid-content">
+      <div class="left-col">
+        <app-skeleton height="260px" radius="var(--radius-card)" />
+        <app-skeleton height="200px" radius="var(--radius-card)" />
+      </div>
+      <div class="right-col">
+        <app-skeleton height="380px" radius="var(--radius-card)" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="reload()"
+    />
+  } @else {
+    <div class="grid-content">
+      <div class="left-col">
+        <app-source-dropzone
+          [disabled]="!sessionStore.canChange()"
+          (created)="onSourceCreated($event)"
+        />
+
+        <app-card [label]="'rag.sources.sourcesListTitle' | t" icon="db">
+          <table class="sources-table">
+            <thead>
+              <tr>
+                <th>{{ 'rag.overview.colSource' | t }}</th>
+                <th>{{ 'rag.sources.colType' | t }}</th>
+                <th>{{ 'rag.overview.colDocs' | t }}</th>
+                <th>{{ 'rag.overview.colUpdated' | t }}</th>
+                <th>{{ 'rag.sources.colActions' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (src of sources(); track src.id) {
+                <tr>
+                  <td>
+                    <div class="source-cell">
+                      <span class="source-title">{{ src.title }}</span>
+                      <span class="source-addr">{{ src.address }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <app-badge kind="neutral">{{ tagLabel(src.kind) }}</app-badge>
+                  </td>
+                  <td>{{ src.documents }}</td>
+                  <td>{{ formatShortDate(src.createdAt) }}</td>
+                  <td>
+                    <div class="actions-cell">
+                      <app-button
+                        kind="ghost"
+                        size="sm"
+                        icon="refresh"
+                        [disabled]="!sessionStore.canChange()"
+                        [disabledTitle]="'rag.common.readOnlyHint' | t"
+                        (btnClick)="reindexSource(src)"
+                      >
+                        {{ src.kind === 'site' ? ('rag.sources.actCrawlNow' | t) : ('rag.sources.actReindex' | t) }}
+                      </app-button>
+                      <app-button
+                        kind="ghost"
+                        size="sm"
+                        icon="trash"
+                        [disabled]="!sessionStore.canChange()"
+                        [disabledTitle]="'rag.common.readOnlyHint' | t"
+                        (btnClick)="promptDelete(src)"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </app-card>
+      </div>
+
+      <div class="right-col">
+        <app-card [label]="'rag.sources.jobsCardTitle' | t" icon="clock">
+          @if (jobs().length === 0) {
+            <p class="no-jobs">{{ 'rag.sources.noJobs' | t }}</p>
+          } @else {
+            @for (j of jobs(); track j.id) {
+              <div class="job-box">
+                <div class="job-head">
+                  <span class="job-name">{{ j.title || ('rag.sources.jobDefaultTitle' | t: { id: j.id }) }}</span>
+                  <app-badge [kind]="jobBadgeKind(j.status)">
+                    {{ jobStatusLabel(j.status) }}
+                  </app-badge>
+                </div>
+                <div class="stages-bar">
+                  @for (idx of [1, 2, 3, 4]; track idx) {
+                    <div
+                      class="stage-seg"
+                      [class.active]="stageActive(j.status, idx)"
+                      [class.error]="j.status === 'failed' && idx === 1"
+                    ></div>
+                  }
+                </div>
+                @if (j.log) {
+                  <pre class="job-log">{{ j.log }}</pre>
+                }
+              </div>
+            }
+          }
+        </app-card>
+      </div>
+    </div>
+  }
+
+  @if (sourceToDelete(); as toDelete) {
+    <app-source-delete-dialog
+      [source]="toDelete"
+      (cancel)="sourceToDelete.set(null)"
+      (confirm)="confirmDelete()"
+    />
+  }
+</div>

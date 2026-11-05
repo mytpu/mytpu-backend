@@ -99,50 +99,58 @@ export const routes: Routes = [
       {
         path: 'rag/overview',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/rag/overview/overview.page').then(
+            (m) => m.RagOverviewPage,
           ),
-        data: { step: 11, title: 'nav.ragOverview', meta: 'nav.groupRag' },
+        data: { title: 'nav.ragOverview', meta: 'nav.groupRag' },
       },
       {
         path: 'rag/sources',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/rag/sources/sources.page').then(
+            (m) => m.SourcesPage,
           ),
-        data: { step: 11, title: 'nav.ragSources', meta: 'nav.groupRag' },
+        data: { title: 'nav.ragSources', meta: 'nav.groupRag' },
       },
       {
         path: 'rag/documents',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/rag/documents/documents.page').then(
+            (m) => m.DocumentsPage,
           ),
-        data: { step: 11, title: 'nav.ragDocuments', meta: 'nav.groupRag' },
+        data: { title: 'nav.ragDocuments', meta: 'nav.groupRag' },
+      },
+      {
+        path: 'rag/documents/:id',
+        loadComponent: () =>
+          import('./features/rag/document/document.page').then(
+            (m) => m.DocumentPage,
+          ),
+        data: { title: 'rag.document.title', meta: 'nav.groupRag' },
       },
       {
         path: 'rag/playground',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/rag/playground/playground.page').then(
+            (m) => m.PlaygroundPage,
           ),
-        data: { step: 11, title: 'nav.ragPlayground', meta: 'nav.groupRag' },
+        data: { title: 'nav.ragPlayground', meta: 'nav.groupRag' },
       },
       {
         path: 'rag/eval',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/rag/eval/eval.page').then(
+            (m) => m.EvalPage,
           ),
-        data: { step: 11, title: 'nav.ragEval', meta: 'nav.groupRag' },
+        data: { title: 'nav.ragEval', meta: 'nav.groupRag' },
       },
       {
         path: 'rag/misses',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/rag/misses/misses.page').then(
+            (m) => m.MissesPage,
           ),
-        data: { step: 11, title: 'nav.ragMisses', meta: 'nav.groupRag' },
+        data: { title: 'nav.ragMisses', meta: 'nav.groupRag' },
       },
     ],
   },

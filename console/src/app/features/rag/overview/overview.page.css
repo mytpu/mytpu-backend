@@ -1,0 +1,242 @@
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.overview-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: pageEnter var(--dur-base) var(--ease);
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+.stat-tile {
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.stat-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.grid-content {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.left-col, .right-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.kv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.kv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.kv-row:last-child {
+  border-bottom: none;
+}
+
+.kv-key {
+  width: 190px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.kv-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.sources-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sources-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.sources-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.sources-table tr:last-child td {
+  border-bottom: none;
+}
+
+.source-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.source-addr {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.progress-track {
+  width: 120px;
+  height: 6px;
+  background: var(--bg-nested);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--green-bright);
+  border-radius: var(--radius-pill);
+}
+
+.miss-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.miss-item:last-child {
+  border-bottom: none;
+}
+
+.miss-query {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.job-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.job-item:last-child {
+  border-bottom: none;
+}
+
+.job-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-tile);
+  background: var(--bg-nested);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.job-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.job-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}

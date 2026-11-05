@@ -1,0 +1,177 @@
+<div class="overview-page">
+  <div class="header-row">
+    <div class="title-group">
+      <h1 class="page-title">{{ 'rag.overview.title' | t }}</h1>
+      <p class="page-subtitle">{{ 'rag.overview.meta' | t }}</p>
+    </div>
+    <app-button
+      kind="primary"
+      icon="upload"
+      [disabled]="!sessionStore.canChange()"
+      [disabledTitle]="'rag.common.readOnlyHint' | t"
+      (btnClick)="goToSources()"
+    >
+      {{ 'rag.overview.btnUpload' | t }}
+    </app-button>
+  </div>
+
+  @if (loading() && !data()) {
+    <div class="stats-row">
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+    </div>
+    <div class="grid-content">
+      <div class="left-col">
+        <app-skeleton height="180px" radius="var(--radius-card)" />
+        <app-skeleton height="240px" radius="var(--radius-card)" />
+      </div>
+      <div class="right-col">
+        <app-skeleton height="180px" radius="var(--radius-card)" />
+        <app-skeleton height="180px" radius="var(--radius-card)" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="reload()"
+    />
+  } @else if (data(); as d) {
+    <div class="stats-row">
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.overview.statSources' | t }}</span>
+          <app-icon name="upload" [size]="18" />
+        </div>
+        <div class="stat-value">{{ d.sources }}</div>
+        <div class="stat-hint">{{ 'rag.overview.statSourcesHint' | t }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.overview.statDocuments' | t }}</span>
+          <app-icon name="file" [size]="18" />
+        </div>
+        <div class="stat-value">{{ d.documents }}</div>
+        <div class="stat-hint">{{ 'rag.overview.statDocumentsHint' | t }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.overview.statChunks' | t }}</span>
+          <app-icon name="db" [size]="18" />
+        </div>
+        <div class="stat-value">{{ formatChunks(d.chunks) }}</div>
+        <div class="stat-hint">{{ formatIndexSize(d.index?.bytes) }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.overview.statHit5' | t }}</span>
+          <app-icon name="target" [size]="18" />
+        </div>
+        <div class="stat-value">{{ formatHit5(d.lastEval?.hit5) }}</div>
+        <div class="stat-hint">{{ 'rag.overview.statHit5Hint' | t }}</div>
+      </div>
+    </div>
+
+    <div class="grid-content">
+      <div class="left-col">
+        <app-card [label]="'rag.overview.modelCardTitle' | t" icon="db">
+          <div class="kv-list">
+            <div class="kv-row">
+              <span class="kv-key">{{ 'rag.overview.modelVector' | t }}</span>
+              <span class="kv-val">{{ d.modelVersion }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">{{ 'rag.overview.searchConfig' | t }}</span>
+              <span class="kv-val">{{ 'rag.overview.searchConfigValue' | t }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">{{ 'rag.overview.lastUpload' | t }}</span>
+              <span class="kv-val">{{ formatLastIndexed(d.lastIndexed) }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">{{ 'rag.overview.fullReindex' | t }}</span>
+              <span class="kv-val">{{ 'rag.overview.fullReindexValue' | t }}</span>
+            </div>
+          </div>
+        </app-card>
+
+        <app-card
+          [label]="'rag.overview.sourcesTableTitle' | t"
+          icon="upload"
+          [link]="'rag.overview.allSourcesLink' | t"
+          (linkClick)="goToSources()"
+        >
+          <table class="sources-table">
+            <thead>
+              <tr>
+                <th>{{ 'rag.overview.colSource' | t }}</th>
+                <th>{{ 'rag.overview.colDocs' | t }}</th>
+                <th>{{ 'rag.overview.colChunks' | t }}</th>
+                <th>{{ 'rag.overview.colUpdated' | t }}</th>
+                <th>{{ 'rag.overview.colShare' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (src of sources(); track src.id) {
+                <tr>
+                  <td>
+                    <div class="source-title-cell">
+                      <span class="source-name">{{ src.title }}</span>
+                      <span class="source-addr">{{ src.address }}</span>
+                    </div>
+                  </td>
+                  <td>{{ src.documents }}</td>
+                  <td>{{ src.chunks }}</td>
+                  <td>{{ formatShortDate(src.createdAt) }}</td>
+                  <td>
+                    <div class="progress-track">
+                      <div class="progress-bar" [style.width.%]="sharePercent(src.chunks, d.chunks)"></div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </app-card>
+      </div>
+
+      <div class="right-col">
+        <app-card
+          [label]="'rag.overview.missesTitle' | t"
+          icon="help"
+          [link]="'rag.overview.missesLink' | t"
+          (linkClick)="goToMisses()"
+        >
+          @for (m of misses(); track m.query) {
+            <div class="miss-item">
+              <span class="miss-query">{{ m.query }}</span>
+              <app-badge [kind]="m.count > 10 ? 'warn' : 'neutral'">
+                {{ 'rag.overview.times' | t: { count: m.count } }}
+              </app-badge>
+            </div>
+          }
+        </app-card>
+
+        <app-card [label]="'rag.overview.jobsTitle' | t" icon="clock">
+          @for (j of jobs(); track j.id) {
+            <div class="job-item">
+              <div class="job-icon">
+                <app-icon name="file" [size]="16" />
+              </div>
+              <div class="job-info">
+                <span class="job-title">{{ j.title || ('#' + j.id) }}</span>
+                <span class="job-meta">
+                  {{ j.status === 'done' ? ('rag.overview.jobReady' | t) : j.status }} · {{ j.chunks || 0 }} {{ 'rag.common.chunks' | t }}
+                </span>
+              </div>
+            </div>
+          }
+        </app-card>
+      </div>
+    </div>
+  }
+</div>

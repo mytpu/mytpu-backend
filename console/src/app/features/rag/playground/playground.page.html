@@ -1,0 +1,118 @@
+<div class="playground-page">
+  <div class="header-row">
+    <div class="title-group">
+      <h1 class="page-title">{{ 'rag.playground.title' | t }}</h1>
+      <p class="page-subtitle">{{ 'rag.playground.meta' | t }}</p>
+    </div>
+  </div>
+
+  <div class="search-box-row">
+    <app-icon name="search" [size]="20" class="search-icon" />
+    <input
+      type="text"
+      class="query-input"
+      [placeholder]="'rag.playground.queryPlaceholder' | t"
+      [ngModel]="query()"
+      (ngModelChange)="query.set($event)"
+      (keydown.enter)="search()"
+    />
+    <select
+      class="access-select"
+      [ngModel]="access()"
+      (ngModelChange)="access.set($event)"
+    >
+      <option value="public">public</option>
+      <option value="students">students</option>
+      <option value="staff">staff</option>
+    </select>
+    <app-button
+      kind="primary"
+      [disabled]="!query().trim() || loading()"
+      (btnClick)="search()"
+    >
+      {{ (loading() ? 'rag.playground.searching' : 'rag.playground.btnSearch') | t }}
+    </app-button>
+  </div>
+
+  @if (loading() && !answer()) {
+    <app-skeleton height="380px" radius="var(--radius-card)" />
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="search()"
+    />
+  } @else if (answer(); as ans) {
+    <div class="summary-row">
+      @if (ans.found) {
+        <app-badge kind="ok" [dot]="true">
+          {{ 'rag.playground.statusFound' | t: { count: countAboveThreshold(ans) } }}
+        </app-badge>
+      } @else {
+        <app-badge kind="warn" [dot]="true">
+          {{ 'rag.playground.statusNotFound' | t }} ({{ reasonLabel(ans.reason) }})
+        </app-badge>
+      }
+      <span class="summary-meta">
+        {{ 'rag.playground.metricsSummary' | t: {
+          sim: formatScore(ans.bestSimilarity),
+          margin: formatScore(ans.margin),
+          threshold: formatScore(ans.thresholds.softSimilarity)
+        } }}
+      </span>
+    </div>
+
+    <app-card>
+      <table class="candidates-table">
+        <thead>
+          <tr>
+            <th class="col-num">{{ 'rag.playground.colPlace' | t }}</th>
+            <th>{{ 'rag.playground.colChunk' | t }}</th>
+            <th>{{ 'rag.playground.colVectors' | t }}</th>
+            <th>{{ 'rag.playground.colTextBm25' | t }}</th>
+            <th>{{ 'rag.playground.colRrf' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of ans.candidates; track c.chunkId) {
+            <tr>
+              <td class="col-num">{{ c.place }}</td>
+              <td>
+                <div class="chunk-info">
+                  <span class="chunk-title">{{ c.title }}</span>
+                  <span class="chunk-path">{{ c.path }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="score-cell">
+                  <span class="score-val">{{ formatScore(c.similarity) }}</span>
+                  <div class="mini-bar-track">
+                    <div
+                      class="mini-bar-fill"
+                      [class.dimmed]="(c.similarity || 0) < ans.thresholds.softSimilarity"
+                      [style.width.%]="(c.similarity || 0) * 100"
+                    ></div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <app-badge [kind]="c.inText ? 'info' : 'neutral'">
+                  {{ c.inText ? ('rag.playground.inTextYes' | t) : ('rag.playground.inTextNo' | t) }}
+                </app-badge>
+              </td>
+              <td class="rrf-cell">{{ c.rrf.toFixed(4) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </app-card>
+  } @else {
+    <app-empty-state
+      icon="search"
+      [title]="'rag.playground.emptySearchTitle' | t"
+      [description]="'rag.playground.emptySearchDesc' | t"
+    />
+  }
+</div>

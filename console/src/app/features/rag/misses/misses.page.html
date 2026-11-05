@@ -1,0 +1,132 @@
+<div class="misses-page">
+  <div class="header-row">
+    <div class="title-group">
+      <h1 class="page-title">{{ 'rag.misses.title' | t }}</h1>
+      <p class="page-subtitle">{{ 'rag.misses.meta' | t }}</p>
+    </div>
+    <select
+      class="days-select"
+      [ngModel]="days()"
+      (ngModelChange)="onDaysChange($event)"
+    >
+      <option [value]="7">{{ 'rag.misses.filter7d' | t }}</option>
+      <option [value]="30">{{ 'rag.misses.filter30d' | t }}</option>
+    </select>
+  </div>
+
+  @if (loading() && groups().length === 0) {
+    <div class="grid-content">
+      <div class="left-col">
+        <app-skeleton height="380px" radius="var(--radius-card)" />
+      </div>
+      <div class="right-col">
+        <app-skeleton height="260px" radius="var(--radius-card)" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="reload()"
+    />
+  } @else if (groups().length === 0) {
+    <app-empty-state
+      icon="check"
+      [title]="'rag.misses.emptyTitle' | t"
+      [description]="'rag.misses.emptyDesc' | t"
+    />
+  } @else {
+    <div class="grid-content">
+      <div class="left-col">
+        <app-card [label]="'rag.misses.groupsTitle' | t" icon="help">
+          <div class="groups-list">
+            @for (g of groups(); track g.query) {
+              <div
+                class="group-card"
+                [class.selected]="selectedGroup()?.query === g.query"
+                (click)="selectGroup(g)"
+              >
+                <div class="group-head">
+                  <span class="group-title">{{ g.query }}</span>
+                  <span class="group-trend">{{ formatShortDate(g.lastAt) }}</span>
+                  <app-badge [kind]="g.count > 10 ? 'warn' : 'neutral'">
+                    {{ 'rag.overview.times' | t: { count: g.count } }}
+                  </app-badge>
+                </div>
+                <div class="examples-wrap">
+                  @for (ex of g.examples; track ex) {
+                    <span class="example-tag">«{{ ex }}»</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </app-card>
+      </div>
+
+      <div class="right-col">
+        @if (selectedGroup(); as sel) {
+          <app-card [label]="'rag.misses.actionCardTitle' | t" icon="spark">
+            <div class="action-card-body">
+              <p class="action-desc">
+                {{ 'rag.misses.actionCardDesc' | t: { query: sel.query, count: sel.count } }}
+              </p>
+
+              <div class="actions-buttons">
+                <app-button
+                  kind="quiet"
+                  icon="upload"
+                  [fullWidth]="true"
+                  [disabled]="!sessionStore.canChange()"
+                  [disabledTitle]="'rag.common.readOnlyHint' | t"
+                  (btnClick)="goToUpload()"
+                >
+                  {{ 'rag.misses.btnUploadDoc' | t }}
+                </app-button>
+                <app-button
+                  kind="quiet"
+                  icon="search"
+                  [fullWidth]="true"
+                  (btnClick)="checkInPlayground(sel.query)"
+                >
+                  {{ 'rag.misses.btnCheckPlayground' | t }}
+                </app-button>
+                <app-button
+                  kind="quiet"
+                  icon="target"
+                  [fullWidth]="true"
+                  [disabled]="!sessionStore.canChange() || addedSuccess()"
+                  [disabledTitle]="'rag.common.readOnlyHint' | t"
+                  (btnClick)="addToEval(sel.query)"
+                >
+                  {{ 'rag.misses.btnAddEvalQuestion' | t }}
+                </app-button>
+              </div>
+
+              @if (addedSuccess()) {
+                <div class="added-toast">
+                  {{ 'rag.misses.addedSuccessToast' | t }}
+                </div>
+              }
+
+              <div class="near-chunk-box">
+                <span class="near-label">{{ 'rag.misses.nearChunkLabel' | t }}</span>
+                @if (nearLoading()) {
+                  <app-skeleton height="18px" width="80%" />
+                } @else if (nearCandidate(); as c) {
+                  <span class="near-text">
+                    {{ c.title }} — {{ c.path }} · {{ formatSimilarity(c.similarity) }}
+                  </span>
+                } @else {
+                  <span class="near-empty">{{ 'rag.misses.noNearChunks' | t }}</span>
+                }
+              </div>
+            </div>
+          </app-card>
+        }
+      </div>
+    </div>
+  }
+</div>

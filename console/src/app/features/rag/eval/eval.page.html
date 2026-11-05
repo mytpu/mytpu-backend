@@ -1,0 +1,188 @@
+<div class="eval-page">
+  <div class="header-row">
+    <div class="title-group">
+      <h1 class="page-title">{{ 'rag.eval.title' | t }}</h1>
+      <p class="page-subtitle">{{ 'rag.eval.meta' | t }}</p>
+    </div>
+    <div class="header-actions">
+      <app-button
+        kind="quiet"
+        icon="refresh"
+        [disabled]="!sessionStore.canChange()"
+        [disabledTitle]="'rag.common.readOnlyHint' | t"
+        (btnClick)="importQuestions()"
+      >
+        {{ 'rag.eval.btnImport' | t }}
+      </app-button>
+      <app-button
+        kind="outline"
+        icon="plus"
+        [disabled]="!sessionStore.canChange()"
+        [disabledTitle]="'rag.common.readOnlyHint' | t"
+        (btnClick)="showAddDialog.set(true)"
+      >
+        {{ 'rag.eval.btnAddQuestion' | t }}
+      </app-button>
+      <app-button
+        kind="primary"
+        icon="target"
+        [disabled]="!sessionStore.canChange() || running()"
+        [disabledTitle]="'rag.common.readOnlyHint' | t"
+        (btnClick)="runEval()"
+      >
+        {{ (running() ? 'rag.eval.running' : 'rag.eval.btnRun') | t }}
+      </app-button>
+    </div>
+  </div>
+
+  @if (loading() && questions().length === 0) {
+    <div class="stats-row">
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+      <app-skeleton height="96px" radius="var(--radius-card)" />
+    </div>
+    <div class="grid-content">
+      <div class="left-col">
+        <app-skeleton height="380px" radius="var(--radius-card)" />
+      </div>
+      <div class="right-col">
+        <app-skeleton height="240px" radius="var(--radius-card)" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'rag.common.error' | t"
+      [description]="error()!"
+      [actionText]="'rag.common.retry' | t"
+      (action)="reload()"
+    />
+  } @else {
+    <div class="stats-row">
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.eval.statHit3' | t }}</span>
+          @if (prevRun(); as p) {
+            <app-badge kind="neutral">
+              {{ 'rag.eval.wasScore' | t: { score: formatScore(p.hit3) } }}
+            </app-badge>
+          }
+        </div>
+        <div class="stat-value">{{ formatScore(latestRun()?.hit3) }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.eval.statHit5' | t }}</span>
+          @if (prevRun(); as p) {
+            <app-badge kind="neutral">
+              {{ 'rag.eval.wasScore' | t: { score: formatScore(p.hit5) } }}
+            </app-badge>
+          }
+        </div>
+        <div class="stat-value">{{ formatScore(latestRun()?.hit5) }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.eval.statFalseFound' | t }}</span>
+          @if (prevRun(); as p) {
+            <app-badge kind="neutral">
+              {{ 'rag.eval.wasCount' | t: { count: p.falseFound } }}
+            </app-badge>
+          }
+        </div>
+        <div class="stat-value">
+          {{ 'rag.eval.falseFoundRatio' | t: { found: latestRun()?.falseFound ?? 0, total: latestRun()?.questions ?? 0 } }}
+        </div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-head">
+          <span class="stat-label">{{ 'rag.eval.statLastRun' | t }}</span>
+          @if (latestRun(); as lr) {
+            <app-badge kind="neutral">
+              {{ 'rag.eval.questionsCount' | t: { count: lr.questions } }}
+            </app-badge>
+          }
+        </div>
+        <div class="stat-value">{{ formatShortDate(latestRun()?.at) }}</div>
+      </div>
+    </div>
+
+    <div class="grid-content">
+      <div class="left-col">
+        <app-card [label]="'rag.eval.questionsTableTitle' | t" icon="list">
+          <table class="q-table">
+            <thead>
+              <tr>
+                <th>{{ 'rag.eval.colQuestion' | t }}</th>
+                <th>{{ 'rag.eval.colExpected' | t }}</th>
+                <th>{{ 'rag.eval.colNote' | t }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (q of questions(); track q.question) {
+                <tr>
+                  <td>
+                    <div class="q-info">
+                      <span class="q-text">{{ q.question }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="expected-cell">
+                      {{ q.expectedUrls[0] || (q.hasAnswer ? ('rag.common.dash' | t) : ('rag.eval.noAnswerInBase' | t)) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="q-note">{{ q.note || ('rag.common.dash' | t) }}</span>
+                  </td>
+                  <td>
+                    <app-button
+                      kind="ghost"
+                      size="sm"
+                      icon="trash"
+                      [disabled]="!sessionStore.canChange()"
+                      [disabledTitle]="'rag.common.readOnlyHint' | t"
+                      (btnClick)="deleteQuestion(q.id!)"
+                    />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </app-card>
+      </div>
+
+      <div class="right-col">
+        <app-card [label]="'rag.eval.runsHistoryTitle' | t" icon="chart">
+          @if (runs().length === 0) {
+            <p>{{ 'rag.eval.noRuns' | t }}</p>
+          } @else {
+            <div class="chart-bars-row">
+              @for (r of chartRuns(); track r.id) {
+                <div class="chart-col">
+                  <span class="bar-val" [class.is-latest]="r.id === latestRun()?.id">
+                    {{ formatScore(r.hit5) }}
+                  </span>
+                  <div
+                    class="bar-rect"
+                    [class.is-latest]="r.id === latestRun()?.id"
+                    [style.height.px]="Math.round(r.hit5 * 110)"
+                  ></div>
+                  <span class="bar-date">{{ formatShortDate(r.at) }}</span>
+                </div>
+              }
+            </div>
+          }
+        </app-card>
+      </div>
+    </div>
+  }
+
+  @if (showAddDialog()) {
+    <app-eval-add-dialog
+      (cancel)="showAddDialog.set(false)"
+      (save)="saveQuestion($event)"
+    />
+  }
+</div>
