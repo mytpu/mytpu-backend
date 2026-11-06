@@ -15,7 +15,7 @@
 
     <properties>
         <onnxruntime.version>1.30.0</onnxruntime.version>
-        <djl.version>0.37.0</djl.version>
+        <djl.version>0.39.0</djl.version>
     </properties>
 
     <dependencies>
