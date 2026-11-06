@@ -28,7 +28,7 @@ public class IntentRouter {
             Pattern.UNICODE_CHARACTER_CLASS | Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
 
     private static final Pattern BUILDING =
-            Pattern.compile("(?:(\\d{1,2})\\s*корпус[а-яё]*|корпус[а-яё]*\\s*(\\d{1,2}))", FLAGS);
+            Pattern.compile("(?:(\\d{1,2})\\s*(?:-?(?:й|го|м|ом))?\\s*корпус[а-яё]*|корпус[а-яё]*\\s*(\\d{1,2}))", FLAGS);
     private static final Pattern TEACHER =
             Pattern.compile("(?:преподавател[а-яё]*|препод[а-яё]*)\\s+([а-яёa-z]+)", FLAGS);
 
@@ -153,15 +153,15 @@ public class IntentRouter {
             if (r.room() != null) {
                 slots.put("room", r.room());
             }
-            String queryStr = (r.room() != null ? r.room() + " " : "")
-                    + (building != null ? building + " корпус" : "");
-            slots.put("query", queryStr.trim());
+            // Аудитория ищется по номеру, корпус отбирается в DirectAnswerer (см. RaspQuery)
+            slots.put("query", r.room() != null ? RaspQuery.room(r.room())
+                    : building != null ? RaspQuery.building(building) : "корпус");
         } else {
             String loc = extractLocationName(lower, slots);
             if ((lower.startsWith("а ") || lower.contains("а в ")) && contextSlots.containsKey("room") && !slots.containsKey("room")) {
                 String prevRoom = contextSlots.get("room");
                 slots.put("room", prevRoom);
-                loc = prevRoom + " " + loc;
+                loc = RaspQuery.room(prevRoom);
             }
             slots.put("query", loc.trim());
         }
@@ -171,12 +171,12 @@ public class IntentRouter {
     private static String extractLocationName(String lower, Map<String, String> slots) {
         if (lower.contains("главный")) {
             slots.put("building", "ГК");
-            return "Главный корпус";
+            return RaspQuery.MAIN_BUILDING;
         }
         if (lower.contains("деканат")) return "Единый деканат";
         if (lower.contains("бассейн")) return "бассейн Политехник";
         if (lower.contains("мкц")) return "МКЦ";
-        if (lower.contains("нтб") || lower.contains("библиотек")) return "НТБ";
+        if (lower.contains("нтб") || lower.contains("библиотек")) return RaspQuery.LIBRARY;
         if (lower.contains("медцентр")) return "Медицинский центр";
         if (lower.contains("кибернетический")) return "Кибернетический центр";
 
@@ -184,7 +184,7 @@ public class IntentRouter {
         if (m.find()) {
             String b = m.group(1) != null ? m.group(1) : m.group(2);
             slots.put("building", b);
-            return b + " корпус";
+            return RaspQuery.building(b);
         }
         return "корпус";
     }

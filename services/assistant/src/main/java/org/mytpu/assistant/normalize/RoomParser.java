@@ -29,19 +29,19 @@ public final class RoomParser {
 
     // Аудитория с явным маркером «ауд» / «аудитория»
     private static final Pattern EXPLICIT_ROOM = Pattern.compile(
-            "(?<![\\p{L}\\p{N}])ауд(?:итори[а-яё]*)?\\.?\\s*([0-9]{1,4})\\s*[-]?\\s*([а-яёa-z])?(?![\\p{L}\\p{N}])",
+            "(?<![\\p{L}\\p{N}])ауд(?:итори[а-яё]*)?\\.?\\s*([0-9]{1,4})-?([а-яёa-z])?(?![\\p{L}\\p{N}])",
             FLAGS
     );
 
     // Номер аудитории с буквой без маркера (например «403б», «403b»)
     private static final Pattern BARE_ROOM_WITH_LETTER = Pattern.compile(
-            "(?<![\\p{L}\\p{N}-])([0-9]{3,4})\\s*[-]?\\s*([а-яёa-z])(?![\\p{L}\\p{N}])",
+            "(?<![\\p{L}\\p{N}-])([0-9]{3,4})-?([а-яёa-z])(?![\\p{L}\\p{N}])",
             FLAGS
     );
 
     // Номер аудитории рядом с корпусом (например «10 корпус 101»)
     private static final Pattern ROOM_NEAR_BUILDING = Pattern.compile(
-            "(?<![\\p{L}\\p{N}-])([0-9]{1,4})\\s*[-]?\\s*([а-яёa-z])?(?![\\p{L}\\p{N}])",
+            "(?<![\\p{L}\\p{N}-])([0-9]{1,4})-?([а-яёa-z])?(?![\\p{L}\\p{N}])",
             FLAGS
     );
 

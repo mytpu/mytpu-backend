@@ -132,9 +132,19 @@ class IntentRouterTest {
         assertEquals(Intent.ROOM_WHERE, route.intent());
         assertEquals("10", route.slots().get("building"));
         assertEquals("403б", route.slots().get("room"));
-        assertTrue(route.slots().get("query").contains("403б"));
-        assertTrue(route.slots().get("query").contains("10 корпус"));
+        // Поиск расписания понимает номер аудитории, а не «403б 10 корпус» (проба на стенде 06.11)
+        assertEquals("403Б", route.slots().get("query"));
         assertTrue(route.isDirectEligible());
+    }
+
+    @Test
+    @DisplayName("«где 10-й корпус» — корпус 10 и запрос в форме расписания ТПУ")
+    void shouldRecognizeOrdinalBuilding() {
+        Route route = router.route(normalizer.normalize("где 10-й корпус"), Map.of());
+
+        assertEquals(Intent.ROOM_WHERE, route.intent());
+        assertEquals("10", route.slots().get("building"));
+        assertEquals("Учебный корпус № 10", route.slots().get("query"));
     }
 
     @Test
@@ -148,8 +158,7 @@ class IntentRouterTest {
         assertEquals(Intent.ROOM_WHERE, route.intent());
         assertEquals("10", route.slots().get("building"));
         assertEquals("403б", route.slots().get("room"));
-        assertTrue(route.slots().get("query").contains("403б"));
-        assertTrue(route.slots().get("query").contains("10 корпус"));
+        assertEquals("403Б", route.slots().get("query"));
         assertTrue(route.isDirectEligible());
     }
 

@@ -33,7 +33,10 @@ class RoomParserTest {
             "205-а | null | 205а",
             "ГК ауд 101 | ГК | 101",
             "где находится ауд 403б? | null | 403б",
-            "как пройти в к.10 ауд 402 | 10 | 402"
+            "как пройти в к.10 ауд 402 | 10 | 402",
+            "где ауд. 403 в 10 корпусе | 10 | 403",
+            "аудитория 214 в главном корпусе | null | 214",
+            "403-б | null | 403б"
     }, delimiter = '|')
     void shouldParseRoomAndBuilding(String input, String expectedBuilding, String expectedRoom) {
         String building = "null".equals(expectedBuilding) ? null : expectedBuilding;

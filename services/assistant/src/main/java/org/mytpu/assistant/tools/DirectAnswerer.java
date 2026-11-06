@@ -1,12 +1,15 @@
 package org.mytpu.assistant.tools;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.mytpu.assistant.dto.CardEvent;
 import org.mytpu.assistant.dto.Source;
 import org.mytpu.assistant.router.Intent;
+import org.mytpu.assistant.router.RaspQuery;
 import org.mytpu.assistant.router.Route;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
@@ -45,7 +48,7 @@ public class DirectAnswerer {
             if (query.length() > 100) {
                 query = query.substring(0, 100);
             }
-            ToolAnswer answer = toolsClient.call("rasp_find", Map.of("query", query));
+            ToolAnswer answer = inBuilding(toolsClient.call("rasp_find", Map.of("query", query)), route);
 
             StringBuilder sb = new StringBuilder(answer.summary());
             if (!answer.sources().isEmpty()) {
@@ -61,5 +64,28 @@ public class DirectAnswerer {
         }
 
         throw new IllegalArgumentException("Прямой путь не поддерживается для намерения " + route.intent());
+    }
+
+    /**
+     * Аудитория с корпусом: поиск расписания ищет по номеру аудитории во всех корпусах (см. RaspQuery), поэтому здесь
+     * остаются только места нужного корпуса. Ничего не осталось — ответ как есть (похожие аудитории других корпусов).
+     */
+    private ToolAnswer inBuilding(ToolAnswer answer, Route route) {
+        String building = route.slots().get("building");
+        if (route.intent() != Intent.ROOM_WHERE || building == null) {
+            return answer;
+        }
+        // Только корпус: из списка «корпус и все его аудитории» — сам корпус
+        boolean roomAsked = route.slots().containsKey("room");
+        String buildingName = RaspQuery.building(building);
+        List<Source> matched = answer.sources().stream()
+                .filter(s -> roomAsked ? RaspQuery.inBuilding(s.title(), building) : s.title().startsWith(buildingName))
+                .toList();
+        if (matched.isEmpty()) {
+            return answer;
+        }
+        String names = matched.stream().map(Source::title).collect(Collectors.joining("; "));
+        String summary = messages.getMessage("chat.direct.room_found", new Object[] {names}, names, RU);
+        return new ToolAnswer(summary, answer.data(), answer.hint(), true, matched);
     }
 }
