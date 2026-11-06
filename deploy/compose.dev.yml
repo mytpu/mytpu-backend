@@ -117,8 +117,12 @@ services:
       - ${GEO_DB_HOST_DIR:-../geo}:/geo:ro
     tmpfs: ["/tmp:size=16m"]
     ports: ["127.0.0.1:8081:8080"]
-    # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag; data — к своей БД
-    networks: [edge, core, data]
+    # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag и от assistant; data — к своей БД.
+    # Имя gateway-core есть только в core: assistant ходит к инструментам по внутренней сети, а не через edge
+    networks:
+      edge: {}
+      core: {aliases: [gateway-core]}
+      data: {}
     depends_on:
       postgres: {condition: service_healthy}
       rag: {condition: service_started}
@@ -137,11 +141,14 @@ services:
     environment:
       ML_BASE_URL: ${ML_BASE_URL:-http://host.docker.internal:8090/v1}
       ML_CHAT_MODEL: ${ML_CHAT_MODEL:-tpu-assistant}
-    secrets: [ml_api_key]
+      # Инструменты — только через вход шлюза /chat/tools (ключ chat.service), не rag напрямую (spec 5)
+      GATEWAY_URL: http://gateway-core:8080
+    # assistant_gateway_key — ключ chat.service; пустой файл — инструменты выключены, ответы шаблоном
+    secrets: [ml_api_key, assistant_gateway_key]
     tmpfs: ["/tmp:size=16m"]
     ports: ["127.0.0.1:8082:8080"]
-    # В core (к gateway) — со спецификацией assistant; до тех пор rag ему недоступен
-    networks: [edge]
+    # edge — ml-server и опубликованный порт; core — к gateway
+    networks: [edge, core]
     mem_limit: 300m
     memswap_limit: 300m
 
@@ -163,6 +170,7 @@ secrets:
   connector_vault_key: {file: ./secrets/connector_vault_key}
   rag_admin_key: {file: ./secrets/rag_admin_key}
   ml_api_key: {file: ./secrets/ml_api_key}
+  assistant_gateway_key: {file: ./secrets/assistant_gateway_key}
   key_alert_webhook: {file: ./secrets/key_alert_webhook}
 
 volumes:

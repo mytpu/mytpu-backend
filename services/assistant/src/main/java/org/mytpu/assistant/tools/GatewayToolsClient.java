@@ -30,15 +30,22 @@ public class GatewayToolsClient {
 
     private final RestClient restClient;
     private final JsonMapper json;
+    private final boolean keySet;
 
     @Autowired
     public GatewayToolsClient(GatewayToolsProperties properties, RestClient.Builder builder, JsonMapper json) {
-        this(configure(properties, builder.clone()).requestFactory(timeouts(properties.timeout())).build(), json);
+        this(configure(properties, builder.clone()).requestFactory(timeouts(properties.timeout())).build(), json,
+                properties.gatewayKey() != null && !properties.gatewayKey().isBlank());
     }
 
     GatewayToolsClient(RestClient restClient, JsonMapper json) {
+        this(restClient, json, true);
+    }
+
+    private GatewayToolsClient(RestClient restClient, JsonMapper json, boolean keySet) {
         this.restClient = restClient;
         this.json = json;
+        this.keySet = keySet;
     }
 
     /** Адрес шлюза и ключ chat.service; фабрика запросов с таймаутами ставится отдельно (в тестах — заглушка). */
@@ -59,6 +66,10 @@ public class GatewayToolsClient {
     }
 
     public ToolAnswer call(String toolName, Map<String, Object> arguments) {
+        // Ключ chat.service не выдан — шлюз всё равно ответил бы 401 и засчитал неудачный вход адресу помощника
+        if (!keySet) {
+            throw new ToolUnavailable("tool_unavailable");
+        }
         try {
             JsonNode root = restClient.post()
                     .uri("/chat/tools/{name}", toolName)

@@ -88,6 +88,31 @@ chmod 644 secrets/ml_api_key
 touch secrets/.ml_api_key_set
 ```
 
+### Ключ помощника к шлюзу (роль `chat.service`, спецификация 5)
+
+Помощник зовёт инструменты (`docs_search`, `rasp_find`) через вход шлюза `/chat/tools` по внутренней сети `core`
+(подсеть `CORE_SUBNET`, по умолчанию `172.31.241.0/24`). Ключ выдаётся один раз после запуска `up.sh`; пока файл
+`secrets/assistant_gateway_key` пустой, помощник отвечает шаблонами без инструментов. Ключ сразу пишется в файл
+секрета и в консоль не выводится:
+```bash
+cd ~/mytpu/deploy
+bash test-server/issue-key.sh --owner="Помощник (чат)" --roles=chat.service --kind=server \
+    --networks=172.31.241.0/24 --scopes=docs.read,rasp.read > ~/keys/assistant-gateway.out
+grep -o '^mtpu_[A-Za-z0-9]*' ~/keys/assistant-gateway.out | tr -d '\n' > secrets/assistant_gateway_key
+chmod 644 secrets/assistant_gateway_key
+test -s secrets/assistant_gateway_key && echo "ключ записан"
+docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
+    up -d --no-build --force-recreate assistant
+```
+
+### Переход на фиксированную подсеть `core` (один раз, 06.11.2026)
+
+Сеть `core` получила фиксированную подсеть; уже созданную сеть Docker сам не меняет — её пересоздаёт остановка стека
+(данные в томах сохраняются, `--purge` не нужен):
+```bash
+cd ~/mytpu/deploy && bash test-server/down.sh && bash test-server/up.sh
+```
+
 ---
 
 ## 2. Каждый раз (с ПК разработчика)

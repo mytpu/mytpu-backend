@@ -29,6 +29,13 @@ for name in "${names[@]}"; do
     fi
 done
 
+# Ключ помощника к шлюзу (роль chat.service) выдаёт шлюз; пустой файл — инструменты помощника выключены
+if [ ! -f "secrets/assistant_gateway_key" ]; then
+    touch "secrets/assistant_gateway_key"
+    chmod 644 "secrets/assistant_gateway_key"
+    echo "создан secrets/assistant_gateway_key (пустой: выдайте ключ chat.service — deploy/test-server/README.md)"
+fi
+
 # Адрес вебхука оповещений: пустой файл = выключено (не случайное значение)
 if [ ! -f "secrets/key_alert_webhook" ]; then
     touch "secrets/key_alert_webhook"

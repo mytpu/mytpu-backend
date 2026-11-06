@@ -36,7 +36,7 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES — адрес шлюза сети edge в server.env}
     # /api/ai/* открыт наружу через Caddy: без ключа клиента (заголовок X-Assistant-Key) любой тратил бы квоту модели.
     # Файл создаёт up.sh; пустой файл выключил бы проверку — up.sh этого не допускает.
-    secrets: [ml_api_key, assistant_client_key]
+    secrets: [ml_api_key, assistant_client_key, assistant_gateway_key]
 
 secrets:
   assistant_client_key: {file: ./secrets/assistant_client_key}
@@ -47,3 +47,9 @@ networks:
       driver: default
       config:
         - subnet: ${EDGE_SUBNET:-172.31.240.0/24}
+  # Фиксированная подсеть core: ключ chat.service помощника выдаётся только с сетями (--networks=${CORE_SUBNET})
+  core:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${CORE_SUBNET:-172.31.241.0/24}
