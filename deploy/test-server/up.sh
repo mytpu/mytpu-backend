@@ -26,6 +26,15 @@ MARKER=".images_loaded"
 
 if [ -f "$ARCHIVE" ]; then
     if [ ! -f "$MARKER" ] || [ "$ARCHIVE" -nt "$MARKER" ]; then
+        # Архив без суммы или с несовпадающей суммой не загружаем: недокачанный или подменённый архив
+        if [ ! -f "$ARCHIVE.sha256" ]; then
+            echo "Ошибка: нет $ARCHIVE.sha256 — перенесите архив заново (pack.sh, затем upload.sh --images-only)." >&2
+            exit 1
+        fi
+        if ! (cd "$(dirname "$ARCHIVE")" && sha256sum -c --quiet "$(basename "$ARCHIVE").sha256"); then
+            echo "Ошибка: контрольная сумма $ARCHIVE не совпала — архив не загружен." >&2
+            exit 1
+        fi
         echo "==> Загрузка docker-образов из $ARCHIVE..."
         docker load < "$ARCHIVE"
         touch "$MARKER"

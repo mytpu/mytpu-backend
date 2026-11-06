@@ -25,8 +25,103 @@ jobs:
           java-version: 25
           cache: maven
 
-      - name: Сборка и проверка всех модулей
-        run: mvn -B -ntp verify
+      # Профиль sbom: CycloneDX по всему реактору (target/bom.json, target/bom.xml), без тестовых зависимостей
+      - name: Сборка и проверка всех модулей, SBOM
+        run: mvn -B -ntp -Psbom verify
+
+      - name: Выгрузка SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: |
+            target/bom.json
+            target/bom.xml
+          if-no-files-found: error
+
+      # Все модули Maven (gateway, rag, assistant), а не только образ assistant: по SBOM — точные версии после разрешения
+      # Maven и без запросов к Maven Central (trivy fs по pom.xml получал 429 и не определял часть версий).
+      # Тот же образ и порог, что у сканирования образа в ci-cd-ai-backend.yml
+      - name: Уязвимости зависимостей Maven по SBOM (критичные с исправлением — стоп)
+        run: >-
+          docker run --rm -v "$PWD/target:/sbom:ro"
+          aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+          sbom --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed /sbom/bom.json
+
+  # Известные уязвимости npm консоли
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # По package-lock.json, без установки пакетов; dev-зависимости в сборку консоли не попадают
+      - name: Уязвимости npm консоли (high и выше — стоп)
+        working-directory: console
+        run: npm audit --omit=dev --audit-level=high
+
+  # Образы gateway и rag тем же spring.Dockerfile, что и на стенде (Д2); образ assistant сканирует ci-cd-ai-backend.yml
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gateway
+            module: services/gateway
+          - name: rag
+            module: services/rag/rag-app
+    env:
+      NAME: ${{ matrix.name }}
+      MODULE: ${{ matrix.module }}
+    steps:
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Установка JDK 25
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Сборка jar модуля
+        run: mvn -B -ntp -DskipTests package -pl "$MODULE" -am
+
+      - name: Сборка образа
+        run: docker build -f deploy/docker/spring.Dockerfile --build-arg MODULE="$MODULE" -t "mytpu/${NAME}:${GITHUB_SHA}" .
+
+      - name: Сканирование образа (критичные уязвимости с исправлением — стоп)
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+          image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed "mytpu/${NAME}:${GITHUB_SHA}"
+
+  # pgvector по тому же digest, что в deploy/test-server/pack.sh (Д2); порог как у pack.sh: HIGH — отчёт, CRITICAL — стоп
+  pgvector:
+    runs-on: ubuntu-latest
+    env:
+      PGVECTOR: pgvector/pgvector@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
+      TRIVY: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+    steps:
+      # Нужен только deploy/trivyignore.yaml — исключения с причиной и сроком
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Отчёт trivy по образу pgvector (HIGH с исправлением)
+        run: >-
+          docker run --rm -v "$PWD/deploy/trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
+          image --no-progress --exit-code 0 --severity HIGH --ignore-unfixed --ignorefile /trivyignore.yaml "$PGVECTOR"
+
+      - name: Сканирование образа pgvector (критичные уязвимости с исправлением — стоп)
+        run: >-
+          docker run --rm -v "$PWD/deploy/trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
+          image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed --ignorefile /trivyignore.yaml "$PGVECTOR"
 
   secrets:
     runs-on: ubuntu-latest

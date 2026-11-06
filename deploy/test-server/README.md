@@ -134,6 +134,20 @@ bash deploy/test-server/pack.sh
 
 # Если jar и образы уже собраны ранее, только повторная упаковка в архив:
 bash deploy/test-server/pack.sh --skip-build
+
+# Без сети к базе trivy (не для выкладки — образы не проверены):
+bash deploy/test-server/pack.sh --skip-build --skip-scan
+```
+
+`pack.sh` берёт pgvector по digest (переменная `PGVECTOR_DIGEST`; тот же digest — в `.github/workflows/ci-build.yml`),
+проверяет все четыре образа trivy (в Docker, кэш базы — `TRIVY_CACHE_DIR`, по умолчанию `D:/claude-tmp/trivy-cache`):
+критичная уязвимость с исправлением останавливает упаковку, HIGH — только в отчёте. Рядом с архивом пишется
+`mytpu-images.tar.gz.sha256`.
+
+После смены версии pgvector (0.8.1 → 0.8.7 — 2026-11-07; PostgreSQL 17 и Debian 12 те же, данные тома подходят)
+один раз после `up.sh` обновить расширение в базе rag:
+```bash
+ssh <SERVER> 'cd ~/mytpu/deploy && docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml exec -T postgres psql -U postgres -d rag -c "ALTER EXTENSION vector UPDATE;"'
 ```
 
 ### Перенос на сервер
@@ -142,7 +156,7 @@ bash deploy/test-server/pack.sh --skip-build
 # Перенос всех файлов, архива образов и данных (модель, корпус, GeoIP при первом запуске):
 bash deploy/test-server/upload.sh
 
-# Только образы (если изменился код сервисов):
+# Только образы (если изменился код сервисов); архив сверяется по sha256 до и после переноса:
 bash deploy/test-server/upload.sh --images-only
 
 # Только конфиги и скрипты (быстрое обновление настроек):

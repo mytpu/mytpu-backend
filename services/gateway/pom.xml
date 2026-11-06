@@ -13,10 +13,6 @@
     <!-- MCP-шлюз: каталог интеграций, мастер-ключи, исполнитель инструментов, door-mcp -->
     <artifactId>gateway</artifactId>
 
-    <properties>
-        <jsoup.version>1.22.1</jsoup.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.mytpu</groupId>

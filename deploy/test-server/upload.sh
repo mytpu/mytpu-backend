@@ -61,8 +61,16 @@ if [ "$FILES_ONLY" = false ]; then
         echo "Ошибка: архив $ARCHIVE не найден. Запустите сначала pack.sh." >&2
         exit 1
     fi
+    # Сумма от pack.sh: сначала сверка здесь (архив не менялся после упаковки), потом на сервере (перенос без повреждений)
+    if [ ! -f "$ARCHIVE.sha256" ]; then
+        echo "Ошибка: нет $ARCHIVE.sha256. Пересоберите архив: bash deploy/test-server/pack.sh --skip-build" >&2
+        exit 1
+    fi
+    (cd "$PACK_DIR" && sha256sum -c --quiet mytpu-images.tar.gz.sha256)
     echo "==> Перенос архива образов в $REMOTE_DIR/mytpu-images.tar.gz..."
-    scp "$ARCHIVE" "$SERVER:$REMOTE_DIR/mytpu-images.tar.gz"
+    scp "$ARCHIVE" "$ARCHIVE.sha256" "$SERVER:$REMOTE_DIR/"
+    ssh "$SERVER" "cd $REMOTE_DIR && sha256sum -c --quiet mytpu-images.tar.gz.sha256"
+    echo "==> Контрольная сумма архива на сервере совпала."
 fi
 
 # 2. Перенос файлов конфигурации, скриптов и данных

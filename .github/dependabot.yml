@@ -11,3 +11,7 @@ updates:
   - package-ecosystem: docker
     directory: "/deploy/docker"
     schedule: {interval: weekly}
+  - package-ecosystem: npm
+    directory: "/console"
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 5
