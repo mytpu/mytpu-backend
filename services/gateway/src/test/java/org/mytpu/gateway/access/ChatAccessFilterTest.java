@@ -49,7 +49,7 @@ class ChatAccessFilterTest {
         when(addresses.of(any())).thenReturn(InetAddress.getLoopbackAddress());
         when(addresses.known(any())).thenReturn(Optional.of(InetAddress.getLoopbackAddress()));
         when(failures.blocked(any(), any())).thenReturn(false);
-        when(geoPolicy.check(any(), any())).thenReturn(GeoPolicy.Decision.ALLOW);
+        when(geoPolicy.check(any(ApiClient.class), org.mockito.ArgumentMatchers.<Optional<InetAddress>>any())).thenReturn(GeoPolicy.Decision.ALLOW);
 
         chatClient = createClient("cli_chat", Set.of(ApiClient.CHAT_SERVICE));
         mcpClient = createClient("cli_mcp", Set.of());
@@ -60,7 +60,7 @@ class ChatAccessFilterTest {
         registerKey(consoleKey, consoleClient);
 
         filter = new McpKeyFilter(store, failures, addresses, events, watch, geoPolicy,
-                FilterTestSupport.messages(), FilterTestSupport.json(), decoys, null);
+                FilterTestSupport.messages(), FilterTestSupport.json(), decoys, "");
     }
 
     private void registerKey(String key, ApiClient client) {

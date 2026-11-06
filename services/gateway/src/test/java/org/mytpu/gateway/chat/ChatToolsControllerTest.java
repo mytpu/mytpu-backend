@@ -3,6 +3,7 @@ package org.mytpu.gateway.chat;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -69,7 +70,7 @@ class ChatToolsControllerTest {
     void successfulExecutionReturnsSummaryDataHintAndUsesChatChannel() throws Exception {
         Map<String, Object> data = Map.of("found", true, "hits", List.of(Map.of("title", "Справка")));
         ToolAnswer<Map<String, Object>> answer = new ToolAnswer<>("Нашлось в документах", data, "Перескажи ответ");
-        when(executor.execute(any())).thenReturn(ToolResult.ok(answer));
+        doReturn(ToolResult.ok(answer)).when(executor).execute(any());
 
         ResponseEntity<ObjectNode> response = controller.call("docs_search", request("{\"query\":\"справка\"}"));
 
@@ -94,7 +95,7 @@ class ChatToolsControllerTest {
     void needsChoiceReturnsStructuredChoice() throws Exception {
         ToolResult.NeedsChoice<?> choice = new ToolResult.NeedsChoice<>("Уточните группу",
                 List.of(new Choice("8К31", "g1"), new Choice("8К32", "g2")));
-        when(executor.execute(any())).thenReturn(choice);
+        doReturn(choice).when(executor).execute(any());
 
         ResponseEntity<ObjectNode> response = controller.call("rasp_find", request("{\"query\":\"8К3\"}"));
 
@@ -115,7 +116,7 @@ class ChatToolsControllerTest {
 
     @Test
     void deniedReturnsMappedHttpStatusAndErrorJson() throws Exception {
-        when(executor.execute(any())).thenReturn(ToolResult.denied(ErrorCode.TOOL_NOT_ALLOWED, "Инструмент не разрешён"));
+        doReturn(ToolResult.denied(ErrorCode.TOOL_NOT_ALLOWED, "Инструмент не разрешён")).when(executor).execute(any());
 
         ResponseEntity<ObjectNode> response = controller.call("secret_tool", request("{}"));
 
@@ -128,7 +129,7 @@ class ChatToolsControllerTest {
 
     @Test
     void rateLimitedReturns429() throws Exception {
-        when(executor.execute(any())).thenReturn(ToolResult.denied(ErrorCode.RATE_LIMITED, "Слишком много вызовов"));
+        doReturn(ToolResult.denied(ErrorCode.RATE_LIMITED, "Слишком много вызовов")).when(executor).execute(any());
 
         ResponseEntity<ObjectNode> response = controller.call("docs_search", request("{\"query\":\"тест\"}"));
 

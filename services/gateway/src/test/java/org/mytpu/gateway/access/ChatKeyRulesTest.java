@@ -21,7 +21,7 @@ class ChatKeyRulesTest {
     void setUp() {
         IntegrationCatalog catalog = mock(IntegrationCatalog.class);
         ToolRegistry registry = mock(ToolRegistry.class);
-        KeyLifecycleProperties properties = new KeyLifecycleProperties();
+        KeyLifecycleProperties properties = new KeyLifecycleProperties(null, null, null, null, null, null, null, null, null, null, null);
 
         when(catalog.knownScopes()).thenReturn(Set.of("docs.read", "rasp.read"));
         when(registry.all()).thenReturn(List.of());
