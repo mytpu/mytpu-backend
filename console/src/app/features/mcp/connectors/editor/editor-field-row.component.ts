@@ -102,7 +102,7 @@ export class EditorFieldRowComponent {
   readonly group = input.required<FormGroup<FieldForm>>();
   readonly index = input.required<number>();
   readonly submitted = input<boolean>(false);
-  readonly canChange = input<boolean>(true);
+  readonly canChange = input<boolean>(false);
 
   readonly remove = output<number>();
 

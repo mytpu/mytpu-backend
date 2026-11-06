@@ -10,17 +10,12 @@ import { SkeletonComponent } from '../../../../ui/skeleton/skeleton.component';
 import { ConnectorsApi } from '../connectors.api';
 import { ConnectorAuthType, ConnectorSpec } from '../connectors.model';
 import {
-  AuthForm,
-  buildConnectorSpec,
-  ConnectorForm,
-  createToolGroup,
-  httpsUrlValidator,
-  identifierValidator,
-  privateIpValidator,
-  ScopeForm,
-  ToolForm,
+  AuthForm, buildConnectorSpec, ConnectorForm, createToolGroup,
+  httpsUrlValidator, identifierValidator, nameValidator, privateIpValidator, ScopeForm, ToolForm,
 } from './connector-editor.model';
 import { EditorToolComponent } from './editor-tool.component';
+import { EditorAuthComponent } from './editor-auth.component';
+import { EditorScopeComponent } from './editor-scope.component';
 
 @Component({
   selector: 'app-connector-editor-page',
@@ -32,6 +27,8 @@ import { EditorToolComponent } from './editor-tool.component';
     IconComponent,
     SkeletonComponent,
     EditorToolComponent,
+    EditorAuthComponent,
+    EditorScopeComponent,
   ],
   templateUrl: './connector-editor.page.html',
   styleUrl: './connector-editor.page.css',
@@ -65,7 +62,7 @@ export class ConnectorEditorPage implements OnInit {
       oauthScope: new FormControl('', { nonNullable: true }),
     }),
     scope: new FormGroup<ScopeForm>({
-      name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+      name: new FormControl('', { nonNullable: true, validators: [Validators.required, nameValidator('scope')] }),
       title: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
       description: new FormControl('', { nonNullable: true }),
     }),

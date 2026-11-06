@@ -1,14 +1,8 @@
 import { AbstractControl, FormArray, FormControl, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import {
-  ConnectorAuth,
-  ConnectorAuthType,
-  ConnectorField,
-  ConnectorParam,
-  ConnectorParamIn,
-  ConnectorParamType,
-  ConnectorResultMode,
-  ConnectorSpec,
-  ConnectorToolSpec,
+  ConnectorAuth, ConnectorAuthType, ConnectorField,
+  ConnectorParam, ConnectorParamIn, ConnectorParamType,
+  ConnectorResultMode, ConnectorSpec, ConnectorToolSpec,
 } from '../connectors.model';
 
 export interface FieldForm {
@@ -67,8 +61,21 @@ export interface ConnectorForm {
   tools: FormArray<FormGroup<ToolForm>>;
 }
 
+/** Шаблоны имён — как в шлюзе (`ConnectorValidator`): консоль не должна быть строже или мягче сервера. */
+const NAME_RULES = {
+  connector: /^[a-z][a-z0-9_]{1,31}$/,
+  tool: /^[a-z][a-z0-9_]{1,63}$/,
+  param: /^[a-z][a-zA-Z0-9_]{0,31}$/,
+  field: /^[a-zA-Z][a-zA-Z0-9_]{0,31}$/,
+  scope: /^[a-z][a-z0-9_]{1,31}\.read$/,
+} as const;
+
+export function nameValidator(kind: keyof typeof NAME_RULES): (c: AbstractControl) => ValidationErrors | null {
+  return (c) => (c.value && !NAME_RULES[kind].test(c.value) ? { identifier: kind } : null);
+}
+
 export function identifierValidator(c: AbstractControl): ValidationErrors | null {
-  return c.value && !/^[a-z0-9_]+$/.test(c.value) ? { identifier: true } : null;
+  return nameValidator('connector')(c);
 }
 
 export function httpsUrlValidator(c: AbstractControl): ValidationErrors | null {
@@ -123,7 +130,7 @@ export function updateToolPathValidation(toolGroup: FormGroup<ToolForm>): void {
 
 export function createFieldGroup(initial?: ConnectorField): FormGroup<FieldForm> {
   return new FormGroup<FieldForm>({
-    name: new FormControl(initial?.name || '', { nonNullable: true, validators: [Validators.required, identifierValidator] }),
+    name: new FormControl(initial?.name || '', { nonNullable: true, validators: [Validators.required, nameValidator('field')] }),
     pointer: new FormControl(initial?.pointer ?? '', { nonNullable: true, validators: [Validators.required] }),
     label: new FormControl(initial?.label || '', { nonNullable: true, validators: [Validators.required] }),
   });
@@ -131,7 +138,7 @@ export function createFieldGroup(initial?: ConnectorField): FormGroup<FieldForm>
 
 export function createParamGroup(initial?: ConnectorParam): FormGroup<ParamForm> {
   return new FormGroup<ParamForm>({
-    name: new FormControl(initial?.name || '', { nonNullable: true, validators: [Validators.required, identifierValidator] }),
+    name: new FormControl(initial?.name || '', { nonNullable: true, validators: [Validators.required, nameValidator('param')] }),
     in: new FormControl<ConnectorParamIn>(initial?.in || 'query', { nonNullable: true, validators: [Validators.required] }),
     type: new FormControl<ConnectorParamType>(initial?.type || 'string', { nonNullable: true, validators: [Validators.required] }),
     required: new FormControl(initial?.required ?? false, { nonNullable: true }),
@@ -144,7 +151,7 @@ export function createToolGroup(initial?: ConnectorToolSpec): FormGroup<ToolForm
   const fields = (initial?.result?.fields || []).map((f) => createFieldGroup(f));
   const params = (initial?.params || []).map((p) => createParamGroup(p));
   const g = new FormGroup<ToolForm>({
-    name: new FormControl(initial?.name || '', { nonNullable: true, validators: [Validators.required, identifierValidator] }),
+    name: new FormControl(initial?.name || '', { nonNullable: true, validators: [Validators.required, nameValidator('tool')] }),
     description: new FormControl(initial?.description || '', { nonNullable: true, validators: [Validators.required] }),
     path: new FormControl(initial?.path || '', { nonNullable: true, validators: [Validators.required] }),
     summary: new FormControl(initial?.summary || '', { nonNullable: true, validators: [Validators.required] }),

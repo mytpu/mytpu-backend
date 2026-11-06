@@ -15,7 +15,7 @@ export class VersionListComponent {
   readonly versions = input.required<ConnectorVersion[]>();
   readonly selectedVersion = input<ConnectorVersion | null>(null);
   readonly publishedVersion = input<number | null | undefined>(null);
-  readonly canChange = input<boolean>(true);
+  readonly canChange = input<boolean>(false);
 
   readonly selectVersion = output<ConnectorVersion>();
   readonly publish = output<ConnectorVersion>();

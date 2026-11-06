@@ -126,7 +126,7 @@ export class EditorParamRowComponent {
   readonly group = input.required<FormGroup<ParamForm>>();
   readonly index = input.required<number>();
   readonly submitted = input<boolean>(false);
-  readonly canChange = input<boolean>(true);
+  readonly canChange = input<boolean>(false);
 
   readonly remove = output<number>();
   readonly changed = output<void>();

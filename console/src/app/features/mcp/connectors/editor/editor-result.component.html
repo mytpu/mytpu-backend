@@ -1,0 +1,56 @@
+<div class="sub-section" [formGroup]="group()">
+  <div class="sub-section-head">
+    <span class="sub-title">{{ 'connectors.editor.resultTitle' | t }}</span>
+  </div>
+
+  <div class="fields-grid-3">
+    <div class="field-item">
+      <label class="field-label">{{ 'connectors.editor.resultModeLabel' | t }}</label>
+      <select class="field-input" formControlName="mode" (change)="changed.emit()">
+        <option value="object">{{ 'connectors.editor.resultModeObject' | t }}</option>
+        <option value="list">{{ 'connectors.editor.resultModeList' | t }}</option>
+        <option value="values">{{ 'connectors.editor.resultModeValues' | t }}</option>
+      </select>
+    </div>
+
+    <div class="field-item">
+      <label class="field-label">{{ 'connectors.editor.resultPointerLabel' | t }}</label>
+      <input
+        type="text"
+        class="field-input mono"
+        [placeholder]="'connectors.editor.resultPointerPlaceholder' | t"
+        formControlName="pointer"
+      />
+    </div>
+
+    <div class="field-item">
+      <label class="field-label">{{ 'connectors.editor.resultMaxItemsLabel' | t }}</label>
+      <input
+        type="number"
+        min="1"
+        class="field-input"
+        placeholder="30"
+        formControlName="maxItems"
+      />
+    </div>
+  </div>
+
+  <div class="fields-sub-list">
+    <div class="sub-section-head">
+      <span class="sub-title-small">{{ 'connectors.editor.fieldsTitle' | t }}</span>
+      <app-button kind="outline" size="sm" icon="plus" [disabled]="!canChange()" (btnClick)="addField()">
+        {{ 'connectors.editor.btnAddField' | t }}
+      </app-button>
+    </div>
+
+    @for (f of group().controls.fields.controls; track $index) {
+      <app-editor-field-row
+        [group]="f"
+        [index]="$index"
+        [submitted]="submitted()"
+        [canChange]="canChange()"
+        (remove)="removeField($event)"
+      />
+    }
+  </div>
+</div>

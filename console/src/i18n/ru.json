@@ -953,14 +953,15 @@
       "btnCancel": "Отмена",
       "saving": "Сохранение...",
       "errorRequired": "Обязательное поле",
-      "errorIdentifier": "Только строчные латинские буквы, цифры и символ _",
+      "errorIdentifier": "Латинские буквы, цифры и _, начиная с буквы; в id и имени инструмента — только строчные",
       "errorOnlyHttps": "Адрес должен начинаться с https://",
       "errorPrivateIp": "Запрещены адреса локальной и частной сети",
       "errorNoTools": "Необходимо добавить хотя бы один инструмент",
       "errorAtLeastOneField": "Для режима object/list добавьте хотя бы одно поле",
       "errorPathNotDeclared": "В пути есть {{names}}, но нет такого параметра «в пути»",
       "errorPathNotUsed": "Параметр «в пути» {{names}} не встречается в пути",
-      "errorSave": "Не удалось сохранить версию. Повторите попытку."
+      "errorSave": "Не удалось сохранить версию. Повторите попытку.",
+      "errorScopeName": "Вид «имя.read»: строчные латинские буквы, цифры и _"
     },
     "testTitle": "Проверка версии",
     "testSubtitle": "Вызов инструмента наружу из шлюза",
@@ -1021,6 +1022,7 @@
     "secretLabel_username": "Имя пользователя (username)",
     "secretLabel_password": "Пароль (password)",
     "secretLabel_client_id": "Идентификатор клиента (client_id)",
-    "secretLabel_client_secret": "Секрет клиента (client_secret)"
+    "secretLabel_client_secret": "Секрет клиента (client_secret)",
+    "secretSaveError": "Секрет не сохранён. Введите его ещё раз."
   }
 }

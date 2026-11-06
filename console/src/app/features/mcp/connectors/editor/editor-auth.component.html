@@ -1,0 +1,54 @@
+<div class="form-card" [formGroup]="group()">
+  <h2 class="card-heading">{{ 'connectors.editor.sectionAuth' | t }}</h2>
+
+  <div class="fields-grid-2">
+    <div class="field-item">
+      <label class="field-label">{{ 'connectors.editor.authTypeLabel' | t }}</label>
+      <select class="field-input" formControlName="type">
+        <option value="none">{{ 'connectors.specAuthNone' | t }}</option>
+        <option value="header">{{ 'connectors.specAuthHeader' | t }}</option>
+        <option value="query">{{ 'connectors.specAuthQuery' | t }}</option>
+        <option value="basic">{{ 'connectors.specAuthBasic' | t }}</option>
+        <option value="oauth2">{{ 'connectors.specAuthOauth2' | t }}</option>
+      </select>
+    </div>
+
+    @if (group().controls.type.value === 'header' || group().controls.type.value === 'query') {
+      <div class="field-item">
+        <label class="field-label">{{ 'connectors.editor.authNameLabel' | t }}</label>
+        <input
+          type="text"
+          class="field-input mono"
+          [placeholder]="'connectors.editor.authNamePlaceholder' | t"
+          formControlName="name"
+        />
+        <span class="field-hint">
+          {{ (group().controls.type.value === 'header' ? 'connectors.editor.authHeaderHint' : 'connectors.editor.authQueryHint') | t }}
+        </span>
+      </div>
+    }
+  </div>
+
+  @if (group().controls.type.value === 'oauth2') {
+    <div class="fields-grid-2">
+      <div class="field-item">
+        <label class="field-label">{{ 'connectors.editor.authTokenUrlLabel' | t }}</label>
+        <input
+          type="text"
+          class="field-input mono"
+          [placeholder]="'connectors.editor.authTokenUrlPlaceholder' | t"
+          formControlName="tokenUrl"
+        />
+      </div>
+      <div class="field-item">
+        <label class="field-label">{{ 'connectors.editor.authScopeLabel' | t }}</label>
+        <input
+          type="text"
+          class="field-input mono"
+          [placeholder]="'connectors.editor.authScopePlaceholder' | t"
+          formControlName="oauthScope"
+        />
+      </div>
+    </div>
+  }
+</div>

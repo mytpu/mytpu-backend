@@ -4,13 +4,12 @@ import { TPipe } from '../../../../core/i18n/t.pipe';
 import { ButtonComponent } from '../../../../ui/button/button.component';
 import { IconComponent } from '../../../../ui/icon/icon.component';
 import {
-  createFieldGroup,
   createParamGroup,
   ToolForm,
   updateToolPathValidation,
 } from './connector-editor.model';
 import { EditorParamRowComponent } from './editor-param-row.component';
-import { EditorFieldRowComponent } from './editor-field-row.component';
+import { EditorResultComponent } from './editor-result.component';
 
 @Component({
   selector: 'app-editor-tool',
@@ -21,7 +20,7 @@ import { EditorFieldRowComponent } from './editor-field-row.component';
     ButtonComponent,
     IconComponent,
     EditorParamRowComponent,
-    EditorFieldRowComponent,
+    EditorResultComponent,
   ],
   templateUrl: './editor-tool.component.html',
   styleUrl: './editor-tool.component.css',
@@ -30,7 +29,7 @@ export class EditorToolComponent {
   readonly group = input.required<FormGroup<ToolForm>>();
   readonly index = input.required<number>();
   readonly submitted = input<boolean>(false);
-  readonly canChange = input<boolean>(true);
+  readonly canChange = input<boolean>(false);
 
   readonly remove = output<number>();
   readonly changed = output<void>();
@@ -54,16 +53,6 @@ export class EditorToolComponent {
   removeParam(idx: number): void {
     this.group().controls.params.removeAt(idx);
     updateToolPathValidation(this.group());
-    this.changed.emit();
-  }
-
-  addField(): void {
-    this.group().controls.result.controls.fields.push(createFieldGroup());
-    this.changed.emit();
-  }
-
-  removeField(idx: number): void {
-    this.group().controls.result.controls.fields.removeAt(idx);
     this.changed.emit();
   }
 

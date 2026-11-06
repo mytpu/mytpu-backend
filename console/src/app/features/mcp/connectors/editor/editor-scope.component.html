@@ -1,0 +1,43 @@
+<div class="form-card" [formGroup]="group()">
+  <h2 class="card-heading">{{ 'connectors.editor.sectionScope' | t }}</h2>
+
+  <div class="fields-grid-2">
+    <div class="field-item">
+      <label class="field-label">{{ 'connectors.editor.scopeNameLabel' | t }}</label>
+      <input
+        type="text"
+        class="field-input mono"
+        [placeholder]="'connectors.editor.scopeNamePlaceholder' | t"
+        formControlName="name"
+        [class.has-error]="hasError(group().controls.name)"
+      />
+      @if (hasError(group().controls.name)) {
+        <span class="err-text">{{ (group().controls.name.hasError('identifier') ? 'connectors.editor.errorScopeName' : 'connectors.editor.errorRequired') | t }}</span>
+      }
+    </div>
+
+    <div class="field-item">
+      <label class="field-label">{{ 'connectors.editor.scopeTitleLabel' | t }}</label>
+      <input
+        type="text"
+        class="field-input"
+        [placeholder]="'connectors.editor.scopeTitlePlaceholder' | t"
+        formControlName="title"
+        [class.has-error]="hasError(group().controls.title)"
+      />
+      @if (hasError(group().controls.title)) {
+        <span class="err-text">{{ 'connectors.editor.errorRequired' | t }}</span>
+      }
+    </div>
+  </div>
+
+  <div class="field-item">
+    <label class="field-label">{{ 'connectors.editor.scopeDescLabel' | t }}</label>
+    <input
+      type="text"
+      class="field-input"
+      [placeholder]="'connectors.editor.scopeDescPlaceholder' | t"
+      formControlName="description"
+    />
+  </div>
+</div>

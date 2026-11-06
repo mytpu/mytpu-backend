@@ -28,7 +28,7 @@ export class ConnectorTestPanelComponent {
 
   readonly connectorId = input.required<string>();
   readonly version = input.required<ConnectorVersion>();
-  readonly canChange = input<boolean>(true);
+  readonly canChange = input<boolean>(false);
 
   readonly tools = computed(() => this.version().spec?.tools || []);
   readonly selectedToolName = linkedSignal(() => this.tools()[0]?.name || '');

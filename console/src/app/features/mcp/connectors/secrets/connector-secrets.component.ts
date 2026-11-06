@@ -22,7 +22,7 @@ export class ConnectorSecretsComponent {
   readonly connectorId = input.required<string>();
   readonly latestVersion = input.required<ConnectorVersion>();
   readonly secretsSet = input.required<string[]>();
-  readonly canChange = input<boolean>(true);
+  readonly canChange = input<boolean>(false);
 
   readonly secretsChange = output<void>();
 
@@ -69,9 +69,11 @@ export class ConnectorSecretsComponent {
         this.savingSecret.set(null);
         this.secretsChange.emit();
       },
-      error: (err) => {
+      error: () => {
+        // Значение секрета не остаётся на странице и после ошибки
+        inputEl.value = '';
         this.savingSecret.set(null);
-        this.error.set(err.message || this.i18n.t('connectors.error'));
+        this.error.set(this.i18n.t('connectors.secretSaveError'));
       },
     });
   }
