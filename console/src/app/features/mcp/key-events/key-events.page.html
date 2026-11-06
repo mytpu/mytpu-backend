@@ -73,6 +73,8 @@
 
   @if (showAddMemberDialog()) {
     <app-add-decoy-member-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [availableKeys]="availableKeysToAdd()"
       [submitting]="submitting()"
       (addMember)="addDecoyMember($event)"
@@ -82,6 +84,8 @@
 
   @if (resumingKey(); as rk) {
     <app-resume-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [owner]="rk.owner"
       [submitting]="submitting()"
       (submitResume)="submitResume($event)"

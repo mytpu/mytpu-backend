@@ -1,13 +1,15 @@
-import { Component, input, model, output } from '@angular/core';
+import { Component, computed, inject, input, model, output } from '@angular/core';
+import { I18n } from '../../../core/i18n/i18n.service';
 import { FormsModule } from '@angular/forms';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent, SelectOption } from '../../../ui/select/select.component';
 import { ButtonComponent } from '../../../ui/button/button.component';
 import { IconComponent } from '../../../ui/icon/icon.component';
 
 @Component({
   selector: 'app-keys-filter',
   standalone: true,
-  imports: [FormsModule, TPipe, ButtonComponent, IconComponent],
+  imports: [FormsModule, TPipe, SelectComponent, ButtonComponent, IconComponent],
   template: `
     <div class="keys-toolbar">
       <div class="search-box">
@@ -69,16 +71,12 @@ import { IconComponent } from '../../../ui/icon/icon.component';
 
       <div class="toolbar-spacer"></div>
 
-      <select
-        class="scope-select"
-        [ngModel]="scopeFilter()"
-        (ngModelChange)="scopeFilter.set($event)"
-      >
-        <option value="all">{{ 'mcp.keys.filterAll' | t }}</option>
-        @for (s of allScopes(); track s) {
-          <option [value]="s">{{ s }}</option>
-        }
-      </select>
+      <app-select
+        size="sm"
+        [options]="scopeOptions()"
+        [value]="scopeFilter()"
+        (valueChange)="scopeFilter.set($event)"
+      />
     </div>
   `,
   styles: `
@@ -152,21 +150,11 @@ import { IconComponent } from '../../../ui/icon/icon.component';
       background: var(--bg-nested);
       color: var(--text-primary);
     }
-    .scope-select {
-      height: 36px;
-      background: var(--bg-tile);
-      border: 1px solid var(--border-tile);
-      border-radius: var(--radius-button);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 0 var(--space-3);
-      outline: none;
-    }
   `,
 })
 export class KeysFilterComponent {
+  private readonly i18n = inject(I18n);
+
   readonly searchQuery = model<string>('');
   readonly statusFilter = model<'active' | 'expiring' | 'revoked'>('active');
   readonly scopeFilter = model<string>('all');
@@ -175,6 +163,10 @@ export class KeysFilterComponent {
   readonly expiringCount = input.required<number>();
   readonly revokedCount = input.required<number>();
   readonly allScopes = input.required<string[]>();
+  readonly scopeOptions = computed<SelectOption[]>(() => [
+    { value: 'all', label: this.i18n.t('mcp.keys.filterAll') },
+    ...this.allScopes().map((s) => ({ value: s, label: s })),
+  ]);
   readonly canChange = input.required<boolean>();
 
   readonly newKeyClick = output<void>();

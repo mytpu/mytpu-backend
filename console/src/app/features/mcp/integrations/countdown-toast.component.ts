@@ -16,7 +16,7 @@ import { IconComponent } from '../../../ui/icon/icon.component';
   standalone: true,
   imports: [TPipe, ButtonComponent, IconComponent],
   template: `
-    <div class="toast animate-enter" role="alert">
+    <div class="toast" role="alert">
       <div class="toast-left">
         <app-icon name="toggleOff" [size]="20" class="toast-icon" />
         <span class="toast-text">
@@ -88,24 +88,6 @@ import { IconComponent } from '../../../ui/icon/icon.component';
     }
     .close-btn:hover {
       opacity: 1;
-    }
-    .animate-enter {
-      animation: toastSlideUp var(--dur-base) var(--ease) forwards;
-    }
-    @keyframes toastSlideUp {
-      from {
-        opacity: 0;
-        transform: translateY(12px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .animate-enter {
-        animation: none;
-      }
     }
   `,
 })

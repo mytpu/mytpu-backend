@@ -181,6 +181,8 @@
 
   @if (showAddDialog()) {
     <app-eval-add-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       (cancel)="showAddDialog.set(false)"
       (save)="saveQuestion($event)"
     />

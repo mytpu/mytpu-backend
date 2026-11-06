@@ -1,7 +1,7 @@
-import { Component, input, output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, computed, inject, input, output } from '@angular/core';
+import { I18n } from '../../../core/i18n/i18n.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { IconComponent } from '../../../ui/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../ui/select/select.component';
 import { ToggleComponent } from '../../../ui/toggle/toggle.component';
 
 export type SegmentFilter = 'all' | 'errors' | 'slow';
@@ -10,48 +10,18 @@ export type PeriodFilter = 'today' | '24h' | '7d' | '30d';
 @Component({
   selector: 'app-audit-filters',
   standalone: true,
-  imports: [FormsModule, TPipe, IconComponent, ToggleComponent],
+  imports: [TPipe, SelectComponent, ToggleComponent],
   template: `
     <div class="filters-bar">
-      <div class="filter-item">
-        <app-icon name="calendar" [size]="16" class="select-icon" />
-        <select
-          class="custom-select"
-          [ngModel]="period()"
-          (ngModelChange)="periodChange.emit($event)"
-        >
-          <option value="today">{{ 'mcp.audit.filterPeriodToday' | t }}</option>
-          <option value="24h">{{ 'mcp.audit.filterPeriod24h' | t }}</option>
-          <option value="7d">{{ 'mcp.audit.filterPeriod7d' | t }}</option>
-          <option value="30d">{{ 'mcp.audit.filterPeriod30d' | t }}</option>
-        </select>
-      </div>
-
-      <div class="filter-item">
-        <select
-          class="custom-select"
-          [ngModel]="clientFilter()"
-          (ngModelChange)="clientChange.emit($event)"
-        >
-          <option value="">{{ 'mcp.audit.filterClientAll' | t }}</option>
-          @for (c of clients(); track c) {
-            <option [value]="c">{{ c }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="filter-item">
-        <select
-          class="custom-select"
-          [ngModel]="toolFilter()"
-          (ngModelChange)="toolChange.emit($event)"
-        >
-          <option value="">{{ 'mcp.audit.filterToolAll' | t }}</option>
-          @for (tool of tools(); track tool) {
-            <option [value]="tool">{{ tool }}</option>
-          }
-        </select>
-      </div>
+      <app-select
+        size="sm"
+        icon="calendar"
+        [options]="periodOptions"
+        [value]="period()"
+        (valueChange)="periodChange.emit($event)"
+      />
+      <app-select size="sm" [options]="clientOptions()" [value]="clientFilter()" (valueChange)="clientChange.emit($event)" />
+      <app-select size="sm" [options]="toolOptions()" [value]="toolFilter()" (valueChange)="toolChange.emit($event)" />
 
       <div class="segmented-control">
         <button
@@ -96,28 +66,6 @@ export type PeriodFilter = 'today' | '24h' | '7d' | '30d';
       gap: var(--space-2);
       flex-wrap: wrap;
     }
-    .filter-item {
-      display: flex;
-      align-items: center;
-      background: var(--bg-tile);
-      border: 1px solid var(--border-tile);
-      border-radius: var(--radius-button);
-      padding: 0 10px;
-      height: 36px;
-      gap: 6px;
-    }
-    .select-icon {
-      color: var(--text-muted);
-    }
-    .custom-select {
-      border: none;
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 13px;
-      font-weight: 500;
-      outline: none;
-      cursor: pointer;
-    }
     .segmented-control {
       display: flex;
       align-items: center;
@@ -159,6 +107,8 @@ export type PeriodFilter = 'today' | '24h' | '7d' | '30d';
   `,
 })
 export class AuditFiltersComponent {
+  private readonly i18n = inject(I18n);
+
   readonly period = input<PeriodFilter>('today');
   readonly clientFilter = input<string>('');
   readonly toolFilter = input<string>('');
@@ -172,4 +122,17 @@ export class AuditFiltersComponent {
   readonly toolChange = output<string>();
   readonly segmentChange = output<SegmentFilter>();
   readonly liveWatchChange = output<boolean>();
+
+  readonly periodOptions: SelectOption<PeriodFilter>[] = (['today', '24h', '7d', '30d'] as const).map((value) => ({
+    value,
+    label: this.i18n.t(`mcp.audit.filterPeriod${value === 'today' ? 'Today' : value}`),
+  }));
+  readonly clientOptions = computed(() => [
+    { value: '', label: this.i18n.t('mcp.audit.filterClientAll') },
+    ...this.clients().map((c) => ({ value: c, label: c })),
+  ]);
+  readonly toolOptions = computed(() => [
+    { value: '', label: this.i18n.t('mcp.audit.filterToolAll') },
+    ...this.tools().map((t) => ({ value: t, label: t })),
+  ]);
 }

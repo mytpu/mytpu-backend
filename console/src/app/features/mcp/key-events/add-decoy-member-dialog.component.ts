@@ -1,6 +1,6 @@
-import { Component, effect, input, output, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent, SelectOption } from '../../../ui/select/select.component';
 import { ButtonComponent } from '../../../ui/button/button.component';
 import { DialogComponent } from '../../../ui/dialog/dialog.component';
 import { KeyView } from '../keys/keys.model';
@@ -8,7 +8,7 @@ import { KeyView } from '../keys/keys.model';
 @Component({
   selector: 'app-add-decoy-member-dialog',
   standalone: true,
-  imports: [FormsModule, TPipe, ButtonComponent, DialogComponent],
+  imports: [TPipe, SelectComponent, ButtonComponent, DialogComponent],
   template: `
     <div class="overlay">
       <app-dialog
@@ -22,17 +22,12 @@ import { KeyView } from '../keys/keys.model';
           } @else {
             <div class="field-col">
               <label class="label">{{ 'mcp.events.dialogAddKeySelect' | t }}</label>
-              <select
-                class="key-select"
-                [ngModel]="selectedKeyId()"
-                (ngModelChange)="selectedKeyId.set($event)"
-              >
-                @for (k of availableKeys(); track k.id) {
-                  <option [value]="k.id">
-                    {{ k.owner }} ({{ k.keyPrefix }}) — {{ k.kind }}
-                  </option>
-                }
-              </select>
+              <app-select
+                block
+                [options]="keyOptions()"
+                [value]="selectedKeyId()"
+                (valueChange)="selectedKeyId.set($event)"
+              />
             </div>
           }
         </div>
@@ -82,18 +77,6 @@ import { KeyView } from '../keys/keys.model';
       font-weight: 600;
       color: var(--text-secondary);
     }
-    .key-select {
-      height: var(--height-field);
-      background: var(--bg-tile);
-      border: 1px solid var(--border-tile);
-      border-radius: var(--radius-button);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 13px;
-      padding: 0 var(--space-3);
-      outline: none;
-      box-sizing: border-box;
-    }
     .empty-text {
       font-size: 13px;
       color: var(--text-muted);
@@ -112,6 +95,9 @@ export class AddDecoyMemberDialogComponent {
   readonly submitting = input<boolean>(false);
 
   readonly selectedKeyId = signal<string>('');
+  readonly keyOptions = computed<SelectOption[]>(() =>
+    this.availableKeys().map((k) => ({ value: k.id, label: k.owner, hint: `${k.keyPrefix} · ${k.kind}` })),
+  );
 
   readonly addMember = output<string>();
   readonly cancel = output<void>();

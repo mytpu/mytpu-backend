@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent, SelectOption } from '../../../ui/select/select.component';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { BadgeComponent } from '../../../ui/badge/badge.component';
 import { ButtonComponent } from '../../../ui/button/button.component';
@@ -13,7 +14,7 @@ import { getEventBadge, KeyEventView } from './key-events.model';
   selector: 'app-key-events-feed',
   standalone: true,
   imports: [
-    FormsModule, TPipe, BadgeComponent, ButtonComponent,
+    FormsModule, TPipe, SelectComponent, BadgeComponent, ButtonComponent,
     IconComponent, TableComponent, EmptyStateComponent,
   ],
   templateUrl: './key-events-feed.component.html',
@@ -53,6 +54,11 @@ export class KeyEventsFeedComponent {
     { value: 'key.foreign_country', labelKey: 'mcp.events.labelForeignCountry' },
     { value: 'key.geo_unknown', labelKey: 'mcp.events.labelGeoUnknown' },
   ];
+
+  readonly eventTypeOptions: SelectOption[] = this.eventTypes.map((t) => ({
+    value: t.value,
+    label: this.i18n.t(t.labelKey),
+  }));
 
   readonly filteredEvents = computed(() => {
     const ev = this.eventTypeFilter();

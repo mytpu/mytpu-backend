@@ -25,7 +25,7 @@ export class ModeApi {
           let mode = 'normal';
           let reason = '';
           try {
-            const parsedAfter = JSON.parse(r.after);
+            const parsedAfter = JSON.parse(r.after ?? '{}');
             mode = parsedAfter.mode ?? parsedAfter.value ?? 'normal';
             reason = parsedAfter.reason ?? '';
           } catch {

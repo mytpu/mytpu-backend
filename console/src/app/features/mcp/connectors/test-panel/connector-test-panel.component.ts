@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TPipe } from '../../../../core/i18n/t.pipe';
+import { SelectComponent, SelectOption } from '../../../../ui/select/select.component';
 import { BadgeComponent } from '../../../../ui/badge/badge.component';
 import { ButtonComponent } from '../../../../ui/button/button.component';
 import { IconComponent } from '../../../../ui/icon/icon.component';
@@ -15,7 +16,7 @@ import {
 @Component({
   selector: 'app-connector-test-panel',
   standalone: true,
-  imports: [FormsModule, TPipe, BadgeComponent, ButtonComponent, IconComponent],
+  imports: [FormsModule, TPipe, SelectComponent, BadgeComponent, ButtonComponent, IconComponent],
   templateUrl: './connector-test-panel.component.html',
   styleUrl: './connector-test-panel.component.css',
 })
@@ -37,6 +38,27 @@ export class ConnectorTestPanelComponent {
     const list = this.tools();
     return list.find((t) => t.name === this.selectedToolName()) || list[0] || null;
   });
+
+  readonly toolOptions = computed<SelectOption[]>(() =>
+    this.tools().map((t) => ({ value: t.name, label: t.name, hint: t.path })),
+  );
+
+  /** Варианты для параметров с перечислением; необязательный можно оставить пустым */
+  readonly paramOptions = computed(() => {
+    const map = new Map<string, SelectOption<unknown>[]>();
+    for (const p of this.currentTool()?.params ?? []) {
+      if (p.enum && p.enum.length > 0) {
+        const values = p.enum.map((v) => ({ value: v as unknown, label: String(v) }));
+        map.set(p.name, p.required ? values : [{ value: '', label: '—' }, ...values]);
+      }
+    }
+    return map;
+  });
+
+  readonly booleanOptions: SelectOption<boolean>[] = [
+    { value: true, label: 'true' },
+    { value: false, label: 'false' },
+  ];
 
   readonly argValues = linkedSignal<Record<string, any>>(() => {
     const tool = this.currentTool();

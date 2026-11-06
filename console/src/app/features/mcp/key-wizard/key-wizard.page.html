@@ -5,7 +5,7 @@
 
   <form [formGroup]="form" class="wizard-form">
     @if (currentStep() === 0) {
-      <app-step-owner
+      <app-step-owner animate.enter="m-reveal-enter"
         [form]="form"
         [maxDays]="maxDays()"
         [fieldErrors]="fieldErrors()"
@@ -21,7 +21,7 @@
     }
 
     @if (currentStep() === 1) {
-      <div class="step2-layout">
+      <div animate.enter="m-reveal-enter" class="step2-layout">
         <div class="step2-main">
           <app-services-tree
             [catalog]="catalog()"
@@ -29,7 +29,7 @@
             [(deniedTools)]="deniedTools"
           />
           @if (fieldErrors()['scopes']) {
-            <span class="field-error">{{ fieldErrors()['scopes'] }}</span>
+            <span animate.enter="m-reveal-enter" class="field-error">{{ fieldErrors()['scopes'] }}</span>
           }
         </div>
 
@@ -89,7 +89,7 @@
     }
 
     @if (currentStep() === 2) {
-      <div class="step3-card">
+      <div animate.enter="m-reveal-enter" class="step3-card">
         <app-card [label]="'mcp.wizard.summaryKeyTitle' | t" icon="key">
           <div class="summary-grid">
             <div class="kv-pair">
@@ -116,7 +116,7 @@
         </app-card>
 
         @if (serverError()) {
-          <div class="server-error-banner">
+          <div animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="server-error-banner">
             <app-icon name="alert" [size]="16" />
             <span>{{ 'mcp.wizard.errorServerPrefix' | t: { message: serverError()! } }}</span>
           </div>
@@ -141,6 +141,8 @@
 
   @if (createdKey(); as keyData) {
     <app-key-created-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [apiKey]="keyData.key"
       [command]="keyData.command"
       [owner]="form.controls.owner.value"

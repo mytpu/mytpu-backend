@@ -1,13 +1,14 @@
 import { Component, input, output } from '@angular/core';
 import { AbstractControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { TPipe } from '../../../../core/i18n/t.pipe';
+import { SelectComponent, SelectOption } from '../../../../ui/select/select.component';
 import { ButtonComponent } from '../../../../ui/button/button.component';
 import { ParamForm } from './connector-editor.model';
 
 @Component({
   selector: 'app-editor-param-row',
   standalone: true,
-  imports: [ReactiveFormsModule, TPipe, ButtonComponent],
+  imports: [ReactiveFormsModule, TPipe, SelectComponent, ButtonComponent],
   template: `
     <div [formGroup]="group()" class="param-row">
       <div class="row-cell col-name">
@@ -31,19 +32,20 @@ import { ParamForm } from './connector-editor.model';
       </div>
 
       <div class="row-cell col-in">
-        <select class="row-select" formControlName="in" (change)="changed.emit()">
-          <option value="query">{{ 'connectors.editor.paramInQuery' | t }}</option>
-          <option value="path">{{ 'connectors.editor.paramInPath' | t }}</option>
-        </select>
+        <app-select
+          block
+          size="sm"
+          formControlName="in"
+          [options]="[
+            { value: 'query', label: ('connectors.editor.paramInQuery' | t) },
+            { value: 'path', label: ('connectors.editor.paramInPath' | t) }
+          ]"
+          (valueChange)="changed.emit()"
+        />
       </div>
 
       <div class="row-cell col-type">
-        <select class="row-select" formControlName="type">
-          <option value="string">string</option>
-          <option value="integer">integer</option>
-          <option value="number">number</option>
-          <option value="boolean">boolean</option>
-        </select>
+        <app-select block size="sm" formControlName="type" [options]="typeOptions" />
       </div>
 
       <div class="row-cell col-req">
@@ -95,7 +97,7 @@ import { ParamForm } from './connector-editor.model';
       .param-row { grid-template-columns: 1fr; }
     }
     .row-cell { display: flex; flex-direction: column; gap: 2px; }
-    .row-input, .row-select {
+    .row-input {
       height: 36px;
       border: 1px solid var(--border-tile);
       border-radius: var(--radius-button);
@@ -107,7 +109,7 @@ import { ParamForm } from './connector-editor.model';
       box-sizing: border-box;
       width: 100%;
     }
-    .row-input:focus, .row-select:focus { border-color: var(--green-action); }
+    .row-input:focus { border-color: var(--green-action); }
     .row-input.has-error { border-color: var(--danger-text); }
     .err-text { font-size: 11px; color: var(--danger-text); line-height: 1.2; }
     .check-label {
@@ -130,6 +132,8 @@ export class EditorParamRowComponent {
 
   readonly remove = output<number>();
   readonly changed = output<void>();
+
+  readonly typeOptions: SelectOption[] = ['string', 'integer', 'number', 'boolean'].map((t) => ({ value: t, label: t }));
 
   hasError(ctrl: AbstractControl): boolean {
     return ctrl.invalid && (ctrl.touched || ctrl.dirty || this.submitted());

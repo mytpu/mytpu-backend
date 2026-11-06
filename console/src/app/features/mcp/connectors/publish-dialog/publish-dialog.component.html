@@ -125,7 +125,7 @@
         }
 
         @if (error()) {
-          <div class="error-banner">
+          <div animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="error-banner">
             <app-icon name="alert" [size]="16" />
             <span>{{ error() }}</span>
           </div>

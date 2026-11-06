@@ -9,6 +9,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent } from '../../../ui/select/select.component';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { BadgeComponent } from '../../../ui/badge/badge.component';
 import { ButtonComponent } from '../../../ui/button/button.component';
@@ -25,6 +26,7 @@ import { PlaygroundAnswer } from './playground.model';
   imports: [
     FormsModule,
     TPipe,
+    SelectComponent,
     BadgeComponent,
     ButtonComponent,
     CardComponent,

@@ -1,6 +1,7 @@
 import { Component, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent } from '../../../ui/select/select.component';
 import { ButtonComponent } from '../../../ui/button/button.component';
 import { IconComponent } from '../../../ui/icon/icon.component';
 import { RequestStatus } from './key-requests.model';
@@ -8,7 +9,7 @@ import { RequestStatus } from './key-requests.model';
 @Component({
   selector: 'app-key-requests-filter',
   standalone: true,
-  imports: [FormsModule, TPipe, ButtonComponent, IconComponent],
+  imports: [FormsModule, TPipe, SelectComponent, ButtonComponent, IconComponent],
   template: `
     <div class="requests-toolbar">
       <div class="search-box">
@@ -70,16 +71,17 @@ import { RequestStatus } from './key-requests.model';
 
       <div class="toolbar-spacer"></div>
 
-      <select
-        class="kind-select"
-        [ngModel]="kindFilter()"
-        (ngModelChange)="kindFilter.set($event)"
-      >
-        <option value="all">{{ 'mcp.requests.filterAllTypes' | t }}</option>
-        <option value="person">person</option>
-        <option value="server">server</option>
-        <option value="demo">demo</option>
-      </select>
+      <app-select
+        size="sm"
+        [options]="[
+          { value: 'all', label: ('mcp.requests.filterAllTypes' | t) },
+          { value: 'person', label: 'person' },
+          { value: 'server', label: 'server' },
+          { value: 'demo', label: 'demo' }
+        ]"
+        [value]="kindFilter()"
+        (valueChange)="kindFilter.set($event)"
+      />
     </div>
   `,
   styles: `
@@ -154,18 +156,6 @@ import { RequestStatus } from './key-requests.model';
     .seg-btn.active {
       background: var(--bg-nested);
       color: var(--text-primary);
-    }
-    .kind-select {
-      height: 36px;
-      background: var(--bg-tile);
-      border: 1px solid var(--border-tile);
-      border-radius: var(--radius-button);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 0 var(--space-3);
-      outline: none;
     }
   `,
 })

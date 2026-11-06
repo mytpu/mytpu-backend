@@ -47,7 +47,6 @@
   color: var(--text-secondary);
 }
 
-.custom-select,
 .custom-input {
   width: 100%;
   box-sizing: border-box;
@@ -60,7 +59,6 @@
   border-radius: var(--radius-button);
   outline: none;
 }
-.custom-select:focus,
 .custom-input:focus { border-color: var(--green-action); }
 
 .params-block { display: flex; flex-direction: column; gap: var(--space-3); }

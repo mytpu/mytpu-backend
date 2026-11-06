@@ -6,8 +6,8 @@ export interface AdminRow {
   action: string;
   objectType: string;
   objectId: string;
-  before: string;
-  after: string;
+  before: string | null;
+  after: string | null;
 }
 
 export interface AdminFilterParams {

@@ -129,6 +129,8 @@
 
   @if (reissuingKey()) {
     <app-reissue-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [submitting]="submitting()"
       (submitReissue)="submitReissue($event)"
       (cancel)="reissuingKey.set(null)"
@@ -137,6 +139,8 @@
 
   @if (revokingKey(); as rev) {
     <app-revoke-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [owner]="rev.owner"
       [keyPrefix]="rev.keyPrefix"
       [submitting]="submitting()"
@@ -147,6 +151,8 @@
 
   @if (resumingKey(); as res) {
     <app-resume-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [owner]="res.owner"
       [submitting]="submitting()"
       (submitResume)="submitResume($event)"
@@ -156,6 +162,8 @@
 
   @if (createdKey(); as cr) {
     <app-key-created-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [apiKey]="cr.key"
       [command]="cr.command"
       [owner]="createdKeyOwner()"

@@ -1,6 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent, SelectOption } from '../../../ui/select/select.component';
 import { BadgeComponent } from '../../../ui/badge/badge.component';
 import { ButtonComponent } from '../../../ui/button/button.component';
 import { CardComponent } from '../../../ui/card/card.component';
@@ -17,7 +17,7 @@ export interface DecoyMemberInfo {
 @Component({
   selector: 'app-key-events-sidebar',
   standalone: true,
-  imports: [FormsModule, TPipe, BadgeComponent, ButtonComponent, CardComponent, IconComponent],
+  imports: [TPipe, SelectComponent, BadgeComponent, ButtonComponent, CardComponent, IconComponent],
   templateUrl: './key-events-sidebar.component.html',
   styleUrl: './key-events-sidebar.component.css',
 })
@@ -34,6 +34,10 @@ export class KeyEventsSidebarComponent {
   readonly openAddMember = output<void>();
   readonly removeMember = output<string>();
   readonly resumeKey = output<ExpiringKeyView>();
+
+  readonly decoyOptions = computed<SelectOption[]>(() =>
+    this.decoyKeys().map((d) => ({ value: d.id, label: d.owner, hint: d.keyPrefix })),
+  );
 
   readonly groupMembers = computed<DecoyMemberInfo[]>(() => {
     const ids = this.groupMemberIds();

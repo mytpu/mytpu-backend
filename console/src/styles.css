@@ -73,6 +73,101 @@ body {
   }
 }
 
+/* Появление и скрытие. Классы ставит Angular: animate.enter="m-…-enter" animate.leave="m-…-leave".
+   Появление — --dur-base, скрытие короче — --dur-fast; при reduced-motion анимаций нет. */
+@keyframes m-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes m-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes m-pop-in {
+  from { opacity: 0; transform: translateY(var(--motion-shift)) scale(var(--motion-scale)); }
+}
+
+@keyframes m-pop-out {
+  to { opacity: 0; transform: scale(var(--motion-scale)); }
+}
+
+@keyframes m-rise-in {
+  from { opacity: 0; transform: translateY(var(--m-shift, var(--motion-shift))); }
+}
+
+@keyframes m-sink-out {
+  to { opacity: 0; transform: translateY(var(--m-shift, var(--motion-shift))); }
+}
+
+/* Смена страниц: роутер вставляет компонент страницы сразу после router-outlet */
+router-outlet + * {
+  animation: m-rise-in var(--dur-base) var(--ease-out);
+}
+
+/* Диалог: на подложке (или на хосте компонента-диалога) — затемнение, окно app-dialog — с увеличением.
+   Хост — display: block, иначе у встроенного элемента не работает прозрачность. */
+.m-dialog-enter,
+.m-dialog-leave {
+  display: block;
+}
+
+/* Уходящий элемент не ловит клики: Angular может убрать его из DOM позже конца анимации */
+.m-dialog-leave,
+.m-toast-leave,
+.m-reveal-leave {
+  pointer-events: none;
+}
+
+.m-dialog-enter {
+  animation: m-fade-in var(--dur-base) var(--ease-out);
+}
+
+.m-dialog-enter app-dialog {
+  animation: m-pop-in var(--dur-base) var(--ease-out);
+}
+
+.m-dialog-leave {
+  animation: m-fade-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+.m-dialog-leave app-dialog {
+  animation: m-pop-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* Тост у нижнего края: выезжает снизу и уезжает вниз */
+.m-toast-enter {
+  --m-shift: var(--motion-shift-toast);
+  animation: m-rise-in var(--dur-base) var(--ease-out);
+}
+
+.m-toast-leave {
+  --m-shift: var(--motion-shift-toast);
+  animation: m-sink-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* Блок внутри страницы: панель, результат, ошибка, шаг мастера */
+.m-reveal-enter {
+  animation: m-rise-in var(--dur-base) var(--ease-out);
+}
+
+.m-reveal-leave {
+  animation: m-fade-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  router-outlet + *,
+  .m-dialog-enter,
+  .m-dialog-enter app-dialog,
+  .m-dialog-leave,
+  .m-dialog-leave app-dialog,
+  .m-toast-enter,
+  .m-toast-leave,
+  .m-reveal-enter,
+  .m-reveal-leave {
+    animation: none;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--green-action);
   outline-offset: 2px;

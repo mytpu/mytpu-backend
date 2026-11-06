@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { merge } from 'rxjs';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent } from '../../../ui/select/select.component';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { ButtonComponent } from '../../../ui/button/button.component';
 import { DialogComponent } from '../../../ui/dialog/dialog.component';
@@ -13,7 +14,7 @@ import { CreateKeyRequestBody } from './key-requests.model';
 @Component({
   selector: 'app-create-request-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, TPipe, ButtonComponent, DialogComponent, IconComponent],
+  imports: [ReactiveFormsModule, TPipe, SelectComponent, ButtonComponent, DialogComponent, IconComponent],
   templateUrl: './create-request-dialog.component.html',
   styleUrl: './create-request-dialog.component.css',
 })

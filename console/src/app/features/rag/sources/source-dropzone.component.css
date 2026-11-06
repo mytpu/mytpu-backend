@@ -164,3 +164,9 @@
   font-size: 13px;
   line-height: 1.4;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .error-shake {
+    animation: none;
+  }
+}

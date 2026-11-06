@@ -64,7 +64,7 @@
         [disabled]="disabled() || pageSubmitting()"
       />
       @if (pageError()) {
-        <span class="err-hint">{{ pageError() }}</span>
+        <span animate.enter="m-reveal-enter" class="err-hint">{{ pageError() }}</span>
       } @else {
         <span class="field-hint">{{ 'rag.sources.pageHint' | t }}</span>
       }

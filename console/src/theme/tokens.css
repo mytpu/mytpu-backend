@@ -141,6 +141,10 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-shift: 6px;
+  --motion-shift-toast: 12px;
+  --motion-scale: 0.97;
   --sidebar-w: 248px;
   --shadow-dialog: 0 16px 40px rgb(0 0 0 / 0.2);
 }

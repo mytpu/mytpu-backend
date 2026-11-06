@@ -33,7 +33,7 @@ import { IconComponent } from '../../../ui/icon/icon.component';
               (ngModelChange)="onReasonChange($event)"
             ></textarea>
             @if (error()) {
-              <span class="error-msg">{{ error() }}</span>
+              <span animate.enter="m-reveal-enter" class="error-msg">{{ error() }}</span>
             }
           </div>
         </div>

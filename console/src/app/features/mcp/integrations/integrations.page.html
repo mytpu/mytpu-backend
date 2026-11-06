@@ -1,4 +1,4 @@
-<div class="integrations-page animate-enter">
+<div class="integrations-page">
   <div class="search-bar">
     <div class="search-box">
       <app-icon name="search" [size]="18" class="search-icon" />
@@ -53,7 +53,7 @@
 
       <div class="side-column">
         @if (selectedTool()) {
-          <app-tool-limits-card
+          <app-tool-limits-card animate.enter="m-reveal-enter"
             [tool]="selectedTool()!"
             [integration]="selectedIntegration()"
             [canChange]="canChange()"
@@ -72,6 +72,8 @@
 
   @if (pendingDisable()) {
     <app-disable-confirm-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [targetName]="pendingDisable()!.name"
       [submitting]="submittingDisable()"
       (confirm)="confirmDisable($event)"
@@ -81,6 +83,8 @@
 
   @if (disabledToastItem()) {
     <app-countdown-toast
+      animate.enter="m-toast-enter"
+      animate.leave="m-toast-leave"
       [itemName]="disabledToastItem()!.name"
       [canUndo]="canChange()"
       (undo)="undoDisable()"

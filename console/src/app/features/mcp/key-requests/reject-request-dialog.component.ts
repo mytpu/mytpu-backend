@@ -18,7 +18,7 @@ import { IconComponent } from '../../../ui/icon/icon.component';
         (closed)="cancel.emit()"
       >
         @if (serverError()) {
-          <div class="server-error-banner">
+          <div animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="server-error-banner">
             <app-icon name="alert" [size]="16" />
             <span>{{ serverError() }}</span>
           </div>
@@ -34,7 +34,7 @@ import { IconComponent } from '../../../ui/icon/icon.component';
             (ngModelChange)="onReasonChange($event)"
           ></textarea>
           @if (error()) {
-            <span class="error-msg">{{ error() }}</span>
+            <span animate.enter="m-reveal-enter" class="error-msg">{{ error() }}</span>
           }
         </div>
 

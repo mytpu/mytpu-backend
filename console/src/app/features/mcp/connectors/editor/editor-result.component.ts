@@ -1,6 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { TPipe } from '../../../../core/i18n/t.pipe';
+import { SelectComponent } from '../../../../ui/select/select.component';
 import { ButtonComponent } from '../../../../ui/button/button.component';
 import { createFieldGroup, ResultForm } from './connector-editor.model';
 import { EditorFieldRowComponent } from './editor-field-row.component';
@@ -11,6 +12,7 @@ import { EditorFieldRowComponent } from './editor-field-row.component';
   imports: [
     ReactiveFormsModule,
     TPipe,
+    SelectComponent,
     ButtonComponent,
     EditorFieldRowComponent,
   ],

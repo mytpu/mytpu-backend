@@ -7,7 +7,7 @@
   </div>
 
   @if (savedMessage(); as msg) {
-    <div class="save-toast-banner" role="status">
+    <div animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="save-toast-banner" role="status">
       <app-icon name="check" [size]="18" />
       <span>{{ msg }}</span>
     </div>
@@ -84,9 +84,9 @@
 
       <div class="version-content">
         @if (selectedVersion(); as sel) {
-          <app-version-details [version]="sel" />
+          <app-version-details animate.enter="m-reveal-enter" [version]="sel" />
 
-          <app-connector-test-panel
+          <app-connector-test-panel animate.enter="m-reveal-enter"
             [connectorId]="details()!.id"
             [version]="sel"
             [canChange]="canChange()"
@@ -108,6 +108,8 @@
 
   @if (versionToPublish(); as v) {
     <app-publish-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [connectorId]="details()!.id"
       [targetVersion]="v"
       [publishedVersion]="publishedVersionObj()"
@@ -119,13 +121,15 @@
 
   @if (publishedToastVersion(); as toastVer) {
     <app-publish-countdown-toast
+      animate.enter="m-toast-enter"
+      animate.leave="m-toast-leave"
       [version]="toastVer"
       (dismiss)="publishedToastVersion.set(null)"
     />
   }
 
   @if (showUnpublishDialog()) {
-    <div class="overlay" (click)="cancelUnpublish()">
+    <div class="overlay" animate.enter="m-dialog-enter" animate.leave="m-dialog-leave" (click)="cancelUnpublish()">
       <div class="dialog-wrapper" (click)="$event.stopPropagation()">
         <app-dialog
           [title]="'connectors.unpublishDialogTitle' | t"

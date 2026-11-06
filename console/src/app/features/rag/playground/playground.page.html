@@ -16,15 +16,18 @@
       (ngModelChange)="query.set($event)"
       (keydown.enter)="search()"
     />
-    <select
-      class="access-select"
-      [ngModel]="access()"
-      (ngModelChange)="access.set($event)"
-    >
-      <option value="public">public</option>
-      <option value="students">students</option>
-      <option value="staff">staff</option>
-    </select>
+    <app-select
+      size="sm"
+      icon="user"
+      [ariaLabel]="'rag.playground.accessLabel' | t"
+      [options]="[
+        { value: 'public', label: ('rag.playground.accessPublic' | t), hint: 'public' },
+        { value: 'students', label: ('rag.playground.accessStudents' | t), hint: 'students' },
+        { value: 'staff', label: ('rag.playground.accessStaff' | t), hint: 'staff' }
+      ]"
+      [value]="access()"
+      (valueChange)="access.set($event)"
+    />
     <app-button
       kind="primary"
       [disabled]="!query().trim() || loading()"

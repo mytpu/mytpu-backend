@@ -34,7 +34,7 @@ import { DialogComponent } from '../../../ui/dialog/dialog.component';
                 (ngModelChange)="reason.set($event)"
               ></textarea>
               @if (validationError()) {
-                <span class="error-msg">{{ validationError() }}</span>
+                <span animate.enter="m-reveal-enter" class="error-msg">{{ validationError() }}</span>
               }
             </div>
           }

@@ -130,6 +130,8 @@
 
   @if (sourceToDelete(); as toDelete) {
     <app-source-delete-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [source]="toDelete"
       (cancel)="sourceToDelete.set(null)"
       (confirm)="confirmDelete()"

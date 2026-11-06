@@ -98,8 +98,10 @@ export class DemoMcpStore {
       .slice(0, filters.limit || 50);
   }
 
-  getAdminAudit(filters: { actor?: string; type?: string; object?: string; limit?: number; before?: number }): AdminRow[] {
+  getAdminAudit(filters: { from?: string; actor?: string; type?: string; object?: string; limit?: number; before?: number }): AdminRow[] {
+    const from = filters.from ? Date.parse(filters.from) : 0;
     return this.adminRows
+      .filter((a) => Date.parse(a.at) >= from)
       .filter((a) => !filters.actor || a.actorId.includes(filters.actor) || a.actorOwner.includes(filters.actor))
       .filter((a) => !filters.type || a.objectType === filters.type)
       .filter((a) => !filters.object || a.objectId.includes(filters.object))

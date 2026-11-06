@@ -6,11 +6,16 @@
   <div class="fields-grid-3">
     <div class="field-item">
       <label class="field-label">{{ 'connectors.editor.resultModeLabel' | t }}</label>
-      <select class="field-input" formControlName="mode" (change)="changed.emit()">
-        <option value="object">{{ 'connectors.editor.resultModeObject' | t }}</option>
-        <option value="list">{{ 'connectors.editor.resultModeList' | t }}</option>
-        <option value="values">{{ 'connectors.editor.resultModeValues' | t }}</option>
-      </select>
+      <app-select
+        block
+        formControlName="mode"
+        [options]="[
+          { value: 'object', label: ('connectors.editor.resultModeObject' | t) },
+          { value: 'list', label: ('connectors.editor.resultModeList' | t) },
+          { value: 'values', label: ('connectors.editor.resultModeValues' | t) }
+        ]"
+        (valueChange)="changed.emit()"
+      />
     </div>
 
     <div class="field-item">

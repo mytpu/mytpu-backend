@@ -1,29 +1,46 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { BadgeComponent, BadgeKind } from '../../../ui/badge/badge.component';
+import { ButtonComponent } from '../../../ui/button/button.component';
 import { EmptyStateComponent } from '../../../ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../ui/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../ui/select/select.component';
 import { SkeletonComponent } from '../../../ui/skeleton/skeleton.component';
 import { TableComponent } from '../../../ui/table/table.component';
 import { AdminAuditApi } from './admin-audit.api';
+import { actionKind, actionLabel, AuditSummary, objectLabel, summarize } from './admin-audit.describe';
+import { AuditDetails, details } from './admin-audit.fields';
 import { AdminRow } from './admin-audit.model';
 
-export interface AdminActorOption {
-  id: string;
-  label: string;
+type Period = 'today' | '24h' | '7d' | '30d';
+
+/** Строка журнала, подготовленная для показа: итог и подписи считаются один раз при загрузке */
+interface AuditView {
+  row: AdminRow;
+  date: string;
+  time: string;
+  action: string;
+  kind: BadgeKind;
+  object: string;
+  summary: AuditSummary;
+  details: AuditDetails;
 }
+
+const PAGE = 100;
+const OBJECT_TYPES = ['mode', 'tool', 'integration', 'key', 'key_request', 'connector', 'rag'];
+const PERIOD_HOURS: Record<Exclude<Period, 'today'>, number> = { '24h': 24, '7d': 24 * 7, '30d': 24 * 30 };
 
 @Component({
   selector: 'app-admin-audit-page',
   standalone: true,
   imports: [
-    FormsModule,
     TPipe,
     BadgeComponent,
+    ButtonComponent,
     EmptyStateComponent,
     IconComponent,
+    SelectComponent,
     SkeletonComponent,
     TableComponent,
   ],
@@ -33,24 +50,42 @@ export interface AdminActorOption {
 export class AdminAuditPage implements OnInit {
   private readonly api = inject(AdminAuditApi);
   private readonly i18n = inject(I18n);
+  private readonly t = this.i18n.t.bind(this.i18n);
 
-  readonly rows = signal<AdminRow[]>([]);
+  readonly rows = signal<AuditView[]>([]);
   readonly loading = signal<boolean>(true);
+  readonly loadingMore = signal<boolean>(false);
+  readonly hasMore = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly expanded = signal<ReadonlySet<number>>(new Set());
 
   readonly actorFilter = signal<string>('');
   readonly typeFilter = signal<string>('');
-  readonly periodFilter = signal<string>('today');
+  readonly periodFilter = signal<Period>('today');
 
-  readonly actors = signal<AdminActorOption[]>([]);
-  private readonly knownActors = new Map<string, string>();
+  private readonly knownActors = signal<ReadonlyMap<string, string>>(new Map());
+
+  readonly periodOptions: SelectOption<Period>[] = [
+    { value: 'today', label: this.t('mcp.adminAudit.filterPeriodToday') },
+    { value: '24h', label: this.t('mcp.adminAudit.filterPeriod24h') },
+    { value: '7d', label: this.t('mcp.adminAudit.filterPeriod7d') },
+    { value: '30d', label: this.t('mcp.adminAudit.filterPeriod30d') },
+  ];
+  readonly typeOptions: SelectOption[] = [
+    { value: '', label: this.t('mcp.adminAudit.filterActionAll') },
+    ...OBJECT_TYPES.map((type) => ({ value: type, label: this.t(`mcp.adminAudit.objects.${type}`) })),
+  ];
+  readonly actorOptions = computed<SelectOption[]>(() => [
+    { value: '', label: this.t('mcp.adminAudit.filterActorAll') },
+    ...Array.from(this.knownActors(), ([id, owner]) => ({ value: id, label: owner || id, hint: owner ? id : undefined })),
+  ]);
 
   readonly columns = [
-    { title: this.i18n.t('mcp.adminAudit.colWhen'), width: '130px' },
-    { title: this.i18n.t('mcp.adminAudit.colWho'), width: '180px' },
-    { title: this.i18n.t('mcp.adminAudit.colAction'), width: '180px' },
-    { title: this.i18n.t('mcp.adminAudit.colObject'), width: '160px' },
-    { title: this.i18n.t('mcp.adminAudit.colReasonOrDiff') },
+    { title: this.t('mcp.adminAudit.colWhen'), width: '108px' },
+    { title: this.t('mcp.adminAudit.colWho'), width: '170px' },
+    { title: this.t('mcp.adminAudit.colAction'), width: '200px' },
+    { title: this.t('mcp.adminAudit.colChange') },
+    { title: '', width: '120px' },
   ];
 
   ngOnInit(): void {
@@ -60,39 +95,81 @@ export class AdminAuditPage implements OnInit {
   loadData(): void {
     this.loading.set(true);
     this.error.set(null);
+    this.expanded.set(new Set());
+    this.fetch(undefined, (views) => this.rows.set(views), () => this.loading.set(false));
+  }
+
+  loadMore(): void {
+    const last = this.rows().at(-1);
+    if (!last || this.loadingMore()) return;
+    this.loadingMore.set(true);
+    this.fetch(last.row.id, (views) => this.rows.update((rows) => [...rows, ...views]), () => this.loadingMore.set(false));
+  }
+
+  private fetch(before: number | undefined, apply: (views: AuditView[]) => void, done: () => void): void {
     this.api
       .list({
+        from: this.periodStart().toISOString(),
         actor: this.actorFilter() || undefined,
         type: this.typeFilter() || undefined,
-        limit: 100,
+        before,
+        limit: PAGE,
       })
       .subscribe({
         next: (res) => {
           this.recordActors(res);
-          this.rows.set(res);
-          this.loading.set(false);
+          apply(res.map((row) => this.view(row)));
+          this.hasMore.set(res.length === PAGE);
+          done();
         },
         error: (err) => {
           this.error.set(err.message || 'Error');
-          this.loading.set(false);
+          done();
         },
       });
   }
 
+  private periodStart(): Date {
+    const period = this.periodFilter();
+    if (period === 'today') {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    return new Date(Date.now() - PERIOD_HOURS[period] * 3600_000);
+  }
+
+  private view(row: AdminRow): AuditView {
+    const d = new Date(row.at);
+    const two = (n: number) => String(n).padStart(2, '0');
+    const summary = summarize(row, this.t);
+    return {
+      row,
+      date: `${two(d.getDate())}.${two(d.getMonth() + 1)}`,
+      time: `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`,
+      action: actionLabel(row.action, this.t),
+      kind: actionKind(row, summary.failed),
+      object: objectLabel(row, this.t),
+      summary,
+      details: details(row),
+    };
+  }
+
   private recordActors(rows: AdminRow[]): void {
-    let changed = false;
-    for (const r of rows) {
-      if (r.actorId && !this.knownActors.has(r.actorId)) {
-        const label = r.actorOwner ? `${r.actorOwner} (${r.actorId})` : r.actorId;
-        this.knownActors.set(r.actorId, label);
-        changed = true;
-      }
-    }
-    if (changed) {
-      this.actors.set(
-        Array.from(this.knownActors.entries()).map(([id, label]) => ({ id, label })),
-      );
-    }
+    const known = this.knownActors();
+    const fresh = rows.filter((r) => r.actorId && !known.has(r.actorId));
+    if (fresh.length === 0) return;
+    const next = new Map(known);
+    for (const r of fresh) next.set(r.actorId, r.actorOwner);
+    this.knownActors.set(next);
+  }
+
+  toggle(id: number): void {
+    this.expanded.update((set) => {
+      const next = new Set(set);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   }
 
   onActorChange(val: string): void {
@@ -105,7 +182,7 @@ export class AdminAuditPage implements OnInit {
     this.loadData();
   }
 
-  onPeriodChange(val: string): void {
+  onPeriodChange(val: Period): void {
     this.periodFilter.set(val);
     this.loadData();
   }
@@ -115,48 +192,5 @@ export class AdminAuditPage implements OnInit {
     this.typeFilter.set('');
     this.periodFilter.set('today');
     this.loadData();
-  }
-
-  formatDate(iso: string): string {
-    const d = new Date(iso);
-    const day = String(d.getDate()).padStart(2, '0');
-    const mon = String(d.getMonth() + 1).padStart(2, '0');
-    const h = String(d.getHours()).padStart(2, '0');
-    const m = String(d.getMinutes()).padStart(2, '0');
-    const s = String(d.getSeconds()).padStart(2, '0');
-    return `${day}.${mon} ${h}:${m}:${s}`;
-  }
-
-  getActionBadgeKind(action: string): BadgeKind {
-    if (action.startsWith('mode.')) return 'graphite';
-    if (action.startsWith('tool.')) return 'info';
-    if (action.startsWith('integration.')) return 'ok';
-    if (action.startsWith('key.revoke')) return 'danger';
-    return 'neutral';
-  }
-
-  getActionKey(action: string): string {
-    const safe = action.replace('.', '_');
-    return `mcp.adminAudit.action_${safe}`;
-  }
-
-  parseDiff(row: AdminRow): string {
-    try {
-      const afterObj = JSON.parse(row.after);
-      if (afterObj.reason) {
-        return afterObj.reason;
-      }
-      if (afterObj.mode) {
-        return this.i18n.t('mcp.adminAudit.diffMode', { mode: afterObj.mode });
-      }
-      if (afterObj.enabled !== undefined) {
-        return afterObj.enabled
-          ? this.i18n.t('mcp.adminAudit.diffEnabled')
-          : this.i18n.t('mcp.adminAudit.diffDisabled');
-      }
-      return row.after;
-    } catch {
-      return row.after || '—';
-    }
   }
 }

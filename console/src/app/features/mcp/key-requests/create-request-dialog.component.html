@@ -5,7 +5,7 @@
     (closed)="cancel.emit()"
   >
     @if (serverError()) {
-      <div class="server-error-banner">
+      <div animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="server-error-banner">
         <app-icon name="alert" [size]="16" />
         <span>{{ serverError() }}</span>
       </div>
@@ -54,11 +54,15 @@
       <div class="fields-row">
         <div class="field-col half">
           <label class="label">{{ 'mcp.requests.fieldKind' | t }}</label>
-          <select class="input-field" formControlName="kind">
-            <option value="person">person</option>
-            <option value="server">server</option>
-            <option value="demo">demo</option>
-          </select>
+          <app-select
+            block
+            formControlName="kind"
+            [options]="[
+              { value: 'person', label: 'person' },
+              { value: 'server', label: 'server' },
+              { value: 'demo', label: 'demo' }
+            ]"
+          />
         </div>
         <div class="field-col half">
           <label class="label">{{ 'mcp.requests.fieldDays' | t }}</label>

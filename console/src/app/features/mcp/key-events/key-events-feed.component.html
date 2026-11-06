@@ -6,15 +6,12 @@
     </div>
 
     <div class="filters-row">
-      <select
-        class="filter-select"
-        [ngModel]="eventTypeFilter()"
-        (ngModelChange)="eventTypeFilter.set($event)"
-      >
-        @for (t of eventTypes; track t.value) {
-          <option [value]="t.value">{{ t.labelKey | t }}</option>
-        }
-      </select>
+      <app-select
+        size="sm"
+        [options]="eventTypeOptions"
+        [value]="eventTypeFilter()"
+        (valueChange)="eventTypeFilter.set($event)"
+      />
 
       <div class="search-wrap">
         <app-icon name="search" [size]="16" class="search-icon" />

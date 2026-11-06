@@ -31,7 +31,7 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Консоль rag через шлюз: {@code /admin/api/rag/**} → rag {@code /admin/**} со своим сервисным ключом ({@code rag_admin_key}) —
  * rag остаётся во внутренней сети. Роль (смотреть / менять) уже проверил доступ шлюза. Состояние документов хранит rag,
- * поэтому изменение пишется в журнал действий после вызова: запрос (JSON — с вырезанными секретами, файл — пометкой)
+ * поэтому изменение (не GET и не поиск в песочнице) пишется в журнал действий после вызова: запрос (JSON — с вырезанными секретами, файл — пометкой)
  * и ответ rag. Страницу {@code *.tpu.ru} скачивает {@link RagPageFetcher}.
  */
 @RestController
@@ -126,7 +126,7 @@ public class RagAdminProxy {
             Thread.currentThread().interrupt();
             throw new AdminException(HttpStatus.BAD_GATEWAY, "rag_unavailable");
         }
-        if (!"GET".equalsIgnoreCase(request.getMethod())) {
+        if (changes(request.getMethod(), rest)) {
             Map<String, Object> after = new LinkedHashMap<>();
             after.put("status", response.statusCode());
             after.put("answer", response.body().length <= MAX_LOGGED_JSON ? parsed(response.body()) : "…");
@@ -134,6 +134,11 @@ public class RagAdminProxy {
         }
         String type = response.headers().firstValue("Content-Type").orElse(MediaType.APPLICATION_JSON_VALUE);
         return ResponseEntity.status(response.statusCode()).header("Content-Type", type).body(response.body());
+    }
+
+    /** В журнал действий — только изменения. Поиск в песочнице идёт POST-ом, но ничего не меняет в rag. */
+    private static boolean changes(String method, String rest) {
+        return !"GET".equalsIgnoreCase(method) && !"/playground".equals(rest);
     }
 
     private Object parsed(byte[] bytes) {

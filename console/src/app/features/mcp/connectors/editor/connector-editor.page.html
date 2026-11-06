@@ -23,7 +23,7 @@
     </div>
   } @else {
     @if (serverProblems().length > 0) {
-      <div class="problems-alert" role="alert">
+      <div animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="problems-alert" role="alert">
         <div class="problems-header">
           <app-icon name="alert" [size]="18" />
           <span class="problems-title">{{ 'connectors.editor.problemsTitle' | t }}</span>
@@ -126,7 +126,7 @@
         </div>
 
         @if (form.controls.tools.length === 0) {
-          <div class="no-tools-warning">
+          <div animate.enter="m-reveal-enter" class="no-tools-warning">
             <span class="err-text">{{ 'connectors.editor.errorNoTools' | t }}</span>
           </div>
         }

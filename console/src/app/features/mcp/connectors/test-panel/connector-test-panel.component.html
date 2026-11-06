@@ -8,16 +8,13 @@
 
   <div class="tool-select-row">
     <label class="field-label" for="tool-select">{{ 'connectors.testSelectTool' | t }}</label>
-    <select
-      id="tool-select"
-      class="custom-select"
-      [ngModel]="selectedToolName()"
-      (ngModelChange)="onToolChange($event)"
-    >
-      @for (tool of tools(); track tool.name) {
-        <option [value]="tool.name">{{ tool.name }} ({{ tool.path }})</option>
-      }
-    </select>
+    <app-select
+      block
+      ariaLabel="tool"
+      [options]="toolOptions()"
+      [value]="selectedToolName()"
+      (valueChange)="onToolChange($event)"
+    />
   </div>
 
   @if (currentTool(); as tool) {
@@ -42,15 +39,9 @@
               }
 
               @if (param.enum && param.enum.length > 0) {
-                <select class="custom-select" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)">
-                  @if (!param.required) { <option value="">—</option> }
-                  @for (opt of param.enum; track opt) { <option [value]="opt">{{ opt }}</option> }
-                </select>
+                <app-select block [options]="paramOptions().get(param.name) ?? []" [value]="argValues()[param.name]" (valueChange)="setArg(param.name, $event)" />
               } @else if (param.type === 'boolean') {
-                <select class="custom-select" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)">
-                  <option [value]="true">true</option>
-                  <option [value]="false">false</option>
-                </select>
+                <app-select block [options]="booleanOptions" [value]="argValues()[param.name]" (valueChange)="setArg(param.name, $event)" />
               } @else if (param.type === 'integer') {
                 <input type="number" step="1" class="custom-input" [placeholder]="defaultText(param.default)" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)" />
               } @else if (param.type === 'number') {
@@ -85,7 +76,7 @@
   }
 
   @if (testResult(); as res) {
-    <div class="result-block">
+    <div animate.enter="m-reveal-enter" class="result-block">
       <div class="result-head">
         <h4 class="result-heading">{{ 'connectors.testResultTitle' | t }}</h4>
         @if (res.ok) {
@@ -169,7 +160,7 @@
               }
             </button>
             @if (rawExpanded()) {
-              <pre class="raw-pre"><code>{{ res.raw }}</code></pre>
+              <pre animate.enter="m-reveal-enter" animate.leave="m-reveal-leave" class="raw-pre"><code>{{ res.raw }}</code></pre>
             }
           </div>
         }

@@ -1,0 +1,56 @@
+<button
+  #trigger
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+  type="button"
+  class="select-trigger"
+  role="combobox"
+  aria-haspopup="listbox"
+  [attr.aria-expanded]="open()"
+  [attr.aria-controls]="open() ? id + '-list' : null"
+  [attr.aria-activedescendant]="open() && active() >= 0 ? optionId(active()) : null"
+  [attr.aria-label]="ariaLabel()"
+  [class.is-open]="open()"
+  [disabled]="disabled()"
+  (click)="toggle()"
+  (keydown)="onKeydown($event)"
+>
+  @if (icon()) {
+    <app-icon [name]="icon()!" [size]="16" class="select-icon" />
+  }
+  <span class="select-value" [class.is-placeholder]="!selected()">{{ selected()?.label ?? placeholder() }}</span>
+  <app-icon name="chevDown" [size]="16" class="select-chevron" />
+</button>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open()"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayMinWidth]="triggerWidth()"
+  [cdkConnectedOverlayViewportMargin]="8"
+  (overlayOutsideClick)="outsideClick($event)"
+  (detach)="close()"
+>
+  <ul class="select-menu" role="listbox" [id]="id + '-list'" [attr.aria-label]="ariaLabel()">
+    @for (option of options(); track $index; let i = $index) {
+      <li
+        role="option"
+        class="select-option"
+        [id]="optionId(i)"
+        [class.is-active]="i === active()"
+        [class.is-selected]="i === selectedIndex()"
+        [attr.aria-selected]="i === selectedIndex()"
+        (mousedown)="$event.preventDefault()"
+        (mouseenter)="active.set(i)"
+        (click)="choose(i)"
+      >
+        <span class="option-label">{{ option.label }}</span>
+        @if (option.hint) {
+          <span class="option-hint">{{ option.hint }}</span>
+        }
+        <app-icon name="check" [size]="16" class="option-check" />
+      </li>
+    }
+  </ul>
+</ng-template>

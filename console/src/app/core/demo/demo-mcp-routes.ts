@@ -51,12 +51,13 @@ export class DemoMcpRoutes {
     }
 
     if (path === '/admin/api/admin-audit' && method === 'GET') {
+      const from = getParam('from') || undefined;
       const actor = getParam('actor') || undefined;
       const type = getParam('type') || undefined;
       const object = getParam('object') || undefined;
       const limit = Number(getParam('limit')) || 50;
       const before = getParam('before') ? Number(getParam('before')) : undefined;
-      return { status: 200, body: this.store.getAdminAudit({ actor, type, object, limit, before }) };
+      return { status: 200, body: this.store.getAdminAudit({ from, actor, type, object, limit, before }) };
     }
 
     return null;

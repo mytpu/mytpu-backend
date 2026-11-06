@@ -31,6 +31,7 @@ import { IconComponent } from '../icon/icon.component';
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      transition: background-color var(--dur-fast) var(--ease);
     }
     .theme-btn:hover {
       background: var(--bg-nested);

@@ -4,14 +4,16 @@
       <h1 class="page-title">{{ 'rag.misses.title' | t }}</h1>
       <p class="page-subtitle">{{ 'rag.misses.meta' | t }}</p>
     </div>
-    <select
-      class="days-select"
-      [ngModel]="days()"
-      (ngModelChange)="onDaysChange($event)"
-    >
-      <option [value]="7">{{ 'rag.misses.filter7d' | t }}</option>
-      <option [value]="30">{{ 'rag.misses.filter30d' | t }}</option>
-    </select>
+    <app-select
+      size="sm"
+      icon="calendar"
+      [options]="[
+        { value: 7, label: ('rag.misses.filter7d' | t) },
+        { value: 30, label: ('rag.misses.filter30d' | t) }
+      ]"
+      [value]="days()"
+      (valueChange)="onDaysChange($event)"
+    />
   </div>
 
   @if (loading() && groups().length === 0) {
@@ -68,7 +70,7 @@
 
       <div class="right-col">
         @if (selectedGroup(); as sel) {
-          <app-card [label]="'rag.misses.actionCardTitle' | t" icon="spark">
+          <app-card animate.enter="m-reveal-enter" [label]="'rag.misses.actionCardTitle' | t" icon="spark">
             <div class="action-card-body">
               <p class="action-desc">
                 {{ 'rag.misses.actionCardDesc' | t: { query: sel.query, count: sel.count } }}

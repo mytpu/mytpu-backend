@@ -45,15 +45,13 @@
       @if (decoyKeys().length > 1) {
         <div class="decoy-picker">
           <label class="picker-label">{{ 'mcp.events.decoyGroupSelectDecoy' | t }}</label>
-          <select
-            class="picker-select"
-            [ngModel]="selectedDecoy()?.id"
-            (ngModelChange)="selectDecoy.emit($event)"
-          >
-            @for (d of decoyKeys(); track d.id) {
-              <option [value]="d.id">{{ d.owner }} ({{ d.keyPrefix }})</option>
-            }
-          </select>
+          <app-select
+            block
+            size="sm"
+            [options]="decoyOptions()"
+            [value]="selectedDecoy()?.id"
+            (valueChange)="selectDecoy.emit($event)"
+          />
         </div>
       }
 

@@ -91,17 +91,6 @@
   color: var(--text-secondary);
 }
 
-.picker-select {
-  height: 32px;
-  background: var(--bg-tile);
-  border: 1px solid var(--border-tile);
-  border-radius: var(--radius-button);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  padding: 0 var(--space-2);
-  outline: none;
-}
 
 .group-sub {
   margin: 0;

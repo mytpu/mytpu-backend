@@ -25,7 +25,7 @@ import { DialogComponent } from '../../../ui/dialog/dialog.component';
             (ngModelChange)="onReasonChange($event)"
           ></textarea>
           @if (error()) {
-            <span class="error-text">{{ error()! | t }}</span>
+            <span animate.enter="m-reveal-enter" class="error-text">{{ error()! | t }}</span>
           }
         </div>
 

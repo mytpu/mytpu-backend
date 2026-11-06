@@ -130,6 +130,8 @@
 
   @if (docToDelete(); as target) {
     <app-document-delete-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [doc]="target"
       (cancel)="docToDelete.set(null)"
       (confirm)="confirmDelete()"

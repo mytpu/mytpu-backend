@@ -116,7 +116,7 @@
 
       <div class="side-column">
         @if (selectedRequest(); as sel) {
-          <app-key-requests-card
+          <app-key-requests-card animate.enter="m-reveal-enter"
             [request]="sel"
             [canChange]="canChange()"
             [submitting]="submitting()"
@@ -126,7 +126,7 @@
             (reject)="openRejectDialog()"
           />
         } @else {
-          <div class="empty-side">
+          <div animate.enter="m-reveal-enter" class="empty-side">
             <span class="empty-prompt">{{ 'mcp.requests.selectPrompt' | t }}</span>
           </div>
         }
@@ -136,6 +136,8 @@
 
   @if (showCreateDialog()) {
     <app-create-request-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [submitting]="submitting()"
       [serverError]="createServerError()"
       [availableScopes]="availableScopes()"
@@ -146,6 +148,8 @@
 
   @if (showRejectDialog() && selectedRequest(); as sel) {
     <app-reject-request-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [requester]="sel.requester"
       [submitting]="submitting()"
       [serverError]="rejectServerError()"
@@ -156,6 +160,8 @@
 
   @if (createdKey(); as cr) {
     <app-key-created-dialog
+      animate.enter="m-dialog-enter"
+      animate.leave="m-dialog-leave"
       [apiKey]="cr.key"
       [command]="cr.command"
       [owner]="createdKeyOwner()"

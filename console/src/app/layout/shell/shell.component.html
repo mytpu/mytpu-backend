@@ -80,7 +80,7 @@
   </main>
 
   @if (idleService.warning()) {
-    <div class="idle-overlay">
+    <div class="idle-overlay" animate.enter="m-dialog-enter" animate.leave="m-dialog-leave">
       <app-dialog
         [title]="'idle.title' | t"
         [subtitle]="'idle.message' | t: { seconds: idleService.secondsRemaining() }"

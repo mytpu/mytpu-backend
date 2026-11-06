@@ -1,45 +1,26 @@
-<div class="admin-audit-page animate-enter">
+<div class="admin-audit-page">
   <div class="filters-bar">
-    <div class="filter-item">
-      <app-icon name="calendar" [size]="16" class="select-icon" />
-      <select
-        class="custom-select"
-        [ngModel]="periodFilter()"
-        (ngModelChange)="onPeriodChange($event)"
-      >
-        <option value="today">{{ 'mcp.adminAudit.filterPeriodToday' | t }}</option>
-        <option value="24h">{{ 'mcp.adminAudit.filterPeriod24h' | t }}</option>
-        <option value="7d">{{ 'mcp.adminAudit.filterPeriod7d' | t }}</option>
-        <option value="30d">{{ 'mcp.adminAudit.filterPeriod30d' | t }}</option>
-      </select>
-    </div>
-
-    <div class="filter-item">
-      <select
-        class="custom-select"
-        [ngModel]="actorFilter()"
-        (ngModelChange)="onActorChange($event)"
-      >
-        <option value="">{{ 'mcp.adminAudit.filterActorAll' | t }}</option>
-        @for (act of actors(); track act.id) {
-          <option [value]="act.id">{{ act.label }}</option>
-        }
-      </select>
-    </div>
-
-    <div class="filter-item">
-      <select
-        class="custom-select"
-        [ngModel]="typeFilter()"
-        (ngModelChange)="onTypeChange($event)"
-      >
-        <option value="">{{ 'mcp.adminAudit.filterActionAll' | t }}</option>
-        <option value="mode">{{ 'mcp.adminAudit.filterTypeMode' | t }}</option>
-        <option value="tool">{{ 'mcp.adminAudit.filterTypeTool' | t }}</option>
-        <option value="integration">{{ 'mcp.adminAudit.filterTypeIntegration' | t }}</option>
-        <option value="key">{{ 'mcp.adminAudit.filterTypeKey' | t }}</option>
-      </select>
-    </div>
+    <app-select
+      size="sm"
+      icon="calendar"
+      [options]="periodOptions"
+      [value]="periodFilter()"
+      (valueChange)="onPeriodChange($event)"
+    />
+    <app-select
+      size="sm"
+      icon="user"
+      [options]="actorOptions()"
+      [value]="actorFilter()"
+      (valueChange)="onActorChange($event)"
+    />
+    <app-select
+      size="sm"
+      icon="filter"
+      [options]="typeOptions"
+      [value]="typeFilter()"
+      (valueChange)="onTypeChange($event)"
+    />
   </div>
 
   @if (loading()) {
@@ -61,26 +42,88 @@
     />
   } @else {
     <app-table [columns]="columns">
-      @for (row of rows(); track row.id) {
-        <tr>
-          <td class="date-cell">{{ formatDate(row.at) }}</td>
+      @for (item of rows(); track item.row.id) {
+        @let open = expanded().has(item.row.id);
+        <tr class="audit-row" [class.is-open]="open">
           <td>
-            <div class="actor-col">
-              <span class="actor-name">{{ row.actorOwner }}</span>
-              <span class="actor-tag">{{ row.actorId }}</span>
+            <div class="when">
+              <span class="when-time">{{ item.time }}</span>
+              <span class="when-date">{{ item.date }}</span>
             </div>
           </td>
           <td>
-            <app-badge [kind]="getActionBadgeKind(row.action)">
-              {{ getActionKey(row.action) | t }}
-            </app-badge>
+            <div class="who">
+              <span class="who-name">{{ item.row.actorOwner || item.row.actorId }}</span>
+              @if (item.row.actorOwner) {
+                <span class="who-id">{{ item.row.actorId }}</span>
+              }
+            </div>
           </td>
           <td>
-            <span class="object-tag">{{ row.objectType }}: {{ row.objectId }}</span>
+            <div class="what">
+              <app-badge [kind]="item.kind">{{ item.action }}</app-badge>
+              <span class="object" [title]="item.row.objectId || ''">
+                {{ item.object }}@if (item.row.objectId && item.row.objectType !== 'mode') {
+                  <span class="object-id">{{ item.row.objectId }}</span>
+                }
+              </span>
+            </div>
           </td>
-          <td class="diff-cell">{{ parseDiff(row) }}</td>
+          <td>
+            <div class="summary">
+              <span class="summary-title">{{ item.summary.title }}</span>
+              @if (item.summary.note) {
+                <span class="summary-note" [class.is-failed]="item.summary.failed">{{ item.summary.note }}</span>
+              }
+            </div>
+          </td>
+          <td class="toggle-cell">
+            @if (item.details.fields.length > 0) {
+              <button
+                type="button"
+                class="toggle-btn"
+                [attr.aria-expanded]="open"
+                [attr.aria-controls]="'audit-details-' + item.row.id"
+                (click)="toggle(item.row.id)"
+              >
+                {{ (open ? 'mcp.adminAudit.less' : 'mcp.adminAudit.more') | t }}
+                <app-icon name="chevDown" [size]="14" class="toggle-chevron" />
+              </button>
+            }
+          </td>
         </tr>
+        @if (open) {
+          <tr class="details-row" [id]="'audit-details-' + item.row.id">
+            <td colspan="5">
+              <div class="details" animate.enter="m-reveal-enter">
+                <div class="details-head">
+                  <span></span>
+                  <span>{{ 'mcp.adminAudit.fieldsBefore' | t }}</span>
+                  <span>{{ 'mcp.adminAudit.fieldsAfter' | t }}</span>
+                </div>
+                @for (field of item.details.fields; track field.path) {
+                  <div class="details-line">
+                    <span class="field-path">{{ field.path }}</span>
+                    <span class="field-before">{{ field.before ?? '—' }}</span>
+                    <span class="field-after">{{ field.after ?? '—' }}</span>
+                  </div>
+                }
+                @if (item.details.hidden > 0) {
+                  <div class="details-more">{{ 'mcp.adminAudit.hiddenFields' | t: { count: item.details.hidden } }}</div>
+                }
+              </div>
+            </td>
+          </tr>
+        }
       }
     </app-table>
+
+    @if (hasMore()) {
+      <div class="more-row">
+        <app-button kind="outline" [disabled]="loadingMore()" (btnClick)="loadMore()">
+          {{ 'mcp.adminAudit.loadMore' | t }}
+        </app-button>
+      </div>
+    }
   }
 </div>

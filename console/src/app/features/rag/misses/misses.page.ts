@@ -7,9 +7,9 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { SelectComponent } from '../../../ui/select/select.component';
 import { I18n } from '../../../core/i18n/i18n.service';
 import { SessionStore } from '../../../core/session/session.store';
 import { BadgeComponent } from '../../../ui/badge/badge.component';
@@ -26,8 +26,8 @@ import { MissGroupItem } from './misses.model';
   selector: 'app-misses-page',
   standalone: true,
   imports: [
-    FormsModule,
     TPipe,
+    SelectComponent,
     BadgeComponent,
     ButtonComponent,
     CardComponent,

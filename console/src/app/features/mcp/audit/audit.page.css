@@ -18,24 +18,3 @@
 .spacer {
   flex: 1;
 }
-
-.animate-enter {
-  animation: pageEnter var(--dur-base) var(--ease);
-}
-
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-enter {
-    animation: none;
-  }
-}
