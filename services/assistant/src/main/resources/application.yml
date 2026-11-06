@@ -57,3 +57,7 @@ mytpu:
     model-timeout: 15s
     history:
       enabled: false
+      url: ${ASSISTANT_DB_URL:}
+      username: ${ASSISTANT_DB_USER:assistant}
+      password: ${assistant_db_password:}
+      retention: 30d

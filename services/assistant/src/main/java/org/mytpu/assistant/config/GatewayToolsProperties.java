@@ -24,12 +24,19 @@ public record GatewayToolsProperties(
         gatewayUrl = (gatewayUrl == null || gatewayUrl.isBlank()) ? "http://gateway:8080" : gatewayUrl;
         timeout = timeout == null ? Duration.ofSeconds(8) : timeout;
         modelTimeout = modelTimeout == null ? Duration.ofSeconds(15) : modelTimeout;
-        history = history == null ? new HistoryProperties(false) : history;
+        history = history == null ? new HistoryProperties(false, null, null, null, null) : history;
     }
 
-    public record HistoryProperties(Boolean enabled) {
+    /**
+     * История сообщений в БД (spec 5, шаг 7); до входа через ТПУ выключена.
+     *
+     * @param url       JDBC-адрес БД assistant ({@code ASSISTANT_DB_URL})
+     * @param retention сколько хранить записи (по умолчанию 30 дней)
+     */
+    public record HistoryProperties(Boolean enabled, String url, String username, String password, Duration retention) {
         public HistoryProperties {
             enabled = enabled != null && enabled;
+            retention = retention == null ? Duration.ofDays(30) : retention;
         }
     }
 }
