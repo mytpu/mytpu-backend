@@ -60,15 +60,7 @@
         </div>
       }
       <div class="header-spacer"></div>
-      <button
-        type="button"
-        class="theme-btn"
-        (click)="themeService.toggleTheme()"
-        [attr.title]="'header.toggleTheme' | t"
-        [attr.aria-label]="'header.toggleTheme' | t"
-      >
-        <app-icon [name]="themeService.theme() === 'dark' ? 'sun' : 'moon'" [size]="20" />
-      </button>
+      <app-theme-toggle />
     </header>
 
     <section class="page-body">

@@ -5,6 +5,7 @@
   overflow: auto;
 }
 .login-page {
+  position: relative;
   min-height: 100%;
   width: 100%;
   display: flex;
@@ -13,6 +14,11 @@
   padding: var(--space-4);
   background: var(--bg-page);
   box-sizing: border-box;
+}
+.login-theme {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
 }
 .login-card {
   width: 100%;

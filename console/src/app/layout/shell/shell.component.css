@@ -181,21 +181,6 @@
   line-height: 1.2;
   white-space: nowrap;
 }
-.theme-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-button);
-  background: var(--bg-tile);
-  border: 1px solid var(--line);
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.theme-btn:hover {
-  background: var(--bg-nested);
-}
 .page-body {
   flex: 1;
   display: flex;

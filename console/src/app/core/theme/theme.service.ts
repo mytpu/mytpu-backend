@@ -67,14 +67,7 @@ export class ThemeService {
       // Ignore localStorage read errors
     }
 
-    if (
-      typeof window !== 'undefined' &&
-      window.matchMedia &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches
-    ) {
-      return 'dark';
-    }
-
+    // По умолчанию — светлая, а не как в системе (решение владельца 06.11, docs/DECISIONS.md)
     return 'light';
   }
 }

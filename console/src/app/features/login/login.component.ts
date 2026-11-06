@@ -9,6 +9,7 @@ import { LogoComponent } from '../../ui/logo/logo.component';
 import { FieldComponent } from '../../ui/field/field.component';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { IconComponent } from '../../ui/icon/icon.component';
+import { ThemeToggleComponent } from '../../ui/theme-toggle/theme-toggle.component';
 
 @Component({
   selector: 'app-login',
@@ -19,6 +20,7 @@ import { IconComponent } from '../../ui/icon/icon.component';
     FieldComponent,
     ButtonComponent,
     IconComponent,
+    ThemeToggleComponent,
   ],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',

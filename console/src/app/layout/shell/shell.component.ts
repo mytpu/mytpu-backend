@@ -13,9 +13,9 @@ import { environment } from '../../../environments/environment';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { SessionStore } from '../../core/session/session.store';
 import { IdleService } from '../../core/session/idle.service';
-import { ThemeService } from '../../core/theme/theme.service';
 import { LogoComponent } from '../../ui/logo/logo.component';
 import { IconComponent, IconName } from '../../ui/icon/icon.component';
+import { ThemeToggleComponent } from '../../ui/theme-toggle/theme-toggle.component';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { DialogComponent } from '../../ui/dialog/dialog.component';
 
@@ -40,6 +40,7 @@ interface NavGroup {
     TPipe,
     LogoComponent,
     IconComponent,
+    ThemeToggleComponent,
     ButtonComponent,
     DialogComponent,
   ],
@@ -50,7 +51,6 @@ export class ShellComponent {
   readonly isDemo = environment.demo;
   readonly sessionStore = inject(SessionStore);
   readonly idleService = inject(IdleService);
-  readonly themeService = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly activatedRoute = inject(ActivatedRoute);
   // Заголовок и мета-строка шапки пересчитываются после каждого перехода
