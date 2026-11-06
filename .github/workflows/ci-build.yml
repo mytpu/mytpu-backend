@@ -107,11 +107,21 @@ jobs:
       PGVECTOR: pgvector/pgvector@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
       TRIVY: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
     steps:
+      # Нужен только deploy/trivyignore.yaml — исключения с причиной и сроком
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
       - name: Отчёт trivy по образу pgvector (HIGH с исправлением)
-        run: docker run --rm "$TRIVY" image --no-progress --exit-code 0 --severity HIGH --ignore-unfixed "$PGVECTOR"
+        run: >-
+          docker run --rm -v "$PWD/deploy/trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
+          image --no-progress --exit-code 0 --severity HIGH --ignore-unfixed --ignorefile /trivyignore.yaml "$PGVECTOR"
 
       - name: Сканирование образа pgvector (критичные уязвимости с исправлением — стоп)
-        run: docker run --rm "$TRIVY" image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed "$PGVECTOR"
+        run: >-
+          docker run --rm -v "$PWD/deploy/trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
+          image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed --ignorefile /trivyignore.yaml "$PGVECTOR"
 
   secrets:
     runs-on: ubuntu-latest

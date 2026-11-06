@@ -77,9 +77,12 @@ if [ "$SKIP_SCAN" = false ]; then
     mkdir -p "$TRIVY_CACHE_DIR"
     # Docker Desktop принимает путь вида D:/...; MSYS_NO_PATHCONV — чтобы Git Bash не переписал путь к сокету
     CACHE_MOUNT="$(cygpath -m "$TRIVY_CACHE_DIR" 2>/dev/null || printf '%s' "$TRIVY_CACHE_DIR")"
+    # Исключения с причиной и сроком — те же, что в CI
+    IGNORE_MOUNT="$(cygpath -m "$ROOT_DIR/deploy/trivyignore.yaml" 2>/dev/null || printf '%s' "$ROOT_DIR/deploy/trivyignore.yaml")"
     trivy_image() {
         MSYS_NO_PATHCONV=1 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$CACHE_MOUNT:/root/.cache/trivy" "$TRIVY_IMAGE" image --no-progress --ignore-unfixed "$@"
+            -v "$CACHE_MOUNT:/root/.cache/trivy" -v "$IGNORE_MOUNT:/trivyignore.yaml:ro" "$TRIVY_IMAGE" \
+            image --no-progress --ignore-unfixed --ignorefile /trivyignore.yaml "$@"
     }
     for image in "${IMAGES[@]}"; do
         echo "==> trivy: $image"
