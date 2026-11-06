@@ -88,7 +88,7 @@ public class ModelPath {
     private static DirectResult fromModel(String text, ToolTrace trace) {
         List<Source> sources = trace.calls().stream()
                 .flatMap(c -> c.answer().sources().stream())
-                .filter(s -> text.contains(s.url()))
+                .filter(s -> AnswerVerifier.isTpu(s.url()) && text.contains(s.url()))
                 .distinct()
                 .toList();
         Optional<CardEvent> card = trace.calls().stream()

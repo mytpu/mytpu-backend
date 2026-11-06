@@ -11,8 +11,10 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Вырезает выключенные у ключа поля из {@code data} ответа — до выдачи клиенту и до журнала
- * (specs/console-and-connectors, шаг 7а). Фраза {@code summary} собрана инструментом и может содержать значение
- * вырезанного поля, поэтому она заменяется на {@code publicSummary} (фраза без личного) или на общую фразу.
+ * (specs/console-and-connectors, шаг 7а). Фразы {@code summary} и {@code hint} собраны инструментом и могут содержать
+ * значение вырезанного поля: {@code summary} заменяется на {@code publicSummary} (фраза без личного) или общую фразу,
+ * {@code hint} — общей фразой. Вопрос с вариантами (подписи вариантов — тоже значения полей) при выключенных полях
+ * не отдаётся: клиент получает «уточнение в приложении», как в маскированном режиме.
  */
 @Component
 public class ResponseFields {
@@ -26,7 +28,13 @@ public class ResponseFields {
     }
 
     public ToolResult<?> strip(ToolResult<?> result, Set<String> denied) {
-        if (denied.isEmpty() || !(result instanceof ToolResult.Ok<?> ok) || ok.answer().data() == null) {
+        if (denied.isEmpty()) {
+            return result;
+        }
+        if (result instanceof ToolResult.NeedsChoice<?>) {
+            return ToolResult.ok(new ToolAnswer<>(messages.text("personal.choice_in_app"), null, null));
+        }
+        if (!(result instanceof ToolResult.Ok<?> ok) || ok.answer().data() == null) {
             return result;
         }
         JsonNode data = json.valueToTree(ok.answer().data());
@@ -37,6 +45,7 @@ public class ResponseFields {
         denied.forEach(trimmed::remove);
         String publicSummary = ok.answer().publicSummary();
         String summary = publicSummary != null ? publicSummary : messages.text("fields.summary_hidden");
-        return ToolResult.ok(new ToolAnswer<>(summary, trimmed, ok.answer().hint(), publicSummary));
+        String hint = ok.answer().hint() == null ? null : messages.text("fields.hint_hidden");
+        return ToolResult.ok(new ToolAnswer<>(summary, trimmed, hint, publicSummary));
     }
 }

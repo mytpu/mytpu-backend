@@ -210,7 +210,8 @@ public class KeysAdminController {
         Map<String, Set<String>> out = new java.util.TreeMap<>();
         value.forEach((tool, names) -> {
             if (names != null && !names.isEmpty()) {
-                out.put(tool, Set.copyOf(names));
+                // Set.copyOf падает на null: пусть null дойдёт до KeyRules.checkFields и вернётся 400, а не 500
+                out.put(tool, names.contains(null) ? new java.util.HashSet<>(names) : Set.copyOf(names));
             }
         });
         return out;

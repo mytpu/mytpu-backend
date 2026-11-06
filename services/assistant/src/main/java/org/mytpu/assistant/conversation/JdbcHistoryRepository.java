@@ -5,7 +5,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
-import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
 import org.mytpu.assistant.config.GatewayToolsProperties;
@@ -40,8 +39,14 @@ public class JdbcHistoryRepository implements HistoryRepository {
         if (settings.url() == null || settings.url().isBlank()) {
             throw new IllegalStateException("история включена, но не задан ASSISTANT_DB_URL (mytpu.assistant.history.url)");
         }
-        DataSource dataSource = new DriverManagerDataSource(settings.url(),
+        DriverManagerDataSource dataSource = new DriverManagerDataSource(settings.url(),
                 settings.username(), settings.password());
+        // Запись истории идёт в цепочке ответа: без таймаутов недоступная БД подвесила бы ответ (драйвер ждёт бесконечно)
+        java.util.Properties timeouts = new java.util.Properties();
+        timeouts.setProperty("connectTimeout", "2");
+        timeouts.setProperty("socketTimeout", "3");
+        timeouts.setProperty("loginTimeout", "2");
+        dataSource.setConnectionProperties(timeouts);
         Flyway.configure().dataSource(dataSource).locations("classpath:db/history").load().migrate();
         this.jdbc = JdbcClient.create(dataSource);
         this.masker = masker;

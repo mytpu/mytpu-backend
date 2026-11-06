@@ -202,6 +202,9 @@ public class KeyRules {
     /** Выключать можно только личные поля из описания инструмента: опечатка не должна молча оставлять поле открытым. */
     public void checkFields(Map<String, Set<String>> deniedFields) {
         deniedFields.forEach((tool, names) -> {
+            if (names == null || names.contains(null)) {
+                throw new Violation("field_unknown", tool, "null", List.of());
+            }
             RegisteredTool registered = registry.find(tool).orElseThrow(() -> new Violation("tool_unknown", Set.of(tool),
                     registry.all().stream().map(RegisteredTool::name).toList()));
             for (String name : names) {

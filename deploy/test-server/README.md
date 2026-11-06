@@ -96,11 +96,12 @@ touch secrets/.ml_api_key_set
 секрета и в консоль не выводится:
 ```bash
 cd ~/mytpu/deploy
-bash test-server/issue-key.sh --owner="Помощник (чат)" --roles=chat.service --kind=server \
-    --networks=172.31.241.0/24 --scopes=docs.read,rasp.read > ~/keys/assistant-gateway.out
+# umask в скобках: файл с ключом создаёт эта оболочка, umask внутри issue-key.sh на него не действует
+(umask 077; bash test-server/issue-key.sh --owner="Помощник (чат)" --roles=chat.service --kind=server \
+    --networks=172.31.241.0/24 --scopes=docs.read,rasp.read > ~/keys/assistant-gateway.out)
 grep -o '^mtpu_[A-Za-z0-9]*' ~/keys/assistant-gateway.out | tr -d '\n' > secrets/assistant_gateway_key
 chmod 644 secrets/assistant_gateway_key
-test -s secrets/assistant_gateway_key && echo "ключ записан"
+test -s secrets/assistant_gateway_key && echo "ключ записан" && shred -u ~/keys/assistant-gateway.out
 docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml \
     up -d --no-build --force-recreate assistant
 ```

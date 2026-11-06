@@ -15,11 +15,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import jakarta.annotation.PreDestroy;
+import org.mytpu.assistant.config.ChatProperties;
 import org.mytpu.assistant.config.GatewayToolsProperties;
 import org.mytpu.assistant.conversation.ConversationMessage;
 import org.mytpu.assistant.router.Route;
@@ -49,10 +51,16 @@ public class ModelAnswerer {
     private final Duration timeout;
     private final Clock clock;
     private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
+    /**
+     * Вызовы модели, которые идут сейчас. Место в лимитах чата освобождается, когда клиент закрыл поток, а вызов модели
+     * продолжается до конца, — без своего семафора обрыв соединения обходил бы {@code max-concurrent} и тратил квоту.
+     */
+    private final Semaphore running;
 
     public ModelAnswerer(ChatClient.Builder builder, ToolCatalog tools, GatewayToolsProperties properties, Clock clock,
-                         @Value("classpath:prompts/system.md") Resource systemPrompt) {
+                         ChatProperties chat, @Value("classpath:prompts/system.md") Resource systemPrompt) {
         this.chatClient = builder.build();
+        this.running = new Semaphore(chat.maxConcurrent());
         this.tools = tools;
         this.timeout = properties.modelTimeout();
         this.clock = clock;
@@ -66,15 +74,30 @@ public class ModelAnswerer {
     /** Текст ответа модели; данные инструментов — в {@code trace}. Сбой, таймаут или отказ — {@link ModelGaveUp}. */
     public String answer(String message, List<ConversationMessage> history, Map<String, String> slots, Route route,
                          ToolTrace trace) {
-        Future<String> call = calls.submit(() -> chatClient.prompt()
-                .system(system(slots))
-                .messages(history(history))
-                .user(message)
-                .options(OpenAiChatOptions.builder().temperature(0.2).maxTokens(600))
-                .toolCallbacks(tools.forRoute(route))
-                .toolContext(Map.of(GatewayToolCallback.TRACE, trace))
-                .call()
-                .content());
+        if (!running.tryAcquire()) {
+            throw new ModelGaveUp("busy");
+        }
+        Future<String> call;
+        try {
+            call = calls.submit(() -> {
+                try {
+                    return chatClient.prompt()
+                            .system(system(slots))
+                            .messages(history(history))
+                            .user(message)
+                            .options(OpenAiChatOptions.builder().temperature(0.2).maxTokens(600))
+                            .toolCallbacks(tools.forRoute(route))
+                            .toolContext(Map.of(GatewayToolCallback.TRACE, trace))
+                            .call()
+                            .content();
+                } finally {
+                    running.release();
+                }
+            });
+        } catch (RuntimeException e) {
+            running.release();
+            throw new ModelGaveUp("busy", e);
+        }
         try {
             String text = call.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (text == null || text.isBlank()) {

@@ -37,6 +37,8 @@ class ResponseFieldsTest {
     ResponseFieldsTest() {
         StaticMessageSource source = new StaticMessageSource();
         source.addMessage("fields.summary_hidden", Locale.forLanguageTag("ru"), "часть полей скрыта");
+        source.addMessage("fields.hint_hidden", Locale.forLanguageTag("ru"), "подсказка скрыта");
+        source.addMessage("personal.choice_in_app", Locale.forLanguageTag("ru"), "уточнение в приложении");
         fields = new ResponseFields(JsonMapper.builder().build(), new Messages(source));
     }
 
@@ -52,7 +54,7 @@ class ResponseFieldsTest {
         assertThat(data.path("fullName").asString()).isEqualTo("Ковалёва Анна");
         assertThat(data.path("school").asString()).isEqualTo("ИШИТР");
         assertThat(answer.summary()).isEqualTo("часть полей скрыта").doesNotContain("913");
-        assertThat(answer.hint()).isEqualTo("hint");
+        assertThat(answer.hint()).isEqualTo("подсказка скрыта");
     }
 
     @Test
@@ -71,6 +73,18 @@ class ResponseFieldsTest {
 
         assertThat(fields.strip(result, Set.of())).isSameAs(result);
         assertThat(fields.strip(result, Set.of("grades"))).isSameAs(result);
+    }
+
+    @Test
+    void choiceIsNotDisclosedWhenFieldsAreDenied() {
+        ToolResult<Profile> choice = ToolResult.needsChoice("Кого из двух?",
+                List.of(new org.mytpu.tool.api.Choice("Ковалёва Анна, 8К31", "1")));
+
+        ToolResult<?> stripped = fields.strip(choice, Set.of("fullName"));
+
+        assertThat(stripped).isInstanceOf(ToolResult.Ok.class);
+        assertThat(((ToolResult.Ok<?>) stripped).answer().summary()).isEqualTo("уточнение в приложении");
+        assertThat(fields.strip(choice, Set.of())).isSameAs(choice);
     }
 
     @Test
