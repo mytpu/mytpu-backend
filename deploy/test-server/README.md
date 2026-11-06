@@ -144,6 +144,12 @@ bash deploy/test-server/pack.sh --skip-build --skip-scan
 критичная уязвимость с исправлением останавливает упаковку, HIGH — только в отчёте. Рядом с архивом пишется
 `mytpu-images.tar.gz.sha256`.
 
+После смены версии pgvector (0.8.1 → 0.8.7 — 2026-11-07; PostgreSQL 17 и Debian 12 те же, данные тома подходят)
+один раз после `up.sh` обновить расширение в базе rag:
+```bash
+ssh <SERVER> 'cd ~/mytpu/deploy && docker compose --env-file test-server/server.env -f compose.dev.yml -f compose.test-server.yml exec -T postgres psql -U postgres -d rag -c "ALTER EXTENSION vector UPDATE;"'
+```
+
 ### Перенос на сервер
 
 ```bash

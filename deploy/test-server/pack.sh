@@ -23,8 +23,8 @@ TRIVY_CACHE_DIR="${TRIVY_CACHE_DIR:-/d/claude-tmp/trivy-cache}"
 
 # pgvector закреплён по digest индекса образа (тот же образ при каждой упаковке), а в архив попадает под привычным
 # тегом: после docker load digest не сохраняется, и compose с image@sha256 полез бы в сеть. Обновлять осознанно
-PGVECTOR_TAG="pgvector/pgvector:0.8.1-pg17"
-PGVECTOR_DIGEST="sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21"
+PGVECTOR_TAG="pgvector/pgvector:0.8.7-pg17-bookworm"
+PGVECTOR_DIGEST="sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8"
 # Тот же образ trivy, что в CI (.github/workflows)
 TRIVY_IMAGE="aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c"
 IMAGES=("$PGVECTOR_TAG" mytpu/rag:dev mytpu/gateway:dev mytpu/assistant:dev)

@@ -206,9 +206,9 @@
 - Образы с фиксированными версиями и хэшами: база `spring.Dockerfile` закреплена по digest, образ assistant в GHCR
   помечается SHA коммита (без `latest`). CI: gitleaks по всей истории на `main` и `feature/**`, trivy на собранном образе
   (критичная уязвимость с исправлением — стоп). Dependabot на зависимости (Maven, npm консоли, actions, Docker).
-- Зависимости всех модулей (`ci-build.yml`, задача `dependencies`): `trivy fs --scanners vuln` по `pom.xml` и
-  `package-lock.json` с тем же порогом, что у образа; `npm audit --omit=dev --audit-level=high` для консоли. SBOM
-  CycloneDX (`mvn -Psbom package` → `target/bom.json`, `target/bom.xml`) — артефакт `sbom` задачи `verify`.
+- Зависимости всех модулей (`ci-build.yml`): задача `verify` собирает SBOM CycloneDX (`mvn -Psbom` → `target/bom.json`,
+  `target/bom.xml`, артефакт `sbom`) и проверяет его `trivy sbom` с тем же порогом, что у образа; задача `dependencies` —
+  `npm audit --omit=dev --audit-level=high` для консоли.
   Образы gateway и rag собираются в CI (задача `images`) и проходят trivy с тем же порогом; pgvector закреплён по digest
   (CI и `pack.sh`), HIGH — отчёт, CRITICAL — стоп.
 - Тестовый стенд: `pack.sh` берёт pgvector по digest, прогоняет trivy по всем четырём образам (CRITICAL с исправлением —

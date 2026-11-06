@@ -33,9 +33,14 @@
   отказ); YAML разбирается. Не проверено: `pack.sh` целиком и trivy локально (Docker не запущен), перенос на сервер.
 - cosign не делается: образы идут архивом, ключ проверки лежал бы на том же сервере — см. `docs/DECISIONS.md`.
 
+## Первый прогон CI (PR 11, 2026-11-07)
+- `dependencies` упал на `trivy fs`: 429 Too Many Requests от Maven Central (trivy сам качает POM), часть версий по `pom.xml` не определена. Исправлено: `trivy sbom target/bom.json` в задаче `verify` после сборки SBOM; в `dependencies` остался `npm audit`.
+- `pgvector` упал по делу: в `0.8.1-pg17` 16 критичных уязвимостей Debian (gnutls и др.) и одна в Go-бинарнике, все с исправлением. Переход на `0.8.7-pg17-bookworm` (digest `sha256:7d0a4146…`) в `pack.sh`, `compose.dev.yml`, CI; на стенде после выкладки — `ALTER EXTENSION vector UPDATE` (README стенда).
+- Прогоны `images` (gateway, rag), `verify`, `secrets` — успешно.
+
 ## Non-goals
 - Подпись образов и SBOM (cosign, аттестации) — вместе с реестром образов (спецификация 3), не для архива на тестовом стенде.
-- Сканирование самого SBOM (`trivy sbom target/bom.json`) вместо `trivy fs` — точнее по фактически разрешённым версиям, но требует сборки в той же задаче; вернуться, если `trivy fs` по `pom.xml` будет давать ложные срабатывания.
+- ~~Сканирование SBOM вместо `trivy fs`~~ — сделано 2026-11-07 (см. «Первый прогон CI»).
 - Запуск workflow на GitHub — проверяется первым пушем владельца.
 
 ## Шаги

@@ -16,7 +16,7 @@ x-spring-hardening: &spring-hardening
 
 services:
   postgres:
-    image: pgvector/pgvector:0.8.1-pg17
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser_password
     secrets: [pg_superuser_password, gateway_db_password, rag_db_password, assistant_db_password]
