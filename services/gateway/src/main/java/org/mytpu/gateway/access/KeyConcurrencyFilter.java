@@ -12,6 +12,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.mytpu.gateway.runtime.Messages;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -43,6 +44,8 @@ public class KeyConcurrencyFilter extends OncePerRequestFilter {
         this(maxPerKey, 64, messages, json);
     }
 
+    // Два конструктора: без @Autowired Spring не выбирает и шлюз не стартует (тесты создают фильтр сами и этого не видят)
+    @Autowired
     public KeyConcurrencyFilter(@Value("${mytpu.gateway.access.max-concurrent-per-key:8}") int maxPerKey,
                                 @Value("${mytpu.gateway.access.max-concurrent-chat:64}") int maxConcurrentChat,
                                 Messages messages, JsonMapper json) {
