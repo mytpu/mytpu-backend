@@ -24,11 +24,11 @@ spring:
       # Ключ — из файла-секрета ml_api_key; переменная ML_API_KEY оставлена для запуска без Docker
       api-key: ${ml_api_key:${ML_API_KEY:}}
       # Таймаут попытки и один повтор (SDK OpenAI повторяет и 429, и 5xx). Настройки chat.* перекрывают общие —
-      # задаём оба уровня; обычный ответ дополнительно ограничен mytpu.chat.timeout
-      timeout: ${ML_TIMEOUT:60s}
+      # задаём оба уровня; весь путь с моделью и инструментами ограничен mytpu.assistant.model-timeout
+      timeout: ${ML_TIMEOUT:15s}
       max-retries: 1
       chat:
-        timeout: ${ML_TIMEOUT:60s}
+        timeout: ${ML_TIMEOUT:15s}
         max-retries: 1
         options:
           model: ${ML_CHAT_MODEL:}
@@ -46,9 +46,14 @@ mytpu:
   chat:
     max-message-chars: 4000
     max-body-bytes: 16384
-    timeout: 60s
-    stream-idle-timeout: 30s
     max-concurrent: 4
     per-ip-per-minute: 20
     # Прокси перед assistant (CIDR или адреса через запятую); пусто — X-Forwarded-For не учитывается
     trusted-proxies: ${TRUSTED_PROXIES:}
+  assistant:
+    gateway-url: ${GATEWAY_URL:http://gateway:8080}
+    gateway-key: ${assistant_gateway_key:${ASSISTANT_GATEWAY_KEY:}}
+    timeout: 8s
+    model-timeout: 15s
+    history:
+      enabled: false

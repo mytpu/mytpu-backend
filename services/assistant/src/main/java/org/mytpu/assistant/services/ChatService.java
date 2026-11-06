@@ -1,143 +1,140 @@
 package org.mytpu.assistant.services;
 
-import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 
-import jakarta.annotation.PreDestroy;
-import org.mytpu.assistant.config.ChatProperties;
-import org.mytpu.assistant.dto.*;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.client.ChatClient;
+import org.mytpu.assistant.conversation.ConversationState;
+import org.mytpu.assistant.conversation.ConversationStore;
+import org.mytpu.assistant.conversation.HistoryRepository;
+import org.mytpu.assistant.dto.ChatRequest;
+import org.mytpu.assistant.dto.ChatResponse;
+import org.mytpu.assistant.dto.DeltaEvent;
+import org.mytpu.assistant.dto.DoneEvent;
+import org.mytpu.assistant.dto.MetaEvent;
+import org.mytpu.assistant.dto.StatusEvent;
+import org.mytpu.assistant.llm.ModelPath;
+import org.mytpu.assistant.normalize.QueryNormalizer;
+import org.mytpu.assistant.router.IntentRouter;
+import org.mytpu.assistant.router.Route;
+import org.mytpu.assistant.tools.DirectAnswerer;
+import org.mytpu.assistant.tools.DirectResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * Вызов модели (ml-server). Обычный ответ — не дольше {@code mytpu.chat.timeout}, иначе 504; поток — не дольше
- * {@code stream-idle-timeout} между кусками. Поток без признака завершения от модели (обрыв соединения) — это сбой,
- * а не ответ: клиент получает {@code error} и {@code done (reason: error)} ({@link StreamErrors}).
+ * Чат: нормализация → маршрутизатор → прямой путь без модели или путь с моделью и проверкой ответа (docs/LLM.md,
+ * specs/assistant/spec.md). Ответ модели проверяется до отправки, поэтому в потоке он приходит одним {@code delta}
+ * после событий {@code status}; прямой путь и шаблоны — так же.
  */
 @Service
 public class ChatService {
-    private final ChatClient chatClient;
-    private final ChatProperties properties;
-    private final StreamErrors errors;
-    private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
-    public ChatService(ChatClient.Builder chatClientBuilder, ChatProperties properties, StreamErrors errors) {
-        this.chatClient = chatClientBuilder.build();
-        this.properties = properties;
+    private final StreamErrors errors;
+    private final QueryNormalizer normalizer;
+    private final IntentRouter router;
+    private final ConversationStore conversationStore;
+    private final DirectAnswerer directAnswerer;
+    private final ModelPath modelPath;
+    private final HistoryRepository historyRepository;
+
+    public ChatService(StreamErrors errors, QueryNormalizer normalizer, IntentRouter router,
+                       ConversationStore conversationStore, DirectAnswerer directAnswerer, ModelPath modelPath,
+                       HistoryRepository historyRepository) {
         this.errors = errors;
+        this.normalizer = normalizer;
+        this.router = router;
+        this.conversationStore = conversationStore;
+        this.directAnswerer = directAnswerer;
+        this.modelPath = modelPath;
+        this.historyRepository = historyRepository;
     }
 
-    /**
-     * @param finished вызывается, когда обращение к модели действительно закончилось (а не когда клиенту ушёл 504):
-     *                 после таймаута вызов SDK может ещё идти, и место в лимите одновременных занято до его конца
-     */
+    /** Вопрос, разобранный до вызова инструментов и модели. */
+    private record Turn(String conversationId, String requestId, String message, ConversationState state, Route route,
+                        long startedAt) {
+    }
+
     public ChatResponse chat(ChatRequest chatRequest, Runnable finished) {
-        Future<String> answer;
         try {
-            answer = calls.submit(() -> {
-                try {
-                    return chatClient.prompt()
-                            .user(chatRequest.message())
-                            .call()
-                            .content();
-                } finally {
-                    finished.run();
-                }
-            });
-        } catch (RejectedExecutionException e) {
+            Turn turn = turn(chatRequest);
+            return new ChatResponse(answer(turn).message());
+        } catch (RuntimeException e) {
+            throw errors.exception(e);
+        } finally {
             finished.run();
-            throw errors.exception(new IllegalStateException(e));
-        }
-        try {
-            return new ChatResponse(answer.get(properties.timeout().toMillis(), TimeUnit.MILLISECONDS));
-        } catch (TimeoutException e) {
-            answer.cancel(true);
-            throw errors.exception(new IllegalStateException("timeout", e));
-        } catch (ExecutionException e) {
-            throw errors.exception(e.getCause() instanceof RuntimeException r ? r : new IllegalStateException(e.getCause()));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            answer.cancel(true);
-            throw errors.exception(new IllegalStateException(e));
         }
     }
 
     public Flux<ServerSentEvent<?>> streamChat(ChatRequest chatRequest) {
-        // История диалогов появится в спецификации assistant; пока у каждого запроса свой conversation_id
-        ServerSentEvent<MetaEvent> metaEvent = createSseEvent(
-                "meta",
-                new MetaEvent(newId(), newId(), newId())
-        );
-
-        ServerSentEvent<StatusEvent> AIisThinkingEvent = createSseEvent(
-                "status",
-                new StatusEvent("thinking", "Думаю")
-        );
-
-        ServerSentEvent<StatusEvent> AIisWritingEvent = createSseEvent(
-                "status",
-                new StatusEvent("writing", "Пишу ответ")
-        );
-
-        Flux<ServerSentEvent<?>> initialFlux = Flux.just(metaEvent, AIisThinkingEvent, AIisWritingEvent);
-
-        AtomicReference<String> finish = new AtomicReference<>();
-        Flux<ServerSentEvent<?>> answer = chatClient.prompt()
-                .user(chatRequest.message())
-                .stream()
-                .chatResponse()
-                // SDK читает поток блокирующе: чтение — не на потоке запроса, а отмена при таймауте — на отдельном потоке,
-                // иначе таймер ждёт, пока зависшее чтение вернётся, и ошибка приходит не через 30 с, а через таймаут SDK
+        Turn turn = turn(chatRequest);
+        String messageId = UUID.randomUUID().toString();
+        Flux<ServerSentEvent<?>> head = Flux.just(
+                sse("meta", new MetaEvent(turn.conversationId(), messageId, turn.requestId())),
+                sse("status", new StatusEvent("thinking",
+                        turn.route().isDirectEligible() ? "Ищу информацию" : "Думаю")));
+        Flux<ServerSentEvent<?>> body = Mono.fromCallable(() -> answer(turn))
                 .subscribeOn(Schedulers.boundedElastic())
-                .cancelOn(Schedulers.boundedElastic())
-                .timeout(properties.streamIdleTimeout())
-                .<ServerSentEvent<?>>handle((response, sink) -> {
-                    Generation generation = response.getResult();
-                    if (generation == null) {
-                        return;
-                    }
-                    String reason = generation.getMetadata() == null ? null : generation.getMetadata().getFinishReason();
-                    if (reason != null && !reason.isBlank()) {
-                        finish.set(reason.toLowerCase(Locale.ROOT));
-                    }
-                    String text = generation.getOutput() == null ? null : generation.getOutput().getText();
-                    if (text != null && !text.isEmpty()) {
-                        sink.next(createSseEvent("delta", new DeltaEvent(text)));
-                    }
-                })
-                .concatWith(Flux.defer(() -> finish.get() != null
-                        ? Flux.just(createSseEvent("done", new DoneEvent(finish.get())))
-                        : Flux.error(new IllegalStateException("поток модели оборвался без признака завершения"))))
+                .flatMapIterable(ChatService::answerEvents)
                 .onErrorResume(errors::events);
-
-        return Flux.concat(initialFlux, answer);
+        return Flux.concat(head, body);
     }
 
-    @PreDestroy
-    void shutdown() {
-        calls.shutdownNow();
+    private Turn turn(ChatRequest request) {
+        String conversationId = conversationStore.resolveConversationId(request.conversationId());
+        ConversationState state = conversationStore.get(conversationId);
+        Route route = router.route(normalizer.normalize(request.message()), state.slots());
+        return new Turn(conversationId, UUID.randomUUID().toString(), request.message(), state, route,
+                System.currentTimeMillis());
     }
 
-    private <T> ServerSentEvent<T> createSseEvent(String event, T data){
-        return ServerSentEvent.<T>builder()
-                .event(event)
-                .data(data)
-                .build();
+    private DirectResult answer(Turn turn) {
+        DirectResult result;
+        String outcome;
+        if (turn.route().isDirectEligible()) {
+            result = directAnswerer.answer(turn.route());
+            outcome = "direct";
+        } else {
+            ModelPath.Outcome model = modelPath.answer(turn.message(), turn.state().messages(), turn.state().slots(),
+                    turn.route());
+            result = model.result();
+            outcome = model.kind();
+        }
+        save(turn, result.message());
+        String tool = turn.route().tools().isEmpty() ? "none" : turn.route().tools().getFirst();
+        log.info("chat request={} intent={} tool={} outcome={} duration={}ms", turn.requestId(), turn.route().intent(),
+                tool, outcome, System.currentTimeMillis() - turn.startedAt());
+        return result;
     }
 
-    private static String newId() {
-        return UUID.randomUUID().toString();
+    private void save(Turn turn, String answer) {
+        ConversationState updated = conversationStore.get(turn.conversationId())
+                .withSlots(turn.route().slots())
+                .withMessage("user", turn.message())
+                .withMessage("assistant", answer);
+        conversationStore.put(turn.conversationId(), updated);
+        historyRepository.save(turn.conversationId(), turn.requestId(), "user", turn.message());
+        historyRepository.save(turn.conversationId(), UUID.randomUUID().toString(), "assistant", answer);
+    }
+
+    private static List<ServerSentEvent<?>> answerEvents(DirectResult result) {
+        List<ServerSentEvent<?>> events = new ArrayList<>();
+        result.card().ifPresent(card -> events.add(sse("card", card)));
+        if (!result.sources().isEmpty()) {
+            events.add(sse("sources", result.sources()));
+        }
+        events.add(sse("delta", new DeltaEvent(result.message())));
+        events.add(sse("done", new DoneEvent("stop")));
+        return events;
+    }
+
+    private static <T> ServerSentEvent<T> sse(String event, T data) {
+        return ServerSentEvent.<T>builder().event(event).data(data).build();
     }
 }

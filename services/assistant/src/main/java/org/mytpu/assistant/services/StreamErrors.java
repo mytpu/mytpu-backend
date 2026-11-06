@@ -45,6 +45,9 @@ public class StreamErrors {
 
     private static String code(Throwable failure) {
         for (Throwable t = failure; t != null; t = t.getCause()) {
+            if (t instanceof ChatException ce) {
+                return ce.code();
+            }
             if (t instanceof TimeoutException || t instanceof InterruptedIOException
                     || t.getClass().getSimpleName().toLowerCase(Locale.ROOT).contains("timeout")) {
                 return "upstream_timeout";
