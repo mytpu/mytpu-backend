@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.mytpu.gateway.catalog.IntegrationCatalog;
+import org.mytpu.gateway.runtime.DescribedFields;
 import org.mytpu.gateway.runtime.RegisteredTool;
 import org.mytpu.gateway.runtime.ToolRegistry;
 import org.springframework.stereotype.Component;
@@ -25,12 +26,13 @@ public class KeyRules {
 
     /** Что хочет выдать администратор; {@code days == null} — срок по умолчанию. */
     public record Request(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
-                          Map<String, Integer> rateLimits, boolean write, Long days, ApiClient.Kind kind,
-                          List<String> networks, boolean decoy, ApiClient.GeoPolicy geo, String geoReason) {
+                          Map<String, Set<String>> deniedFields, Map<String, Integer> rateLimits, boolean write,
+                          Long days, ApiClient.Kind kind, List<String> networks, boolean decoy, ApiClient.GeoPolicy geo,
+                          String geoReason) {
         public Request(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
                        Map<String, Integer> rateLimits, boolean write, Long days, ApiClient.Kind kind,
                        List<String> networks, boolean decoy) {
-            this(owner, scopes, roles, deniedTools, rateLimits, write, days, kind, networks, decoy, null, null);
+            this(owner, scopes, roles, deniedTools, Map.of(), rateLimits, write, days, kind, networks, decoy, null, null);
         }
     }
 
@@ -61,6 +63,7 @@ public class KeyRules {
     private final IntegrationCatalog catalog;
     private final ToolRegistry registry;
     private final KeyLifecycleProperties properties;
+    private final DescribedFields describedFields = new DescribedFields();
 
     public KeyRules(IntegrationCatalog catalog, ToolRegistry registry, KeyLifecycleProperties properties) {
         this.catalog = catalog;
@@ -106,9 +109,10 @@ public class KeyRules {
         }
 
         checkTools(r.deniedTools(), r.rateLimits());
+        checkFields(r.deniedFields());
         GeoDecision geo = checkGeo(r.decoy(), r.roles(), r.geo(), r.geoReason());
         return new ApiClientStore.NewClient(r.owner().strip(), Set.copyOf(r.scopes()), Set.copyOf(r.roles()),
-                Set.copyOf(r.deniedTools()), Map.copyOf(r.rateLimits()), r.decoy() || !r.write(),
+                Set.copyOf(r.deniedTools()), Map.copyOf(r.deniedFields()), Map.copyOf(r.rateLimits()), r.decoy() || !r.write(),
                 expiresAt, kind, List.copyOf(networks), r.decoy(), geo.policy(), geo.reason());
     }
 
@@ -193,6 +197,20 @@ public class KeyRules {
         if (!unknown.isEmpty()) {
             throw new Violation("scope_unknown", unknown, catalog.knownScopes());
         }
+    }
+
+    /** Выключать можно только личные поля из описания инструмента: опечатка не должна молча оставлять поле открытым. */
+    public void checkFields(Map<String, Set<String>> deniedFields) {
+        deniedFields.forEach((tool, names) -> {
+            RegisteredTool registered = registry.find(tool).orElseThrow(() -> new Violation("tool_unknown", Set.of(tool),
+                    registry.all().stream().map(RegisteredTool::name).toList()));
+            for (String name : names) {
+                if (!describedFields.has(registered.descriptor(), name)) {
+                    throw new Violation("field_unknown", tool, name,
+                            describedFields.of(registered.descriptor()).stream().map(DescribedFields.Field::name).toList());
+                }
+            }
+        });
     }
 
     public void checkTools(Set<String> deniedTools, Map<String, Integer> rateLimits) {

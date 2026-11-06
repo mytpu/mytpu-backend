@@ -90,7 +90,7 @@ public class ChatToolsController {
                 caller.scopes(),
                 UUID.randomUUID().toString()
         );
-        CallerPolicy policy = new CallerPolicy(caller.deniedTools(), caller.rateLimits(), caller.readOnly());
+        CallerPolicy policy = new CallerPolicy(caller.deniedTools(), caller.deniedFields(), caller.rateLimits(), caller.readOnly());
         CallRequest callRequest = new CallRequest(context, policy, name, arguments);
 
         ToolResult<?> result;

@@ -11,6 +11,7 @@ import java.util.Set;
  * @param scopes          включённые интеграции, например {@code rasp.read}, {@code docs.read}
  * @param roles           роли консоли: {@code console.admin}, {@code console.viewer}
  * @param deniedTools     выключенные инструменты внутри включённых интеграций
+ * @param deniedFields    выключенные поля ответа: инструмент → поля (личные поля из описания инструмента)
  * @param rateLimits      свои лимиты вызовов в минуту: инструмент → число
  * @param readOnly        только чтение: инструменты записи недоступны
  * @param kind            {@code person} — человек; {@code server} — интеграция с постоянным адресом (сети обязательны); {@code demo} — показ, хакатон
@@ -27,6 +28,7 @@ public record ApiClient(
         Set<String> scopes,
         Set<String> roles,
         Set<String> deniedTools,
+        Map<String, Set<String>> deniedFields,
         Map<String, Integer> rateLimits,
         boolean readOnly,
         boolean enabled,
@@ -38,6 +40,10 @@ public record ApiClient(
         GeoPolicy geo,
         String geoReason
 ) {
+    public ApiClient {
+        deniedFields = deniedFields == null ? Map.of() : Map.copyOf(deniedFields);
+    }
+
     public static final String CONSOLE_ADMIN = "console.admin";
     public static final String CONSOLE_VIEWER = "console.viewer";
     public static final String CHAT_SERVICE = "chat.service";

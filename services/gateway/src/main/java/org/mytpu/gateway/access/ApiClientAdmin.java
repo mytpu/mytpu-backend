@@ -26,11 +26,12 @@ public class ApiClientAdmin {
     }
 
     /** Что администратор меняет у выданного ключа. */
-    public record Permissions(Set<String> scopes, Set<String> deniedTools, Map<String, Integer> rateLimits,
-                              boolean readOnly, List<String> networks, ApiClient.GeoPolicy geo, String geoReason) {
+    public record Permissions(Set<String> scopes, Set<String> deniedTools, Map<String, Set<String>> deniedFields,
+                              Map<String, Integer> rateLimits, boolean readOnly, List<String> networks,
+                              ApiClient.GeoPolicy geo, String geoReason) {
         public Permissions(Set<String> scopes, Set<String> deniedTools, Map<String, Integer> rateLimits,
                            boolean readOnly, List<String> networks) {
-            this(scopes, deniedTools, rateLimits, readOnly, networks, null, null);
+            this(scopes, deniedTools, Map.of(), rateLimits, readOnly, networks, null, null);
         }
     }
 
@@ -67,6 +68,7 @@ public class ApiClientAdmin {
     public ApiClient updatePermissions(ApiClient current, Permissions p) {
         rules.checkScopes(p.scopes());
         rules.checkTools(p.deniedTools(), p.rateLimits());
+        rules.checkFields(p.deniedFields());
         rules.checkNetworks(current.kind(), p.networks());
         KeyRules.GeoDecision geo = rules.checkGeoUpdate(current, p.geo(), p.geoReason());
         if (current.decoy()) {
@@ -81,7 +83,8 @@ public class ApiClientAdmin {
             throw new KeyRules.Violation("days_range_no_networks", rules.maxDaysWithoutNetworks());
         }
         jdbc.sql("""
-                        UPDATE api_clients SET scopes = :scopes, denied_tools = :denied, rate_limits = CAST(:limits AS jsonb),
+                        UPDATE api_clients SET scopes = :scopes, denied_tools = :denied, denied_fields = CAST(:fields AS jsonb),
+                               rate_limits = CAST(:limits AS jsonb),
                                read_only = :readOnly, allowed_networks = CAST(:networks AS cidr[]),
                                geo_policy = :geoPolicy, geo_reason = :geoReason
                         WHERE id = :id
@@ -89,6 +92,7 @@ public class ApiClientAdmin {
                 .param("id", current.id())
                 .param("scopes", p.scopes().toArray(String[]::new))
                 .param("denied", p.deniedTools().toArray(String[]::new))
+                .param("fields", json.writeValueAsString(p.deniedFields()))
                 .param("limits", json.writeValueAsString(p.rateLimits()))
                 .param("readOnly", p.readOnly())
                 .param("networks", p.networks().toArray(String[]::new))

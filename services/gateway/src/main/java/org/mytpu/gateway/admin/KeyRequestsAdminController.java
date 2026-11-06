@@ -51,7 +51,7 @@ public class KeyRequestsAdminController {
     }
 
     public record ApproveBody(String owner, Set<String> scopes, Set<String> deniedTools,
-                             Map<String, Integer> rateLimits, Boolean write, Long days,
+                             Map<String, Set<String>> deniedFields, Map<String, Integer> rateLimits, Boolean write, Long days,
                              String kind, List<String> networks, String geo, String geoReason) {
     }
 
@@ -119,6 +119,7 @@ public class KeyRequestsAdminController {
                 ? body.owner().strip() : req.requester();
         Set<String> scopes = body != null && body.scopes() != null ? body.scopes() : req.scopes();
         Set<String> deniedTools = body != null && body.deniedTools() != null ? body.deniedTools() : Set.of();
+        Map<String, Set<String>> deniedFields = body != null && body.deniedFields() != null ? body.deniedFields() : Map.of();
         Map<String, Integer> rateLimits = body != null && body.rateLimits() != null ? body.rateLimits() : Map.of();
         boolean write = body != null && Boolean.TRUE.equals(body.write());
         Long days = body != null && body.days() != null ? body.days()
@@ -130,7 +131,7 @@ public class KeyRequestsAdminController {
         String geoReason = body != null ? body.geoReason() : null;
 
         ApiClientStore.NewClient client = rules.newClient(new KeyRules.Request(
-                owner, scopes, Set.of(), deniedTools, rateLimits, write, days, kind, networks, false,
+                owner, scopes, Set.of(), deniedTools, deniedFields, rateLimits, write, days, kind, networks, false,
                 geo, geoReason
         ));
 

@@ -26,7 +26,7 @@ public class ApiKeyCallerResolver implements McpCallerResolver {
         // До identity у мастер-ключа нет пользователя; на dev-стенде его можно задать заголовками (DevCallerResolver)
         CallContext context = dev.context(request, client, requestId)
                 .orElseGet(() -> new CallContext(null, client.roles(), client.id(), Channel.MCP, client.scopes(), requestId));
-        CallerPolicy policy = new CallerPolicy(client.deniedTools(), client.rateLimits(), client.readOnly());
+        CallerPolicy policy = new CallerPolicy(client.deniedTools(), client.deniedFields(), client.rateLimits(), client.readOnly());
         return Optional.of(new Caller(context, policy));
     }
 }

@@ -91,7 +91,7 @@ public class ApiKeyIssuer implements ApplicationRunner {
         ApiClientStore.NewClient client;
         try {
             client = rules.newClient(new KeyRules.Request(single(args, "owner"), list(args, "scopes"), list(args, "roles"),
-                    list(args, "deny"), rateLimits(list(args, "rate")), args.containsOption("write"),
+                    list(args, "deny"), Map.of(), rateLimits(list(args, "rate")), args.containsOption("write"),
                     days == null ? null : Long.parseLong(days), kind(single(args, "kind")),
                     List.copyOf(list(args, "networks")), decoy, geo, geoReason));
         } catch (KeyRules.Violation v) {

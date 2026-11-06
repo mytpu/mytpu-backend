@@ -44,11 +44,12 @@ public class ToolExecutor {
     private final Messages messages;
     private final JsonMapper json;
     private final ArgsHasher argsHasher;
+    private final ResponseFields fields;
     private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
 
     public ToolExecutor(ToolRegistry registry, List<ToolCheck> checks, ClientRateLimit clientLimit, ToolLimits settings,
                         ToolCache cache, AuditLog audit, PersonalDisclosure disclosure, Messages messages, JsonMapper json,
-                        ArgsHasher argsHasher) {
+                        ArgsHasher argsHasher, ResponseFields fields) {
         this.registry = registry;
         this.checks = List.copyOf(checks);
         this.clientLimit = clientLimit;
@@ -59,6 +60,7 @@ public class ToolExecutor {
         this.messages = messages;
         this.json = json;
         this.argsHasher = argsHasher;
+        this.fields = fields;
     }
 
     /** Что вызывающий видит в {@code tools/list}: инструменты, которые не скрывает ни одна проверка. */
@@ -95,7 +97,8 @@ public class ToolExecutor {
         String cacheKey = request.toolName() + '|' + request.context().user().orElse("-") + '|' + hash(json.writeValueAsString(state.input()));
         Optional<ToolResult<?>> cached = cache.get(cacheKey);
         if (cached.isPresent()) {
-            ToolResult<?> released = disclosure.release(request.context(), descriptor, cached.get(), admission);
+            ToolResult<?> released = fields.strip(disclosure.release(request.context(), descriptor, cached.get(), admission),
+                    request.policy().deniedFields(request.toolName()));
             audit.record(request.context(), request.toolName(), argsHash, released, true, millis(started));
             return released;
         }
@@ -104,7 +107,9 @@ public class ToolExecutor {
         if (result instanceof ToolResult.Ok<?> || result instanceof ToolResult.NeedsChoice<?>) {
             cache.put(cacheKey, result, disclosure.cacheTtl(descriptor, settings.cacheTtl(descriptor)));
         }
-        ToolResult<?> released = disclosure.release(request.context(), descriptor, result, admission);
+        // Кэш хранит полный ответ (он общий для ключей), поля ключа вырезаются при каждой выдаче — до журнала
+        ToolResult<?> released = fields.strip(disclosure.release(request.context(), descriptor, result, admission),
+                request.policy().deniedFields(request.toolName()));
         audit.record(request.context(), request.toolName(), argsHash, released, false, millis(started));
         return released;
     }

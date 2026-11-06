@@ -105,9 +105,9 @@ public class ApiClientStore {
         String key = ApiKeys.generate();
         String id = "cli_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         jdbc.sql("""
-                INSERT INTO api_clients (id, owner, key_prefix, key_hash, scopes, roles, denied_tools, rate_limits, read_only,
+                INSERT INTO api_clients (id, owner, key_prefix, key_hash, scopes, roles, denied_tools, denied_fields, rate_limits, read_only,
                                          expires_at, kind, allowed_networks, decoy, geo_policy, geo_reason)
-                VALUES (:id, :owner, :prefix, :hash, :scopes, :roles, :denied, CAST(:limits AS jsonb), :readOnly,
+                VALUES (:id, :owner, :prefix, :hash, :scopes, :roles, :denied, CAST(:fields AS jsonb), CAST(:limits AS jsonb), :readOnly,
                         :expires, :kind, CAST(:networks AS cidr[]), :decoy, :geoPolicy, :geoReason)
                 """)
                 .param("id", id)
@@ -117,6 +117,7 @@ public class ApiClientStore {
                 .param("scopes", request.scopes().toArray(String[]::new))
                 .param("roles", request.roles().toArray(String[]::new))
                 .param("denied", request.deniedTools().toArray(String[]::new))
+                .param("fields", json.writeValueAsString(request.deniedFields()))
                 .param("limits", json.writeValueAsString(request.rateLimits()))
                 .param("readOnly", request.readOnly())
                 .param("expires", request.expiresAt() == null ? null : Timestamp.from(request.expiresAt()))
@@ -188,6 +189,7 @@ public class ApiClientStore {
                 strings(rs.getArray("scopes")),
                 strings(rs.getArray("roles")),
                 strings(rs.getArray("denied_tools")),
+                fields(rs.getString("denied_fields")),
                 json.readValue(rs.getString("rate_limits"), new TypeReference<Map<String, Integer>>() { }),
                 rs.getBoolean("read_only"),
                 rs.getBoolean("enabled"),
@@ -200,11 +202,16 @@ public class ApiClientStore {
                 rs.getString("geo_reason"));
     }
 
+    private Map<String, Set<String>> fields(String column) {
+        return column == null ? Map.of() : json.readValue(column, new TypeReference<Map<String, Set<String>>>() { });
+    }
+
     private static Set<String> strings(Array array) throws SQLException {
         return array == null ? Set.of() : Set.of((String[]) array.getArray());
     }
 
     public record NewClient(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
+                            Map<String, Set<String>> deniedFields,
                             Map<String, Integer> rateLimits, boolean readOnly, Instant expiresAt,
                             ApiClient.Kind kind, List<String> allowedNetworks, boolean decoy,
                             ApiClient.GeoPolicy geo, String geoReason) {

@@ -9,6 +9,7 @@ import org.mytpu.gateway.access.ApiClient;
 import org.mytpu.gateway.access.McpKeyFilter;
 import org.mytpu.gateway.catalog.IntegrationCatalog;
 import org.mytpu.gateway.catalog.IntegrationStatus;
+import org.mytpu.gateway.runtime.DescribedFields;
 import org.mytpu.gateway.runtime.GatewayControl;
 import org.mytpu.gateway.runtime.Messages;
 import org.mytpu.gateway.runtime.RegisteredTool;
@@ -33,7 +34,12 @@ public class CatalogAdminController {
     private static final int MAX_REASON = 500;
 
     public record ToolView(String name, String scope, String kind, String sensitivity, String description, boolean enabled,
-                           long cacheTtlSeconds, long timeoutMs, int ratePerMinute, ToolLimits.Override override) {
+                           long cacheTtlSeconds, long timeoutMs, int ratePerMinute, ToolLimits.Override override,
+                           List<FieldView> fields) {
+    }
+
+    /** Личное поле ответа, которое можно выключить у ключа (шаг 7а). */
+    public record FieldView(String name, String sensitivity) {
     }
 
     public record IntegrationView(IntegrationStatus integration, List<ToolView> tools) {
@@ -53,9 +59,11 @@ public class CatalogAdminController {
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
     private final AdminAuditLog audit;
+    private final DescribedFields describedFields;
 
     public CatalogAdminController(IntegrationCatalog catalog, ToolRegistry registry, GatewayControl control, ToolLimits limits,
-                                  Messages messages, JdbcClient jdbc, PlatformTransactionManager transactions, AdminAuditLog audit) {
+                                  Messages messages, JdbcClient jdbc, PlatformTransactionManager transactions, AdminAuditLog audit,
+                                  DescribedFields describedFields) {
         this.catalog = catalog;
         this.registry = registry;
         this.control = control;
@@ -64,6 +72,7 @@ public class CatalogAdminController {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(transactions);
         this.audit = audit;
+        this.describedFields = describedFields;
     }
 
     @GetMapping("/admin/api/catalog")
@@ -145,7 +154,8 @@ public class CatalogAdminController {
         String description = d.description() != null ? d.description() : messages.optional(d.name() + ".description");
         return new ToolView(d.name(), d.scope(), d.kind().name().toLowerCase(), d.sensitivity().name().toLowerCase(),
                 description, control.toolEnabled(d.name()), seconds(limits.cacheTtl(d)), limits.timeout(d).toMillis(),
-                limits.ratePerMinute(d), override);
+                limits.ratePerMinute(d), override, describedFields.of(d).stream()
+                        .map(f -> new FieldView(f.name(), f.sensitivity().name().toLowerCase())).toList());
     }
 
     private RegisteredTool existing(String name) {

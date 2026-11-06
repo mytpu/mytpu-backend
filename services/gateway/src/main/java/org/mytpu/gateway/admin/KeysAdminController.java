@@ -32,13 +32,14 @@ public class KeysAdminController {
     private static final Duration DEFAULT_GRACE = Duration.ofHours(24);
 
     public record KeyView(String id, String owner, String keyPrefix, String kind, Set<String> scopes, Set<String> roles,
-                          Set<String> deniedTools, Map<String, Integer> rateLimits, boolean readOnly, boolean enabled,
+                          Set<String> deniedTools, Map<String, Set<String>> deniedFields, Map<String, Integer> rateLimits,
+                          boolean readOnly, boolean enabled,
                           Instant expiresAt, List<String> networks, boolean suspended, boolean decoy,
                           Instant createdAt, Instant lastUsedAt, long calls30d, Instant previousKeyUntil,
                           String geo, String geoReason) {
         static KeyView of(ApiClientAdmin.KeyRow row) {
             ApiClient c = row.client();
-            return new KeyView(c.id(), c.owner(), c.keyPrefix(), c.kind().db(), c.scopes(), c.roles(), c.deniedTools(),
+            return new KeyView(c.id(), c.owner(), c.keyPrefix(), c.kind().db(), c.scopes(), c.roles(), c.deniedTools(), c.deniedFields(),
                     c.rateLimits(), c.readOnly(), c.enabled(), c.expiresAt(), c.allowedNetworks(), c.suspended(), c.decoy(),
                     row.createdAt(), row.lastUsedAt(), row.calls30d(), row.previousKeyUntil(),
                     c.geo() != null ? c.geo().db() : "ru_only", c.geoReason());
@@ -46,7 +47,7 @@ public class KeysAdminController {
     }
 
     public record NewKey(String owner, Set<String> scopes, Set<String> roles, Set<String> deniedTools,
-                         Map<String, Integer> rateLimits, Boolean write, Long days, String kind, List<String> networks,
+                         Map<String, Set<String>> deniedFields, Map<String, Integer> rateLimits, Boolean write, Long days, String kind, List<String> networks,
                          Boolean decoy, String geo, String geoReason) {
     }
 
@@ -54,7 +55,8 @@ public class KeysAdminController {
     }
 
     /** Не указано {@code readOnly} — только чтение (безопасное значение). */
-    public record PermissionsChange(Set<String> scopes, Set<String> deniedTools, Map<String, Integer> rateLimits,
+    public record PermissionsChange(Set<String> scopes, Set<String> deniedTools, Map<String, Set<String>> deniedFields,
+                                    Map<String, Integer> rateLimits,
                                     Boolean readOnly, List<String> networks, String geo, String geoReason) {
     }
 
@@ -91,7 +93,7 @@ public class KeysAdminController {
     public Issued create(@RequestBody NewKey body, HttpServletRequest request) {
         ApiClient actor = McpKeyFilter.caller(request);
         ApiClientStore.NewClient client = rules.newClient(new KeyRules.Request(body.owner(), set(body.scopes()), set(body.roles()),
-                set(body.deniedTools()), map(body.rateLimits()), Boolean.TRUE.equals(body.write()), body.days(), kind(body.kind()),
+                set(body.deniedTools()), fields(body.deniedFields()), map(body.rateLimits()), Boolean.TRUE.equals(body.write()), body.days(), kind(body.kind()),
                 body.networks() == null ? List.of() : body.networks(), Boolean.TRUE.equals(body.decoy()),
                 parseGeo(body.geo()), body.geoReason()));
         return tx.execute(status -> {
@@ -105,7 +107,7 @@ public class KeysAdminController {
     public KeyView permissions(@PathVariable String id, @RequestBody PermissionsChange body, HttpServletRequest request) {
         ApiClient actor = McpKeyFilter.caller(request);
         ApiClientAdmin.Permissions p = new ApiClientAdmin.Permissions(set(body.scopes()), set(body.deniedTools()),
-                map(body.rateLimits()), !Boolean.FALSE.equals(body.readOnly()), body.networks() == null ? List.of() : body.networks(),
+                fields(body.deniedFields()), map(body.rateLimits()), !Boolean.FALSE.equals(body.readOnly()), body.networks() == null ? List.of() : body.networks(),
                 parseGeo(body.geo()), body.geoReason());
         return tx.execute(status -> {
             KeyView before = view(id);
@@ -198,6 +200,20 @@ public class KeysAdminController {
 
     private static Set<String> set(Set<String> value) {
         return value == null ? Set.of() : value;
+    }
+
+    /** Пустые списки полей не храним: инструмент без выключенных полей — без записи. */
+    private static Map<String, Set<String>> fields(Map<String, Set<String>> value) {
+        if (value == null) {
+            return Map.of();
+        }
+        Map<String, Set<String>> out = new java.util.TreeMap<>();
+        value.forEach((tool, names) -> {
+            if (names != null && !names.isEmpty()) {
+                out.put(tool, Set.copyOf(names));
+            }
+        });
+        return out;
     }
 
     private static Map<String, Integer> map(Map<String, Integer> value) {
