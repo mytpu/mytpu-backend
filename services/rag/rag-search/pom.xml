@@ -66,7 +66,7 @@
             <!-- PDF из консоли rag; DOCX читается своим разбором word/document.xml (без POI — память rag 380 МБ) -->
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>3.0.5</version>
+            <version>3.0.8</version>
         </dependency>
         <dependency>
             <groupId>org.jsoup</groupId>
