@@ -1,0 +1,152 @@
+<div class="connector-versions-page">
+  <div class="page-top">
+    <button type="button" class="back-btn" (click)="goBack()">
+      <app-icon name="chevLeft" [size]="16" />
+      <span>{{ 'connectors.backToList' | t }}</span>
+    </button>
+  </div>
+
+  @if (savedMessage(); as msg) {
+    <div class="save-toast-banner" role="status">
+      <app-icon name="check" [size]="18" />
+      <span>{{ msg }}</span>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="skeleton-layout">
+      <app-skeleton height="72px" radius="12px" />
+      <div class="skeleton-split">
+        <app-skeleton height="260px" radius="12px" />
+        <app-skeleton height="380px" radius="12px" />
+      </div>
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'connectors.errorDetails' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="details()?.id ? loadDetails(details()!.id) : goBack()"
+    />
+  } @else if (!details()) {
+    <app-empty-state
+      icon="plug"
+      [title]="'connectors.notFound' | t"
+      [actionText]="'connectors.backToList' | t"
+      (action)="goBack()"
+    />
+  } @else {
+    <div class="connector-header-card">
+      <div class="header-main">
+        <div class="title-row">
+          <h1 class="connector-title">{{ connectorTitle() }}</h1>
+          @if (details()?.publishedVersion !== null && details()?.publishedVersion !== undefined) {
+            <app-badge kind="ok">
+              {{ 'connectors.statusPublished' | t: { version: details()?.publishedVersion ?? 0 } }}
+            </app-badge>
+          } @else {
+            <app-badge kind="warn">{{ 'connectors.statusDraft' | t }}</app-badge>
+          }
+          <div class="header-spacer"></div>
+          <app-button
+            kind="primary"
+            size="sm"
+            icon="plus"
+            [disabled]="!canChange()"
+            [disabledTitle]="'connectors.readOnlyHint' | t"
+            (btnClick)="createNewVersion()"
+          >
+            {{ 'connectors.btnNewVersion' | t }}
+          </app-button>
+        </div>
+        <div class="meta-row">
+          <code class="connector-id">{{ details()?.id }}</code>
+          @if (connectorScope(); as sc) {
+            <span class="meta-separator">·</span>
+            <span class="scope-badge">scope: <code>{{ sc.name }}</code></span>
+            <span class="meta-separator">·</span>
+            <span class="scope-title">{{ sc.title }}</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="versions-split">
+      <app-version-list
+        [versions]="details()!.versions"
+        [selectedVersion]="selectedVersion()"
+        [publishedVersion]="details()!.publishedVersion"
+        [canChange]="canChange()"
+        (selectVersion)="selectVersion($event)"
+        (publish)="promptPublish($event)"
+        (unpublish)="promptUnpublish()"
+      />
+
+      <div class="version-content">
+        @if (selectedVersion(); as sel) {
+          <app-version-details [version]="sel" />
+
+          <app-connector-test-panel
+            [connectorId]="details()!.id"
+            [version]="sel"
+            [canChange]="canChange()"
+          />
+        }
+
+        @if (latestVersionObj(); as latest) {
+          <app-connector-secrets
+            [connectorId]="details()!.id"
+            [latestVersion]="latest"
+            [secretsSet]="details()!.secretsSet"
+            [canChange]="canChange()"
+            (secretsChange)="loadDetails(details()!.id)"
+          />
+        }
+      </div>
+    </div>
+  }
+
+  @if (versionToPublish(); as v) {
+    <app-publish-dialog
+      [connectorId]="details()!.id"
+      [targetVersion]="v"
+      [publishedVersion]="publishedVersionObj()"
+      [publishedVersionNumber]="details()!.publishedVersion"
+      (confirmed)="onPublishConfirmed($event)"
+      (cancelled)="cancelPublish()"
+    />
+  }
+
+  @if (publishedToastVersion(); as toastVer) {
+    <app-publish-countdown-toast
+      [version]="toastVer"
+      (dismiss)="publishedToastVersion.set(null)"
+    />
+  }
+
+  @if (showUnpublishDialog()) {
+    <div class="overlay" (click)="cancelUnpublish()">
+      <div class="dialog-wrapper" (click)="$event.stopPropagation()">
+        <app-dialog
+          [title]="'connectors.unpublishDialogTitle' | t"
+          [subtitle]="'connectors.unpublishDialogSubtitle' | t"
+          (closed)="cancelUnpublish()"
+        >
+          <div actions class="dialog-actions-row">
+            <app-button kind="ghost" size="md" (btnClick)="cancelUnpublish()">
+              {{ 'connectors.cancel' | t }}
+            </app-button>
+            <app-button
+              kind="danger"
+              size="md"
+              [disabled]="submittingAction()"
+              (btnClick)="confirmUnpublish()"
+            >
+              {{ 'connectors.unpublishConfirm' | t }}
+            </app-button>
+          </div>
+        </app-dialog>
+      </div>
+    </div>
+  }
+</div>

@@ -2,6 +2,7 @@ import { HttpRequest } from '@angular/common/http';
 import { DemoDb } from './demo-db';
 import { DemoMcpStore } from './demo-mcp-store';
 import { DemoMcpRoutes } from './demo-mcp-routes';
+import { DemoConnectorsRoutes } from './demo-connectors-routes';
 import { DemoRagRoutes } from './demo-rag-routes';
 
 export interface RouteResult {
@@ -12,6 +13,7 @@ export interface RouteResult {
 export class DemoRoutes {
   private readonly mcpStore = new DemoMcpStore();
   private readonly mcpRoutes = new DemoMcpRoutes(this.mcpStore);
+  private readonly connectorsRoutes = new DemoConnectorsRoutes();
   private readonly ragRoutes = new DemoRagRoutes();
 
   constructor(private readonly db: DemoDb) {}
@@ -21,6 +23,11 @@ export class DemoRoutes {
     const path = url.pathname;
     const method = req.method.toUpperCase();
     const getParam = (name: string): string | null => url.searchParams.get(name) ?? req.params?.get(name) ?? null;
+
+    const connRes = this.connectorsRoutes.handle(req, path, method, getParam);
+    if (connRes) {
+      return connRes;
+    }
 
     const mcpRes = this.mcpRoutes.handle(req, path, method, getParam);
     if (mcpRes) {

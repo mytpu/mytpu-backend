@@ -1,0 +1,258 @@
+<div class="connector-editor-page">
+  <div class="page-top">
+    <button type="button" class="back-btn" (click)="goBack()">
+      <app-icon name="chevLeft" [size]="16" />
+      <span>{{ 'connectors.backToList' | t }}</span>
+    </button>
+  </div>
+
+  <div class="page-header">
+    <h1 class="page-title">
+      {{ (isNew() ? 'connectors.editor.newTitle' : 'connectors.editor.editTitle') | t }}
+    </h1>
+    <p class="page-subtitle">
+      {{ (isNew() ? 'connectors.editor.newSubtitle' : 'connectors.editor.editSubtitle') | t }}
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="skeleton-layout">
+      <app-skeleton height="120px" radius="16px" />
+      <app-skeleton height="200px" radius="16px" />
+      <app-skeleton height="300px" radius="16px" />
+    </div>
+  } @else {
+    @if (serverProblems().length > 0) {
+      <div class="problems-alert" role="alert">
+        <div class="problems-header">
+          <app-icon name="alert" [size]="18" />
+          <span class="problems-title">{{ 'connectors.editor.problemsTitle' | t }}</span>
+        </div>
+        <ul class="problems-list">
+          @for (problem of serverProblems(); track problem) {
+            <li>{{ problem }}</li>
+          }
+        </ul>
+      </div>
+    } @else if (serverError()) {
+      <div class="error-alert" role="alert">
+        <app-icon name="alert" [size]="18" />
+        <span>{{ serverError() }}</span>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="editor-form">
+      <div class="form-card">
+        <h2 class="card-heading">{{ 'connectors.editor.sectionGeneral' | t }}</h2>
+
+        <div class="fields-grid-2">
+          <div class="field-item">
+            <label class="field-label">{{ 'connectors.editor.idLabel' | t }}</label>
+            <input
+              type="text"
+              class="field-input mono"
+              [placeholder]="'connectors.editor.idPlaceholder' | t"
+              formControlName="id"
+              [class.has-error]="form.controls.id.invalid && (form.controls.id.touched || form.controls.id.dirty || submitted())"
+            />
+            @if (form.controls.id.invalid && (form.controls.id.touched || form.controls.id.dirty || submitted())) {
+              <span class="err-text">
+                @if (form.controls.id.hasError('required')) {
+                  {{ 'connectors.editor.errorRequired' | t }}
+                } @else if (form.controls.id.hasError('identifier')) {
+                  {{ 'connectors.editor.errorIdentifier' | t }}
+                }
+              </span>
+            } @else {
+              <span class="field-hint">{{ 'connectors.editor.idHint' | t }}</span>
+            }
+          </div>
+
+          <div class="field-item">
+            <label class="field-label">{{ 'connectors.editor.titleLabel' | t }}</label>
+            <input
+              type="text"
+              class="field-input"
+              [placeholder]="'connectors.editor.titlePlaceholder' | t"
+              formControlName="title"
+              [class.has-error]="form.controls.title.invalid && (form.controls.title.touched || form.controls.title.dirty || submitted())"
+            />
+            @if (form.controls.title.invalid && (form.controls.title.touched || form.controls.title.dirty || submitted())) {
+              <span class="err-text">{{ 'connectors.editor.errorRequired' | t }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="field-item">
+          <label class="field-label">{{ 'connectors.editor.baseUrlLabel' | t }}</label>
+          <input
+            type="text"
+            class="field-input mono"
+            [placeholder]="'connectors.editor.baseUrlPlaceholder' | t"
+            formControlName="baseUrl"
+            [class.has-error]="form.controls.baseUrl.invalid && (form.controls.baseUrl.touched || form.controls.baseUrl.dirty || submitted())"
+          />
+          @if (form.controls.baseUrl.invalid && (form.controls.baseUrl.touched || form.controls.baseUrl.dirty || submitted())) {
+            <span class="err-text">
+              @if (form.controls.baseUrl.hasError('required')) {
+                {{ 'connectors.editor.errorRequired' | t }}
+              } @else if (form.controls.baseUrl.hasError('onlyHttps')) {
+                {{ 'connectors.editor.errorOnlyHttps' | t }}
+              } @else if (form.controls.baseUrl.hasError('privateIp')) {
+                {{ 'connectors.editor.errorPrivateIp' | t }}
+              }
+            </span>
+          } @else {
+            <span class="field-hint">{{ 'connectors.editor.baseUrlHint' | t }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="form-card" [formGroup]="form.controls.auth">
+        <h2 class="card-heading">{{ 'connectors.editor.sectionAuth' | t }}</h2>
+
+        <div class="fields-grid-2">
+          <div class="field-item">
+            <label class="field-label">{{ 'connectors.editor.authTypeLabel' | t }}</label>
+            <select class="field-input" formControlName="type">
+              <option value="none">{{ 'connectors.specAuthNone' | t }}</option>
+              <option value="header">{{ 'connectors.specAuthHeader' | t }}</option>
+              <option value="query">{{ 'connectors.specAuthQuery' | t }}</option>
+              <option value="basic">{{ 'connectors.specAuthBasic' | t }}</option>
+              <option value="oauth2">{{ 'connectors.specAuthOauth2' | t }}</option>
+            </select>
+          </div>
+
+          @if (form.controls.auth.controls.type.value === 'header' || form.controls.auth.controls.type.value === 'query') {
+            <div class="field-item">
+              <label class="field-label">{{ 'connectors.editor.authNameLabel' | t }}</label>
+              <input
+                type="text"
+                class="field-input mono"
+                [placeholder]="'connectors.editor.authNamePlaceholder' | t"
+                formControlName="name"
+              />
+              <span class="field-hint">
+                {{ (form.controls.auth.controls.type.value === 'header' ? 'connectors.editor.authHeaderHint' : 'connectors.editor.authQueryHint') | t }}
+              </span>
+            </div>
+          }
+        </div>
+
+        @if (form.controls.auth.controls.type.value === 'oauth2') {
+          <div class="fields-grid-2">
+            <div class="field-item">
+              <label class="field-label">{{ 'connectors.editor.authTokenUrlLabel' | t }}</label>
+              <input
+                type="text"
+                class="field-input mono"
+                [placeholder]="'connectors.editor.authTokenUrlPlaceholder' | t"
+                formControlName="tokenUrl"
+              />
+            </div>
+            <div class="field-item">
+              <label class="field-label">{{ 'connectors.editor.authScopeLabel' | t }}</label>
+              <input
+                type="text"
+                class="field-input mono"
+                [placeholder]="'connectors.editor.authScopePlaceholder' | t"
+                formControlName="oauthScope"
+              />
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="form-card" [formGroup]="form.controls.scope">
+        <h2 class="card-heading">{{ 'connectors.editor.sectionScope' | t }}</h2>
+
+        <div class="fields-grid-2">
+          <div class="field-item">
+            <label class="field-label">{{ 'connectors.editor.scopeNameLabel' | t }}</label>
+            <input
+              type="text"
+              class="field-input mono"
+              [placeholder]="'connectors.editor.scopeNamePlaceholder' | t"
+              formControlName="name"
+              [class.has-error]="form.controls.scope.controls.name.invalid && (form.controls.scope.controls.name.touched || form.controls.scope.controls.name.dirty || submitted())"
+            />
+            @if (form.controls.scope.controls.name.invalid && (form.controls.scope.controls.name.touched || form.controls.scope.controls.name.dirty || submitted())) {
+              <span class="err-text">{{ 'connectors.editor.errorRequired' | t }}</span>
+            }
+          </div>
+
+          <div class="field-item">
+            <label class="field-label">{{ 'connectors.editor.scopeTitleLabel' | t }}</label>
+            <input
+              type="text"
+              class="field-input"
+              [placeholder]="'connectors.editor.scopeTitlePlaceholder' | t"
+              formControlName="title"
+              [class.has-error]="form.controls.scope.controls.title.invalid && (form.controls.scope.controls.title.touched || form.controls.scope.controls.title.dirty || submitted())"
+            />
+            @if (form.controls.scope.controls.title.invalid && (form.controls.scope.controls.title.touched || form.controls.scope.controls.title.dirty || submitted())) {
+              <span class="err-text">{{ 'connectors.editor.errorRequired' | t }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="field-item">
+          <label class="field-label">{{ 'connectors.editor.scopeDescLabel' | t }}</label>
+          <input
+            type="text"
+            class="field-input"
+            [placeholder]="'connectors.editor.scopeDescPlaceholder' | t"
+            formControlName="description"
+          />
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="tools-card-head">
+          <div class="tools-card-title-group">
+            <h2 class="card-heading">{{ 'connectors.editor.sectionTools' | t }}</h2>
+            <span class="tools-count-badge">
+              {{ 'connectors.editor.toolsCount' | t: { count: form.controls.tools.length } }}
+            </span>
+          </div>
+          <app-button kind="outline" size="sm" icon="plus" [disabled]="!canChange()" (btnClick)="addTool()">
+            {{ 'connectors.editor.btnAddTool' | t }}
+          </app-button>
+        </div>
+
+        @if (form.controls.tools.length === 0) {
+          <div class="no-tools-warning">
+            <span class="err-text">{{ 'connectors.editor.errorNoTools' | t }}</span>
+          </div>
+        }
+
+        <div class="tools-stack">
+          @for (tool of form.controls.tools.controls; track $index) {
+            <app-editor-tool
+              [group]="tool"
+              [index]="$index"
+              [submitted]="submitted()"
+              [canChange]="canChange()"
+              (changed)="recalcValidity()"
+              (remove)="removeTool($event)"
+            />
+          }
+        </div>
+      </div>
+
+      <div class="form-bottom-actions">
+        <app-button kind="ghost" (btnClick)="goBack()">
+          {{ 'connectors.editor.btnCancel' | t }}
+        </app-button>
+        <app-button
+          type="submit"
+          kind="primary"
+          [disabled]="!formValid() || saving() || !canChange()"
+          [disabledTitle]="!canChange() ? ('connectors.readOnlyHint' | t) : null"
+        >
+          {{ (saving() ? 'connectors.editor.saving' : 'connectors.editor.btnSaveVersion') | t }}
+        </app-button>
+      </div>
+    </form>
+  }
+</div>

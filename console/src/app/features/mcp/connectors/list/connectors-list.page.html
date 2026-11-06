@@ -1,0 +1,83 @@
+<div class="connectors-page">
+  <div class="page-header">
+    <div class="header-info">
+      <h1 class="page-title">{{ 'connectors.title' | t }}</h1>
+      <p class="page-meta">{{ 'connectors.meta' | t }}</p>
+    </div>
+    <div class="header-actions">
+      <app-button
+        kind="primary"
+        size="sm"
+        icon="plus"
+        [disabled]="!canChange()"
+        [disabledTitle]="'connectors.readOnlyHint' | t"
+        (btnClick)="onNewConnector()"
+      >
+        {{ 'connectors.newConnector' | t }}
+      </app-button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="skeleton-list">
+      <app-skeleton height="44px" radius="10px" />
+      <app-skeleton height="60px" radius="10px" />
+      <app-skeleton height="60px" radius="10px" />
+    </div>
+  } @else if (error()) {
+    <app-empty-state
+      icon="alert"
+      [title]="'connectors.error' | t"
+      [actionText]="'actions.retry' | t"
+      (action)="loadConnectors()"
+    />
+  } @else if (items().length === 0) {
+    <app-empty-state
+      icon="plug"
+      [title]="'connectors.emptyTitle' | t"
+      [description]="'connectors.emptyDesc' | t"
+      [actionText]="'connectors.emptyAction' | t"
+      (action)="onNewConnector()"
+    />
+  } @else {
+    <app-table [columns]="columns">
+      @for (item of items(); track item.connector.id) {
+        <tr class="connector-row" (click)="openConnector(item.connector.id)">
+          <td>
+            <div class="name-cell">
+              <span class="connector-title">{{ item.connector.title }}</span>
+              <code class="connector-id">{{ item.connector.id }}</code>
+            </div>
+          </td>
+          <td>
+            @if (item.connector.publishedVersion !== null && item.connector.publishedVersion !== undefined) {
+              <app-badge kind="ok">v{{ item.connector.publishedVersion ?? 0 }}</app-badge>
+            } @else {
+              <app-badge kind="warn">{{ 'connectors.statusDraft' | t }}</app-badge>
+            }
+          </td>
+          <td>
+            <span class="version-tag">v{{ item.connector.latestVersion ?? 0 }}</span>
+          </td>
+          <td>
+            <span class="date-text">{{ formatDate(item.connector.updatedAt) }}</span>
+          </td>
+          <td>
+            @if (item.secretsNeeded.length > 0) {
+              <app-badge kind="warn">
+                {{ 'connectors.secretsMissing' | t: { secrets: item.secretsNeeded.join(', ') } }}
+              </app-badge>
+            } @else if (item.secretsSet.length > 0) {
+              <app-badge kind="neutral">{{ 'connectors.secretsOk' | t }}</app-badge>
+            } @else {
+              <span class="text-muted">{{ 'connectors.secretsNone' | t }}</span>
+            }
+          </td>
+          <td class="text-right">
+            <app-icon name="chevRight" [size]="16" class="arrow-icon" />
+          </td>
+        </tr>
+      }
+    </app-table>
+  }
+</div>

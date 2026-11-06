@@ -46,13 +46,14 @@ console/
 │   │   ├── environment.ts       # idleMinutes: 30, idleWarnSeconds: 60
 │   │   └── environment.development.ts # idleMinutes: 1, idleWarnSeconds: 60
 │   └── app/
-│       ├── app.config.ts        # Zoneless, withViewTransitions, withInterceptors
-│       ├── app.routes.ts        # Маршрутизация: login, shell c guard, placeholder
+│       ├── app.config.ts        # Zoneless, withInterceptors (без withViewTransitions — см. docs/DECISIONS.md)
+│       ├── app.routes.ts        # Маршрутизация: login, shell с guard, ленивые разделы
 │       ├── core/
 │       │   ├── api/             # Базовый HTTP-клиент, AdminError, разбор ошибок
 │       │   ├── i18n/            # I18n сервис и pipe 't'
 │       │   ├── session/         # SessionStore (ключ в памяти), interceptor, guard, IdleService
-│       │   └── theme/           # ThemeService (светлая/тёмная тема, dataset.theme)
+│       │   ├── demo/            # Демо-режим без сервера: перехватчик и данные (сборка --configuration demo)
+│       │   └── theme/           # ThemeService (по умолчанию светлая, выбор — в localStorage)
 │       ├── ui/                  # Компоненты дизайн-системы:
 │       │   ├── badge/           # Бейджи (ok, info, warn, danger, neutral, graphite)
 │       │   ├── button/          # Кнопки (primary, outline, ghost, danger, dark, quiet)
@@ -66,12 +67,15 @@ console/
 │       │   ├── stat/            # Плитки-числа со статистикой
 │       │   ├── steps/           # Шаги мастера
 │       │   ├── table/           # Таблицы со скроллом и заголовками-метками
+│       │   ├── theme-toggle/    # Кнопка смены темы (шапка и экран входа)
 │       │   └── toggle/          # Переключатели
 │       ├── layout/
 │       │   ├── shell/           # Оболочка: боковое меню 248px, шапка, сессия, подвал DB-IP
 │       │   └── placeholder/     # Заглушка для экранов следующих шагов
 │       └── features/
-│           └── login/           # Экран 01: вход по ключу, обработка 401/403/404/429/сеть
+│           ├── login/           # Экран 01: вход по ключу, обработка 401/403/404/429/сеть
+│           ├── mcp/             # Обзор, ключи и мастер, заявки, события ключей, интеграции, коннекторы, режим, журналы
+│           └── rag/             # Обзор базы, источники (загрузка), документы, документ, песочница, замер, ненайденное
 ```
 
 ## Главные правила разработки
@@ -98,3 +102,8 @@ console/
 variable.export css -> src/theme/tokens.css
 ```
 Ручная правка цветов в `tokens.css` запрещена — изменения вносятся на уровне палитр и экспортируются заново.
+
+## Проверка роботами (вне репозитория)
+Headless Chrome-скрипты (`sweep.js` — все кнопки всех страниц и Esc в окнах, `flows.js` — сценарии MCP, `flows-rag.js` —
+загрузка > 20 МБ, удаление с подтверждением, «Проверить в песочнице», режим только чтения) запускаются против
+`npm run start:demo`; путь к ним — в базе знаний команды (`00_Meta/Local.md`).

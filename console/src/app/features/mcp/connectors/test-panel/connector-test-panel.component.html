@@ -1,0 +1,196 @@
+<div class="test-panel-card">
+  <div class="test-panel-head">
+    <div class="head-titles">
+      <h3 class="test-title">{{ 'connectors.testTitle' | t }}</h3>
+      <p class="test-subtitle">{{ 'connectors.testSubtitle' | t }}</p>
+    </div>
+  </div>
+
+  <div class="tool-select-row">
+    <label class="field-label" for="tool-select">{{ 'connectors.testSelectTool' | t }}</label>
+    <select
+      id="tool-select"
+      class="custom-select"
+      [ngModel]="selectedToolName()"
+      (ngModelChange)="onToolChange($event)"
+    >
+      @for (tool of tools(); track tool.name) {
+        <option [value]="tool.name">{{ tool.name }} ({{ tool.path }})</option>
+      }
+    </select>
+  </div>
+
+  @if (currentTool(); as tool) {
+    <div class="params-block">
+      <h4 class="params-heading">{{ 'connectors.testParamsHeading' | t }}</h4>
+      @if (tool.params && tool.params.length > 0) {
+        <div class="params-form-grid">
+          @for (param of tool.params; track param.name) {
+            <div class="param-field-item">
+              <div class="param-header">
+                <span class="param-title">
+                  <code>{{ param.name }}</code>
+                  @if (param.required) {
+                    <span class="required-star" [title]="'connectors.testParamRequired' | t">*</span>
+                  }
+                </span>
+                <span class="param-meta-chip">{{ param.type }} · {{ param.in }}</span>
+              </div>
+
+              @if (param.description) {
+                <span class="param-description">{{ param.description }}</span>
+              }
+
+              @if (param.enum && param.enum.length > 0) {
+                <select class="custom-select" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)">
+                  @if (!param.required) { <option value="">—</option> }
+                  @for (opt of param.enum; track opt) { <option [value]="opt">{{ opt }}</option> }
+                </select>
+              } @else if (param.type === 'boolean') {
+                <select class="custom-select" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)">
+                  <option [value]="true">true</option>
+                  <option [value]="false">false</option>
+                </select>
+              } @else if (param.type === 'integer') {
+                <input type="number" step="1" class="custom-input" [placeholder]="defaultText(param.default)" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)" />
+              } @else if (param.type === 'number') {
+                <input type="number" step="any" class="custom-input" [placeholder]="defaultText(param.default)" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)" />
+              } @else {
+                <input type="text" class="custom-input" [placeholder]="defaultText(param.default)" [ngModel]="argValues()[param.name]" (ngModelChange)="setArg(param.name, $event)" />
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="no-params-hint">{{ 'connectors.testNoParams' | t }}</p>
+      }
+    </div>
+
+    <div class="test-actions-row">
+      <app-button
+        kind="primary"
+        size="md"
+        icon="target"
+        [disabled]="testing() || !canChange()"
+        [disabledTitle]="!canChange() ? ('connectors.readOnlyHint' | t) : null"
+        (btnClick)="runTest()"
+      >
+        @if (testing()) {
+          {{ 'connectors.testRunning' | t }}
+        } @else {
+          {{ 'connectors.btnTest' | t }}
+        }
+      </app-button>
+    </div>
+  }
+
+  @if (testResult(); as res) {
+    <div class="result-block">
+      <div class="result-head">
+        <h4 class="result-heading">{{ 'connectors.testResultTitle' | t }}</h4>
+        @if (res.ok) {
+          <app-badge kind="ok">
+            {{ 'connectors.testStatus' | t: { status: res.status ?? 200 } }}
+          </app-badge>
+        } @else {
+          <app-badge kind="danger">
+            {{ res.error || 'error' }}
+          </app-badge>
+        }
+      </div>
+
+      @if (res.ok) {
+        @if (res.summary) {
+          <div class="summary-box">
+            <span class="summary-label">{{ 'connectors.testSummaryLabel' | t }}</span>
+            <p class="summary-value">{{ res.summary }}</p>
+          </div>
+        }
+
+        @if (arrayData(); as arr) {
+          <div class="data-section">
+            <span class="data-label">{{ 'connectors.testDataLabel' | t }}</span>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    @for (col of arr.columns; track col) {
+                      <th>{{ col }}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of arr.rows; track $index) {
+                    <tr>
+                      @for (col of arr.columns; track col) {
+                        <td>{{ row[col] }}</td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        } @else if (objectData(); as obj) {
+          <div class="data-section">
+            <span class="data-label">{{ 'connectors.testDataLabel' | t }}</span>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>{{ 'connectors.testDataColKey' | t }}</th>
+                    <th>{{ 'connectors.testDataColVal' | t }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of obj; track row.key) {
+                    <tr>
+                      <td><code>{{ row.key }}</code></td>
+                      <td>{{ row.val }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        @if (res.raw) {
+          <div class="raw-section">
+            <button
+              type="button"
+              class="raw-toggle-btn"
+              (click)="rawExpanded.set(!rawExpanded())"
+            >
+              <app-icon [name]="rawExpanded() ? 'chevDown' : 'chevRight'" [size]="16" />
+              <span>{{ 'connectors.testRawToggleShow' | t }}</span>
+              @if (res.rawTruncated) {
+                <app-badge kind="warn">{{ 'connectors.testRawTruncated' | t }}</app-badge>
+              }
+            </button>
+            @if (rawExpanded()) {
+              <pre class="raw-pre"><code>{{ res.raw }}</code></pre>
+            }
+          </div>
+        }
+      } @else {
+        <div class="error-box">
+          <div class="error-msg-row">
+            <app-icon name="alert" [size]="18" class="error-icon" />
+            <span class="error-msg-text">{{ res.message || res.error || ('connectors.error' | t) }}</span>
+          </div>
+          @if (res.problems && res.problems.length > 0) {
+            <div class="problems-list-box">
+              <span class="problems-heading">{{ 'connectors.testProblemsHeading' | t }}</span>
+              <ul class="problems-list">
+                @for (prob of res.problems; track prob) {
+                  <li>{{ prob }}</li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

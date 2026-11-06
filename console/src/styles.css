@@ -78,6 +78,15 @@ body {
   outline-offset: 2px;
 }
 
+/* Поля и списки фильтров: стили компонентов (с атрибутом инкапсуляции — специфичнее глобальных) снимают outline,
+   и фокус с клавиатуры пропадал. Не для app-field: там фокус рисует рамка .input-box:focus-within. */
+input:focus-visible:not(.input-box input),
+select:focus-visible,
+textarea:focus-visible:not(.input-box textarea) {
+  outline: 2px solid var(--green-action) !important;
+  outline-offset: 1px;
+}
+
 button,
 input,
 select,

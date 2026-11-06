@@ -1,0 +1,156 @@
+<div class="overlay" (click)="cancel()">
+  <div class="dialog-frame" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
+    <app-dialog
+      [title]="dialogTitle()"
+      [subtitle]="dialogSubtitle()"
+      [locked]="submitting()"
+      (closed)="cancel()"
+    >
+      <div class="dialog-body-content">
+        @if (isFirstPublish()) {
+          <div class="diff-notice first-publish-box">
+            <app-icon name="check" [size]="18" class="notice-icon" />
+            <span>{{ 'connectors.publishFirstTime' | t }}</span>
+          </div>
+
+          <div class="spec-summary-section">
+            <div class="summary-line">
+              <span class="line-label">{{ 'connectors.specApiAddress' | t }}:</span>
+              <code>{{ targetVersion().spec.baseUrl }}</code>
+            </div>
+            <div class="summary-line">
+              <span class="line-label">{{ 'connectors.specAuth' | t }}:</span>
+              <span class="line-val">{{ targetVersion().spec.auth.type }}</span>
+            </div>
+            <div class="summary-line">
+              <span class="line-label">{{ 'connectors.specScope' | t }}:</span>
+              <code>{{ targetVersion().spec.scope.name }}</code> ({{ targetVersion().spec.scope.title }})
+            </div>
+          </div>
+
+          <div class="diff-tools-section">
+            <h4 class="diff-section-title">{{ 'connectors.diffToolsHeading' | t }}</h4>
+            <div class="tools-pills-list">
+              @for (tool of targetVersion().spec.tools; track tool.name) {
+                <div class="tool-pill tool-pill-added">
+                  <span class="tool-pill-name">{{ tool.name }}</span>
+                  <code class="tool-pill-path">{{ tool.path }}</code>
+                </div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="diff-container">
+            <h4 class="diff-heading">{{ 'connectors.diffTitle' | t: { version: publishedVersionNumber() ?? 0 } }}</h4>
+
+            @if (baseUrlDiff(); as bDiff) {
+              <div class="diff-row">
+                <span class="diff-row-label">{{ 'connectors.diffBaseUrl' | t }}</span>
+                <div class="diff-val-change">
+                  <span class="val-before">{{ bDiff.before }}</span>
+                  <span class="arrow-sep">→</span>
+                  <span class="val-after">{{ bDiff.after }}</span>
+                </div>
+              </div>
+            }
+
+            @if (authDiff(); as aDiff) {
+              <div class="diff-row">
+                <span class="diff-row-label">{{ 'connectors.diffAuth' | t }}</span>
+                <div class="diff-val-change">
+                  <span class="val-before">{{ aDiff.before }}</span>
+                  <span class="arrow-sep">→</span>
+                  <span class="val-after">{{ aDiff.after }}</span>
+                </div>
+              </div>
+            }
+
+            @if (scopeDiff(); as sDiff) {
+              <div class="diff-row">
+                <span class="diff-row-label">{{ 'connectors.diffScope' | t }}</span>
+                <div class="diff-val-change">
+                  <span class="val-before">{{ sDiff.before }}</span>
+                  <span class="arrow-sep">→</span>
+                  <span class="val-after">{{ sDiff.after }}</span>
+                </div>
+              </div>
+            }
+
+            @if (toolsDiff(); as tDiff) {
+              <div class="diff-tools-section">
+                <span class="diff-row-label">{{ 'connectors.diffToolsHeading' | t }}</span>
+
+                <div class="tools-diff-list">
+                  @for (tool of tDiff.added; track tool.name) {
+                    <div class="tool-diff-item added">
+                      <div class="item-head">
+                        <app-badge kind="ok">{{ 'connectors.diffToolAdded' | t }}</app-badge>
+                        <code class="tool-name">{{ tool.name }}</code>
+                      </div>
+                      <code class="tool-path">{{ tool.path }}</code>
+                    </div>
+                  }
+
+                  @for (tool of tDiff.removed; track tool.name) {
+                    <div class="tool-diff-item removed">
+                      <div class="item-head">
+                        <app-badge kind="danger">{{ 'connectors.diffToolRemoved' | t }}</app-badge>
+                        <code class="tool-name">{{ tool.name }}</code>
+                      </div>
+                      <code class="tool-path">{{ tool.path }}</code>
+                    </div>
+                  }
+
+                  @for (item of tDiff.modified; track item.name) {
+                    <div class="tool-diff-item modified">
+                      <div class="item-head">
+                        <app-badge kind="warn">{{ 'connectors.diffToolChanged' | t }}</app-badge>
+                        <code class="tool-name">{{ item.name }}</code>
+                      </div>
+                      <span class="changed-fields">
+                        {{ item.changes.join(', ') }}
+                      </span>
+                    </div>
+                  }
+
+                  @if (tDiff.added.length === 0 && tDiff.removed.length === 0 && tDiff.modified.length === 0) {
+                    <div class="no-tools-diff">
+                      <span>{{ 'connectors.diffNoChanges' | t }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (error()) {
+          <div class="error-banner">
+            <app-icon name="alert" [size]="16" />
+            <span>{{ error() }}</span>
+          </div>
+        }
+      </div>
+
+      <div actions class="dialog-actions-row">
+        <app-button kind="ghost" size="md" [disabled]="submitting()" (btnClick)="cancel()">
+          {{ 'connectors.cancel' | t }}
+        </app-button>
+        <app-button
+          kind="primary"
+          size="md"
+          [disabled]="submitting()"
+          (btnClick)="submitPublish()"
+        >
+          @if (submitting()) {
+            {{ 'connectors.publishing' | t }}
+          } @else if (isRollback()) {
+            {{ 'connectors.btnRollbackConfirm' | t: { version: targetVersion().version } }}
+          } @else {
+            {{ 'connectors.publishConfirm' | t }}
+          }
+        </app-button>
+      </div>
+    </app-dialog>
+  </div>
+</div>

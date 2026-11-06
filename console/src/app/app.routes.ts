@@ -67,10 +67,34 @@ export const routes: Routes = [
       {
         path: 'mcp/connectors',
         loadComponent: () =>
-          import('./layout/placeholder/placeholder.component').then(
-            (m) => m.PlaceholderComponent,
+          import('./features/mcp/connectors/list/connectors-list.page').then(
+            (m) => m.ConnectorsListPage,
           ),
-        data: { step: 10, title: 'nav.connectors', meta: 'nav.groupMcp' },
+        data: { title: 'nav.connectors', meta: 'nav.groupMcp' },
+      },
+      {
+        path: 'mcp/connectors/new',
+        loadComponent: () =>
+          import('./features/mcp/connectors/editor/connector-editor.page').then(
+            (m) => m.ConnectorEditorPage,
+          ),
+        data: { title: 'connectors.editor.newTitle', meta: 'nav.groupMcp' },
+      },
+      {
+        path: 'mcp/connectors/:id/edit',
+        loadComponent: () =>
+          import('./features/mcp/connectors/editor/connector-editor.page').then(
+            (m) => m.ConnectorEditorPage,
+          ),
+        data: { title: 'connectors.editor.editTitle', meta: 'nav.groupMcp' },
+      },
+      {
+        path: 'mcp/connectors/:id',
+        loadComponent: () =>
+          import('./features/mcp/connectors/versions/connector-versions.page').then(
+            (m) => m.ConnectorVersionsPage,
+          ),
+        data: { title: 'nav.connectors', meta: 'nav.groupMcp' },
       },
       {
         path: 'mcp/mode',

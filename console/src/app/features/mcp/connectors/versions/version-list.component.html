@@ -1,0 +1,45 @@
+<div class="versions-sidebar">
+  <h2 class="sidebar-title">{{ 'connectors.versionsTitle' | t }}</h2>
+  <div class="versions-list">
+    @for (v of versions(); track v.version) {
+      <div
+        class="version-card"
+        [class.active]="selectedVersion()?.version === v.version"
+        (click)="selectVersion.emit(v)"
+      >
+        <div class="version-card-head">
+          <span class="version-badge">v{{ v.version ?? 0 }}</span>
+          @if (v.published || v.version === publishedVersion()) {
+            <app-badge kind="ok">{{ 'connectors.publishedBadge' | t }}</app-badge>
+          }
+        </div>
+        <p class="version-meta">
+          {{ 'connectors.createdMeta' | t: { user: v.createdBy, date: formatDate(v.createdAt) } }}
+        </p>
+        <div class="version-actions">
+          @if (v.published || v.version === publishedVersion()) {
+            <app-button
+              kind="danger"
+              size="sm"
+              [disabled]="!canChange()"
+              [disabledTitle]="'connectors.readOnlyHint' | t"
+              (btnClick)="$event.stopPropagation(); unpublish.emit()"
+            >
+              {{ 'connectors.btnUnpublish' | t }}
+            </app-button>
+          } @else {
+            <app-button
+              kind="outline"
+              size="sm"
+              [disabled]="!canChange()"
+              [disabledTitle]="'connectors.readOnlyHint' | t"
+              (btnClick)="$event.stopPropagation(); publish.emit(v)"
+            >
+              {{ 'connectors.btnPublish' | t }}
+            </app-button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

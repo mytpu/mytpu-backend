@@ -1,0 +1,143 @@
+<div class="details-panel">
+  <div class="details-panel-head">
+    <h3 class="panel-title">
+      {{ 'connectors.selectedVersionTitle' | t }} · v{{ version().version ?? 0 }}
+    </h3>
+  </div>
+
+  <div class="info-section">
+    <label class="info-label">{{ 'connectors.specApiAddress' | t }}</label>
+    <code class="info-code">{{ version().spec.baseUrl }}</code>
+  </div>
+
+  <div class="info-section">
+    <label class="info-label">{{ 'connectors.specAuth' | t }}</label>
+    <div class="auth-row">
+      <span class="auth-type-name">{{ getAuthLabel(version().spec.auth?.type) }}</span>
+      @if (version().spec.auth?.name; as name) {
+        <code class="auth-extra">
+          {{ 'connectors.specAuthParamName' | t: { name: name } }}
+        </code>
+      }
+    </div>
+  </div>
+
+  <div class="info-section">
+    <label class="info-label">{{ 'connectors.specScope' | t }}</label>
+    <div class="scope-card">
+      <div class="scope-head">
+        <code class="scope-name">{{ version().spec.scope.name }}</code>
+        <span class="scope-title-text">{{ version().spec.scope.title }}</span>
+      </div>
+      @if (version().spec.scope.description) {
+        <p class="scope-desc-text">{{ version().spec.scope.description }}</p>
+      }
+    </div>
+  </div>
+
+  <div class="tools-container">
+    <h4 class="tools-heading">
+      {{ 'connectors.specTools' | t: { count: version().spec.tools?.length ?? 0 } }}
+    </h4>
+
+    <div class="tools-list">
+      @for (tool of version().spec.tools; track tool.name) {
+        <div class="tool-card">
+          <div class="tool-top">
+            <code class="tool-name">{{ tool.name }}</code>
+            <code class="tool-path">{{ tool.path }}</code>
+          </div>
+          <p class="tool-description">{{ tool.description }}</p>
+
+          <div class="tool-sub-section">
+            <span class="sub-section-title">{{ 'connectors.toolParams' | t }}</span>
+            @if (tool.params && tool.params.length > 0) {
+              <div class="params-table-wrapper">
+                <table class="params-table">
+                  <thead>
+                    <tr>
+                      <th>{{ 'connectors.paramColName' | t }}</th>
+                      <th>{{ 'connectors.paramColIn' | t }}</th>
+                      <th>{{ 'connectors.paramColType' | t }}</th>
+                      <th>{{ 'connectors.paramColRequired' | t }}</th>
+                      <th>{{ 'connectors.paramColDefault' | t }}</th>
+                      <th>{{ 'connectors.paramColDesc' | t }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (param of tool.params; track param.name) {
+                      <tr>
+                        <td><code class="param-name">{{ param.name }}</code></td>
+                        <td><span class="chip in-chip">{{ param.in }}</span></td>
+                        <td><span class="chip type-chip">{{ param.type }}</span></td>
+                        <td>
+                          {{ (param.required ? 'connectors.paramRequiredYes' : 'connectors.paramRequiredNo') | t }}
+                        </td>
+                        <td>
+                          <code>{{ param.default !== undefined && param.default !== null ? param.default : '—' }}</code>
+                        </td>
+                        <td class="param-desc-cell">{{ param.description || '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <span class="empty-note">{{ 'connectors.noParams' | t }}</span>
+            }
+          </div>
+
+          <div class="tool-sub-section">
+            <span class="sub-section-title">{{ 'connectors.toolResult' | t }}</span>
+            <div class="result-chips">
+              <span class="chip mode-chip">
+                {{ 'connectors.resultMode' | t: { mode: tool.result.mode } }}
+              </span>
+              @if (tool.result.pointer) {
+                <span class="chip">
+                  {{ 'connectors.resultPointer' | t: { pointer: tool.result.pointer } }}
+                </span>
+              }
+              @if (tool.result.maxItems) {
+                <span class="chip">
+                  {{ 'connectors.resultMaxItems' | t: { max: tool.result.maxItems ?? 0 } }}
+                </span>
+              }
+            </div>
+
+            @if (tool.result.fields && tool.result.fields.length > 0) {
+              <div class="fields-grid">
+                <span class="fields-label">{{ 'connectors.resultFields' | t }}</span>
+                <div class="fields-list">
+                  @for (f of tool.result.fields; track f.name) {
+                    <span class="field-item">
+                      <code>{{ f.name }}</code>: {{ f.label }}
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="tool-sub-section">
+            <span class="sub-section-title">{{ 'connectors.toolSummary' | t }}</span>
+            <code class="summary-text">{{ tool.summary }}</code>
+          </div>
+
+          <div class="tool-sub-section limits-row">
+            <span class="sub-section-title">{{ 'connectors.toolLimits' | t }}</span>
+            <span class="limit-pill">
+              {{ 'connectors.limitCache' | t: { sec: tool.cacheTtlSeconds ?? 0 } }}
+            </span>
+            <span class="limit-pill">
+              {{ 'connectors.limitTimeout' | t: { ms: tool.timeoutMs ?? 0 } }}
+            </span>
+            <span class="limit-pill">
+              {{ 'connectors.limitRpm' | t: { rpm: tool.ratePerMinute ?? 0 } }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
