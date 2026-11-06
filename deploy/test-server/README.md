@@ -134,7 +134,15 @@ bash deploy/test-server/pack.sh
 
 # Если jar и образы уже собраны ранее, только повторная упаковка в архив:
 bash deploy/test-server/pack.sh --skip-build
+
+# Без сети к базе trivy (не для выкладки — образы не проверены):
+bash deploy/test-server/pack.sh --skip-build --skip-scan
 ```
+
+`pack.sh` берёт pgvector по digest (переменная `PGVECTOR_DIGEST`; тот же digest — в `.github/workflows/ci-build.yml`),
+проверяет все четыре образа trivy (в Docker, кэш базы — `TRIVY_CACHE_DIR`, по умолчанию `D:/claude-tmp/trivy-cache`):
+критичная уязвимость с исправлением останавливает упаковку, HIGH — только в отчёте. Рядом с архивом пишется
+`mytpu-images.tar.gz.sha256`.
 
 ### Перенос на сервер
 
@@ -142,7 +150,7 @@ bash deploy/test-server/pack.sh --skip-build
 # Перенос всех файлов, архива образов и данных (модель, корпус, GeoIP при первом запуске):
 bash deploy/test-server/upload.sh
 
-# Только образы (если изменился код сервисов):
+# Только образы (если изменился код сервисов); архив сверяется по sha256 до и после переноса:
 bash deploy/test-server/upload.sh --images-only
 
 # Только конфиги и скрипты (быстрое обновление настроек):

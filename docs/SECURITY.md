@@ -205,7 +205,15 @@
 - Пользователь не root, `read_only: true` (запись только в `tmpfs` для `/tmp`), `cap_drop: [ALL]`, `security_opt: no-new-privileges`.
 - Образы с фиксированными версиями и хэшами: база `spring.Dockerfile` закреплена по digest, образ assistant в GHCR
   помечается SHA коммита (без `latest`). CI: gitleaks по всей истории на `main` и `feature/**`, trivy на собранном образе
-  (критичная уязвимость с исправлением — стоп). Dependabot на зависимости.
+  (критичная уязвимость с исправлением — стоп). Dependabot на зависимости (Maven, npm консоли, actions, Docker).
+- Зависимости всех модулей (`ci-build.yml`, задача `dependencies`): `trivy fs --scanners vuln` по `pom.xml` и
+  `package-lock.json` с тем же порогом, что у образа; `npm audit --omit=dev --audit-level=high` для консоли. SBOM
+  CycloneDX (`mvn -Psbom package` → `target/bom.json`, `target/bom.xml`) — артефакт `sbom` задачи `verify`.
+  Образы gateway и rag собираются в CI (задача `images`) и проходят trivy с тем же порогом; pgvector закреплён по digest
+  (CI и `pack.sh`), HIGH — отчёт, CRITICAL — стоп.
+- Тестовый стенд: `pack.sh` берёт pgvector по digest, прогоняет trivy по всем четырём образам (CRITICAL с исправлением —
+  стоп) и пишет `mytpu-images.tar.gz.sha256`; `upload.sh` сверяет сумму до и после переноса, `up.sh` без совпавшей суммы
+  архив не загружает. Подписи (cosign) нет: ключ проверки лежал бы на том же сервере — вернуться с реестром образов.
 - На хосте: SSH только по ключу, firewall — наружу только 80/443, автоматические обновления безопасности.
 - Консоль администратора — роль `admin` + повторный вход ТПУ не старше 10 минут для опасных действий.
 

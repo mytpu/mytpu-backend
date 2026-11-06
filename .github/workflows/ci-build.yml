@@ -25,8 +25,91 @@ jobs:
           java-version: 25
           cache: maven
 
-      - name: Сборка и проверка всех модулей
-        run: mvn -B -ntp verify
+      # Профиль sbom: CycloneDX по всему реактору (target/bom.json, target/bom.xml), без тестовых зависимостей
+      - name: Сборка и проверка всех модулей, SBOM
+        run: mvn -B -ntp -Psbom verify
+
+      - name: Выгрузка SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: |
+            target/bom.json
+            target/bom.xml
+          if-no-files-found: error
+
+  # Известные уязвимости зависимостей: консоль (npm) и все модули Maven (gateway, rag, assistant) — не только образ assistant
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # По package-lock.json, без установки пакетов; dev-зависимости в сборку консоли не попадают
+      - name: Уязвимости npm консоли (high и выше — стоп)
+        working-directory: console
+        run: npm audit --omit=dev --audit-level=high
+
+      # Тот же образ и порог, что у сканирования образа в ci-cd-ai-backend.yml; pom.xml разрешаются через Maven Central
+      - name: Уязвимости зависимостей Maven (критичные с исправлением — стоп)
+        run: >-
+          docker run --rm -v "$PWD:/src:ro"
+          aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+          fs --scanners vuln --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed /src
+
+  # Образы gateway и rag тем же spring.Dockerfile, что и на стенде (Д2); образ assistant сканирует ci-cd-ai-backend.yml
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gateway
+            module: services/gateway
+          - name: rag
+            module: services/rag/rag-app
+    env:
+      NAME: ${{ matrix.name }}
+      MODULE: ${{ matrix.module }}
+    steps:
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Установка JDK 25
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Сборка jar модуля
+        run: mvn -B -ntp -DskipTests package -pl "$MODULE" -am
+
+      - name: Сборка образа
+        run: docker build -f deploy/docker/spring.Dockerfile --build-arg MODULE="$MODULE" -t "mytpu/${NAME}:${GITHUB_SHA}" .
+
+      - name: Сканирование образа (критичные уязвимости с исправлением — стоп)
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+          image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed "mytpu/${NAME}:${GITHUB_SHA}"
+
+  # pgvector по тому же digest, что в deploy/test-server/pack.sh (Д2); порог как у pack.sh: HIGH — отчёт, CRITICAL — стоп
+  pgvector:
+    runs-on: ubuntu-latest
+    env:
+      PGVECTOR: pgvector/pgvector@sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21
+      TRIVY: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+    steps:
+      - name: Отчёт trivy по образу pgvector (HIGH с исправлением)
+        run: docker run --rm "$TRIVY" image --no-progress --exit-code 0 --severity HIGH --ignore-unfixed "$PGVECTOR"
+
+      - name: Сканирование образа pgvector (критичные уязвимости с исправлением — стоп)
+        run: docker run --rm "$TRIVY" image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed "$PGVECTOR"
 
   secrets:
     runs-on: ubuntu-latest
