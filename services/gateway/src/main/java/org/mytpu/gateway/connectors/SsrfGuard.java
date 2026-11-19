@@ -134,7 +134,9 @@ public class SsrfGuard implements DnsResolver {
             at = 12;                                               // ::ffff:a.b.c.d
         } else if (zeros80 && b[10] == 0 && b[11] == 0 && ((b[12] | b[13] | b[14]) != 0 || (b[15] & 0xFF) > 1)) {
             at = 12;                                               // ::a.b.c.d (кроме :: и ::1)
-        } else if ((b[0] & 0xFF) == 0x00 && (b[1] & 0xFF) == 0x64 && (b[2] & 0xFF) == 0xFF && (b[3] & 0xFF) == 0x9B) {
+        } else if ((b[0] & 0xFF) == 0x00 && (b[1] & 0xFF) == 0x64 && (b[2] & 0xFF) == 0xFF && (b[3] & 0xFF) == 0x9B
+                && (b[4] | b[5] | b[6] | b[7] | b[8] | b[9] | b[10] | b[11]) == 0) {
+            // Только 64:ff9b::/96: иначе локальный NAT64 64:ff9b:1::/48 с публичным IPv4 внутри проходил бы как публичный
             at = 12;                                               // 64:ff9b::a.b.c.d
         } else if ((b[0] & 0xFF) == 0x20 && (b[1] & 0xFF) == 0x02) {
             at = 2;                                                // 2002:aabb:ccdd::
