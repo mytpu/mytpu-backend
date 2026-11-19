@@ -20,6 +20,8 @@ import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -313,5 +315,23 @@ class McpKeyFilterTest {
         assertThat(result.passed()).isTrue();
         assertThat(result.chain().getRequest().getAttribute(McpKeyFilter.CLIENT_ATTRIBUTE)).isSameAs(client);
         verifyNoInteractions(events);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {ApiClient.CONSOLE_ADMIN, ApiClient.CONSOLE_VIEWER})
+    void consoleKeyWithMcpScopeCannotReachMcpHandler(String role) throws Exception {
+        String key = ApiKeys.generate();
+        ApiClient client = new ApiClient("cli_console", "test", "fixture", Set.of("docs.read"), Set.of(role), Set.of(),
+                Map.of(), Map.of(), true, true, null, ApiClient.Kind.PERSON, List.of(), null,
+                false, ApiClient.GeoPolicy.ANY, null);
+        when(store.lookup(key)).thenReturn(KeyLookup.found(client));
+
+        for (String path : List.of("/mcp", "/mcp/key/rotate")) {
+            Result result = execute(filter(""), "POST", path, key);
+            assertThat(result.response().getStatus()).as(path).isEqualTo(403);
+            assertThat(result.response().getContentAsString()).contains("\"error\":\"insufficient_scope\"");
+            assertThat(result.passed()).as(path).isFalse();
+        }
+        verify(store, never()).touch(client.id());
     }
 }

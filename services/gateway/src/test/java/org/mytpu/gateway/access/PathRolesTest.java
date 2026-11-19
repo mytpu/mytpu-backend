@@ -73,13 +73,29 @@ class PathRolesTest {
         }
     }
 
-    @Test
-    void chatServiceEvenWithConsoleRoleCannotOpenConsole() {
-        // SECURITY.md, раздел 14: запрет для chat.service действует независимо от остальных ролей.
-        ApiClient mixed = FilterTestSupport.client("cli_mixed", Set.of(ApiClient.CHAT_SERVICE, ApiClient.CONSOLE_ADMIN));
+    @ParameterizedTest
+    @ValueSource(strings = {ApiClient.CONSOLE_ADMIN, ApiClient.CONSOLE_VIEWER})
+    void conflictingRolesCannotUseAnyProtectedChannel(String role) {
+        ApiClient mixed = FilterTestSupport.client("cli_mixed", Set.of(ApiClient.CHAT_SERVICE, role));
 
         assertThat(allowed(mixed, "GET", "/admin/api/me")).isFalse();
+        assertThat(allowed(mixed, "GET", "/internal/catalog")).isFalse();
         assertThat(allowed(mixed, "POST", "/mcp")).isFalse();
+        assertThat(allowed(mixed, "POST", "/mcp/key/rotate")).isFalse();
+        assertThat(allowed(mixed, "POST", "/chat/tools/docs_search")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "POST", "HEAD", "DELETE"})
+    void consoleRolesNeverAllowMcp(String method) {
+        for (ApiClient client : new ApiClient[]{viewer, admin}) {
+            for (String path : new String[]{"/mcp", "/mcp/key/rotate"}) {
+                var check = PathRoles.checkAccess(client, path, method);
+                assertThat(check.allowed()).as("%s %s %s", client.id(), method, path).isFalse();
+                assertThat(check.error()).isEqualTo("insufficient_scope");
+                assertThat(check.messageKey()).isEqualTo("access.mcp_role");
+            }
+        }
     }
 
     @Test
@@ -95,6 +111,7 @@ class PathRolesTest {
     void plainKeyUsesMcp() {
         assertThat(allowed(plain, "POST", "/mcp")).isTrue();
         assertThat(allowed(plain, "GET", "/mcp")).isTrue();
+        assertThat(allowed(plain, "POST", "/mcp/key/rotate")).isTrue();
     }
 
     @Test
