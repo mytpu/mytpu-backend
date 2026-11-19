@@ -48,8 +48,10 @@ management:
         include: health
 
 mytpu:
-  # API консоли (/admin/api/**) — только с этих сетей; до входа через ТПУ — localhost (SSH-туннель)
+  # API консоли (/admin/api/**, /internal/**) — только на своём порту и только соединениям с этих сетей (адрес соединения,
+  # не X-Forwarded-For); на основном порту — 404. В Docker соединение с хоста приходит с адреса шлюза сети edge
   admin:
+    port: ${ADMIN_PORT:8090}
     allowed-networks: ${ADMIN_ALLOWED_NETWORKS:127.0.0.1/32,::1/128}
   # Коннекторы из консоли: свои запрещённые сети (сети Docker вне частных диапазонов), сверка публикаций между экземплярами
   connectors:

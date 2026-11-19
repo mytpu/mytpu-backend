@@ -270,10 +270,9 @@ create_request() {
     local resp_file="$TEMP_DIR/req_resp.json"
     local http_code
     http_code=$(curl -s -o "$resp_file" -w '%{http_code}' \
-        -X POST "http://127.0.0.1:8081/admin/api/key-requests" \
+        -X POST "http://127.0.0.1:18090/admin/api/key-requests" \
         -H "Content-Type: application/json; charset=utf-8" \
         -H "Authorization: Bearer $CONSOLE_KEY" \
-        -H "X-Forwarded-For: 127.0.0.1" \
         --data-binary @"$req_file")
 
     local req_id
@@ -453,10 +452,9 @@ EOF
 
 APPROVE1_RESP="$TEMP_DIR/approve1_resp.json"
 APPROVE1_HTTP=$(curl -s -o "$APPROVE1_RESP" -w '%{http_code}' \
-    -X POST "http://127.0.0.1:8081/admin/api/key-requests/${REQ1_ID}/approve" \
+    -X POST "http://127.0.0.1:18090/admin/api/key-requests/${REQ1_ID}/approve" \
     -H "Content-Type: application/json; charset=utf-8" \
     -H "Authorization: Bearer $CONSOLE_KEY" \
-    -H "X-Forwarded-For: 127.0.0.1" \
     --data-binary @"$TEMP_DIR/approve1.json")
 
 APPROVED1_KEY=$(grep -o -E 'mtpu_[A-Za-z0-9_-]{20,}' "$APPROVE1_RESP" | head -1 || true)
@@ -482,10 +480,9 @@ EOF
 
 APPROVE2_RESP="$TEMP_DIR/approve2_resp.json"
 APPROVE2_HTTP=$(curl -s -o "$APPROVE2_RESP" -w '%{http_code}' \
-    -X POST "http://127.0.0.1:8081/admin/api/key-requests/${REQ2_ID}/approve" \
+    -X POST "http://127.0.0.1:18090/admin/api/key-requests/${REQ2_ID}/approve" \
     -H "Content-Type: application/json; charset=utf-8" \
     -H "Authorization: Bearer $CONSOLE_KEY" \
-    -H "X-Forwarded-For: 127.0.0.1" \
     --data-binary @"$TEMP_DIR/approve2.json")
 
 APPROVED2_KEY=$(grep -o -E 'mtpu_[A-Za-z0-9_-]{20,}' "$APPROVE2_RESP" | head -1 || true)
@@ -507,10 +504,9 @@ EOF
 
 REJECT3_RESP="$TEMP_DIR/reject3_resp.json"
 REJECT3_HTTP=$(curl -s -o "$REJECT3_RESP" -w '%{http_code}' \
-    -X POST "http://127.0.0.1:8081/admin/api/key-requests/${REQ3_ID}/reject" \
+    -X POST "http://127.0.0.1:18090/admin/api/key-requests/${REQ3_ID}/reject" \
     -H "Content-Type: application/json; charset=utf-8" \
     -H "Authorization: Bearer $CONSOLE_KEY" \
-    -H "X-Forwarded-For: 127.0.0.1" \
     --data-binary @"$TEMP_DIR/reject3.json")
 
 if [ "$REJECT3_HTTP" != "200" ]; then

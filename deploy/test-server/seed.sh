@@ -149,10 +149,9 @@ create_request() {
     local resp_file="$TEMP_DIR/req_resp.json"
     local http_code
     http_code=$(curl -s -o "$resp_file" -w '%{http_code}' \
-        -X POST "http://127.0.0.1:8081/admin/api/key-requests" \
+        -X POST "http://127.0.0.1:18090/admin/api/key-requests" \
         -H "Content-Type: application/json; charset=utf-8" \
         -H "Authorization: Bearer $CONSOLE_KEY" \
-        -H "X-Forwarded-For: 127.0.0.1" \
         --data-binary @"$req_file")
 
     local req_id
@@ -246,10 +245,9 @@ EOF
 
 APPROVE_RESP="$TEMP_DIR/approve_resp.json"
 APPROVE_HTTP=$(curl -s -o "$APPROVE_RESP" -w '%{http_code}' \
-    -X POST "http://127.0.0.1:8081/admin/api/key-requests/${REQ1_ID}/approve" \
+    -X POST "http://127.0.0.1:18090/admin/api/key-requests/${REQ1_ID}/approve" \
     -H "Content-Type: application/json; charset=utf-8" \
     -H "Authorization: Bearer $CONSOLE_KEY" \
-    -H "X-Forwarded-For: 127.0.0.1" \
     --data-binary @"$TEMP_DIR/approve.json")
 
 APPROVED_KEY=$(grep -o -E 'mtpu_[A-Za-z0-9_-]{20,}' "$APPROVE_RESP" | head -1 || true)
@@ -272,10 +270,9 @@ EOF
 
 REJECT_RESP="$TEMP_DIR/reject_resp.json"
 REJECT_HTTP=$(curl -s -o "$REJECT_RESP" -w '%{http_code}' \
-    -X POST "http://127.0.0.1:8081/admin/api/key-requests/${REQ2_ID}/reject" \
+    -X POST "http://127.0.0.1:18090/admin/api/key-requests/${REQ2_ID}/reject" \
     -H "Content-Type: application/json; charset=utf-8" \
     -H "Authorization: Bearer $CONSOLE_KEY" \
-    -H "X-Forwarded-For: 127.0.0.1" \
     --data-binary @"$TEMP_DIR/reject.json")
 
 if [ "$REJECT_HTTP" != "200" ]; then
