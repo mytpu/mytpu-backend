@@ -36,8 +36,16 @@ class ChatSession {
     }
 
     String owner(HttpServletRequest request) {
+        return owner(request, request.getHeader("X-Assistant-Require-Session") != null);
+    }
+
+    String requireOwner(HttpServletRequest request) {
+        return owner(request, true);
+    }
+
+    private String owner(HttpServletRequest request, boolean required) {
         if (endpoint == null) {
-            if (request.getHeader("X-Assistant-Require-Session") != null) {
+            if (required) {
                 throw unavailable();
             }
             return null;
