@@ -75,13 +75,11 @@ public record KeyLifecycleProperties(
      * Настройки оповещений о событиях ключей по вебхуку.
      *
      * @param events      список событий для отправки оповещений
-     * @param chatId      идентификатор чата (для Telegram)
      * @param timeout     таймаут соединения и запроса к вебхуку
      * @param repeatAfter период дедупликации одинаковых событий одного ключа
      */
     public record Alerts(
             List<String> events,
-            String chatId,
             Duration timeout,
             Duration repeatAfter
     ) {
@@ -91,7 +89,6 @@ public record KeyLifecycleProperties(
 
         public Alerts {
             events = events == null || events.isEmpty() ? DEFAULT_EVENTS : List.copyOf(events);
-            chatId = chatId == null ? "" : chatId;
             timeout = timeout == null ? Duration.ofSeconds(5) : timeout;
             repeatAfter = repeatAfter == null ? Duration.ofMinutes(10) : repeatAfter;
         }
@@ -111,7 +108,7 @@ public record KeyLifecycleProperties(
         selfRotateGrace = selfRotateGrace == null ? Duration.ofHours(24) : selfRotateGrace;
         selfRotateEvery = selfRotateEvery == null ? Duration.ofDays(1) : selfRotateEvery;
         housekeepingCron = housekeepingCron == null || housekeepingCron.isBlank() ? "0 15 4 * * *" : housekeepingCron;
-        alerts = alerts == null ? new Alerts(null, null, null, null) : alerts;
+        alerts = alerts == null ? new Alerts(null, null, null) : alerts;
         geo = geo == null ? new Geo(false, null, List.of("RU"), Duration.ofHours(1), Duration.ofMinutes(10)) : geo;
         Map<String, Ttl> merged = new LinkedHashMap<>(DEFAULT_TTL);
         if (ttl != null) {

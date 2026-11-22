@@ -122,12 +122,8 @@ mytpu:
         unknown-event-every: 1h
         error-log-every: 10m
       # Оповещения о событиях ключей (ловушки, группы, всплески подсетей, истечение, вызов из-за рубежа)
-      # Подключение Telegram:
-      #   в файл deploy/secrets/key_alert_webhook записать https://api.telegram.org/bot<токен>/sendMessage
-      #   в chat-id указать id чата команды
       alerts:
         events: [key.decoy_used, key.group_suspended, key.network_burst, key.expiring, key.self_rotated, key.foreign_country]
-        chat-id: ""
         timeout: 5s
         repeat-after: 10m
     mcp:

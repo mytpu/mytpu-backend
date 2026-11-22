@@ -5,7 +5,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,7 +22,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Оповещение по вебхуку (например, Telegram-бот команды) о событиях мастер-ключей
+ * Оповещение по вебхуку о событиях мастер-ключей
  * (ловушки, компрометация групп, всплески новых подсетей, истечение срока).
  * Адрес вебхука с токеном бота читается из секрета и никогда не выводится в лог.
  */
@@ -53,10 +52,9 @@ public class KeyAlerts implements DisposableBean {
             this.webhookUrl = null;
             log.info("Оповещения о событиях ключей выключены");
         } else if (!safeUrl(webhookUrl.strip())) {
-            // Токен бота в адресе не уходит открытым текстом; адрес в лог не пишем
             this.enabled = false;
             this.webhookUrl = null;
-            log.warn("Оповещения о событиях ключей выключены: адрес вебхука — только https (http — лишь для localhost)");
+            log.warn("Оповещения о событиях ключей выключены: адрес вебхука не поддерживается");
         } else {
             this.enabled = true;
             this.webhookUrl = webhookUrl.strip();
@@ -117,14 +115,7 @@ public class KeyAlerts implements DisposableBean {
                 text.append(", детали: ").append(detail);
             }
 
-            Map<String, Object> payload = new LinkedHashMap<>();
-            String chatId = properties.alerts().chatId();
-            if (chatId != null && !chatId.isBlank()) {
-                payload.put("chat_id", chatId);
-            }
-            payload.put("text", text.toString());
-
-            String body = json.writeValueAsString(payload);
+            String body = json.writeValueAsString(Map.of("text", text.toString()));
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(webhookUrl))
                     .timeout(properties.alerts().timeout())
@@ -156,10 +147,14 @@ public class KeyAlerts implements DisposableBean {
         }
     }
 
-    private static boolean safeUrl(String url) {
+    static boolean safeUrl(String url) {
         try {
             URI uri = URI.create(url);
             String host = uri.getHost();
+            if (host == null || "api.telegram.org".equalsIgnoreCase(host)
+                    || "api.telegram.org.".equalsIgnoreCase(host)) {
+                return false;
+            }
             boolean loopback = "127.0.0.1".equals(host) || "localhost".equals(host) || "[::1]".equals(host);
             return "https".equalsIgnoreCase(uri.getScheme()) || ("http".equalsIgnoreCase(uri.getScheme()) && loopback);
         } catch (IllegalArgumentException e) {
