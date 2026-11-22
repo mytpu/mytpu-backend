@@ -10,6 +10,10 @@ public interface Tool<I, O> {
 
     ToolDescriptor descriptor();
 
+    default boolean availableOn(Channel channel) {
+        return true;
+    }
+
     /**
      * @throws ToolException ожидаемый сбой (внешний сервис, «не найдено»); прочие исключения шлюз считает внутренней ошибкой
      */

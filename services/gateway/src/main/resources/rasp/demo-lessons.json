@@ -1,0 +1,6 @@
+[
+  {"day":"MONDAY","lesson":{"start":"10:25","end":"12:00","subject":"Основы проектирования","kind":"Практика","teacher":"Преподаватель Б","building":"Демо-корпус","room":"202"}},
+  {"day":"MONDAY","lesson":{"start":"08:30","end":"10:05","subject":"Введение в учебный проект","kind":"Лекция","teacher":"Преподаватель А","building":"Демо-корпус","room":"101"}},
+  {"day":"WEDNESDAY","lesson":{"start":"12:40","end":"14:15","subject":"Работа с данными","kind":"Лабораторная","teacher":"Преподаватель В","building":"Демо-корпус","room":"305"}},
+  {"day":"FRIDAY","lesson":{"start":"14:35","end":"16:10","subject":"Разбор проекта","kind":"Семинар"}}
+]
