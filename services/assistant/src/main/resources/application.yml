@@ -51,6 +51,7 @@ mytpu:
     # Прокси перед assistant (CIDR или адреса через запятую); пусто — X-Forwarded-For не учитывается
     trusted-proxies: ${TRUSTED_PROXIES:}
   assistant:
+    identity-url: ${ASSISTANT_IDENTITY_URL:}
     gateway-url: ${GATEWAY_URL:http://gateway:8080}
     gateway-key: ${assistant_gateway_key:${ASSISTANT_GATEWAY_KEY:}}
     timeout: 8s

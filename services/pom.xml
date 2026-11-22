@@ -17,5 +17,6 @@
         <module>assistant</module>
         <module>rag</module>
         <module>gateway</module>
+        <module>identity</module>
     </modules>
 </project>

@@ -1,0 +1,16 @@
+server:
+  address: ${IDENTITY_BIND:127.0.0.1}
+  port: ${IDENTITY_PORT:8084}
+  error:
+    include-message: never
+    include-stacktrace: never
+  tomcat:
+    max-http-form-post-size: 4KB
+    accesslog:
+      enabled: false
+identity:
+  web-origin: ${IDENTITY_WEB_ORIGIN:http://localhost:5173}
+  callback-origin: ${IDENTITY_CALLBACK_ORIGIN:http://localhost:5173}
+  mobile-return: ${IDENTITY_MOBILE_RETURN:mytpu-demo://auth/return}
+  client-id: ${TPU_OAUTH_CLIENT_ID:}
+  client-secret: ${TPU_OAUTH_CLIENT_SECRET:}

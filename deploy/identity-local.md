@@ -1,0 +1,34 @@
+# Локальный показ входа через ТПУ
+
+В профиле `mock` сервис `identity` показывает страницу с вымышленной учётной записью. Стенд и OAuth ТПУ для этого запуска не нужны.
+
+1. В репозитории бэкенда соберите сервис на JDK 25 командой `mvn -pl services/identity -am package`. Запустите `java -jar services/identity/target/identity-1.0-SNAPSHOT.jar --spring.profiles.active=mock`. Сервис слушает `127.0.0.1:8084`.
+2. В репозитории веб-клиента запустите `npm ci`. В одном терминале выполните `npm run stub`, во втором задайте `ASSISTANT_URL=http://127.0.0.1:8787` и выполните `npm run dev -- --host 127.0.0.1`. В PowerShell настройка задаётся командой `$env:ASSISTANT_URL='http://127.0.0.1:8787'`.
+3. Откройте `http://localhost:5173`, нажмите «Войти через ТПУ» и на тестовой странице выберите «Войти тестовым студентом». Проверьте профиль, вопрос помощнику и выход. Ответы помощника на этом запуске выдаёт локальная заглушка.
+4. Для Android соберите отладочный APK из каталога `mytpu-mobile/MyTpu` командой `gradlew :app:assembleDebug` (SDK 37.1). После подключения устройства или эмулятора выполните `adb reverse tcp:5173 tcp:5173` и установите APK. Отладочная сборка открывает `localhost:5173` и принимает возврат `mytpu-demo://auth/return`.
+
+## Демо с реальным шлюзом
+
+1. Соберите бэкенд командой `bash .claude/verify.sh`. Запустите `identity` с профилем `mock`, как выше. Для варианта с Docker выполните `bash deploy/dev-secrets.sh`, подготовьте базу стран по [инструкции dev-стенда](README.md) и запустите `docker compose -f deploy/compose.dev.yml up -d --build gateway`. С localhost шлюз доступен на порту `8081`.
+2. Если локальный `assistant_gateway_key` уже даёт доступ к `rasp.read`, используйте его. Для первой настройки выдайте короткоживущий ключ `chat.service` со scope `rasp.read`. В Docker привяжите его к адресу моста, с которого gateway видит assistant на хосте. Команды ниже заполняют локальный файл, исключённый из Git. При запуске gateway напрямую используйте тот же профиль `issue-key` и сеть `127.0.0.1/32`.
+
+   ```bash
+   edge=$(docker network inspect mytpu-dev_edge -f '{{(index .IPAM.Config 0).Gateway}}')
+   (umask 077; set -o pipefail
+    docker compose -f deploy/compose.dev.yml run --rm --no-deps -T gateway \
+      --spring.profiles.active=issue-key --owner=assistant-local --kind=server \
+      --roles=chat.service --scopes=rasp.read --days=1 --networks="${edge}/32" |
+      sed -n '/^mtpu_/p' > deploy/secrets/assistant_gateway_key)
+   ```
+
+   Передайте его помощнику через `ASSISTANT_GATEWAY_KEY` или задайте `SECRETS_DIR=deploy/secrets/`.
+3. Запустите `java -jar services/assistant/target/assistant-1.0-SNAPSHOT.jar --server.address=127.0.0.1` с настройками `PORT=8082`, `GATEWAY_URL=http://127.0.0.1:8081` и `ASSISTANT_IDENTITY_URL=http://127.0.0.1:8084`. Подключите свой локальный ml-server либо для сценария с прямым вызовом расписания задайте `ML_BASE_URL=http://127.0.0.1:1/v1`, `ML_CHAT_MODEL=local-direct-only` и фиктивный `ML_API_KEY`. В этом сценарии модель не вызывается.
+4. Запустите Vite с `ASSISTANT_URL=http://127.0.0.1:8082` и `ASSISTANT_SESSION_AUTH=true`. Настройки работают вместе: отдельный маршрут `identity` проверяет сессию, а `assistant` использует полученный идентификатор владельца. Клиентский ключ помощника при необходимости добавляется только на сервере.
+5. Войдите первой тестовой учёткой, спросите «Расписание 8К31», затем «А завтра?». Уточнение использует группу из предыдущего запроса. Вторая тестовая учётка может создать свой диалог. Чужой и неизвестный идентификаторы получают одинаковый `404 conversation_not_found`.
+
+## Подключение реального стенда
+
+- В API ТПУ настройте зарегистрированное приложение и доверенные адреса. Публичный origin сайта и callback должен совпадать. Передайте этот HTTPS origin в `IDENTITY_WEB_ORIGIN` и `IDENTITY_CALLBACK_ORIGIN`. Для серверного обмена потребуются `TPU_OAUTH_CLIENT_ID` и `TPU_OAUTH_CLIENT_SECRET`.
+- Опубликуйте `/api/auth/*` через прокси на `identity`. Для чата в режиме с владельцами задайте `ASSISTANT_IDENTITY_URL` и передавайте доверенному помощнику только cookie `__Host-mytpu_session` или мобильный `Authorization: Bearer`. Защищённый прокси сам выставляет `X-Assistant-Require-Session: 1`. Помощник проверяет сессию через `/api/auth/session`, где возвращается только идентификатор. Параметры запросов входа и возврата исключите из журналов прокси. Vite-прокси предназначен для локального запуска.
+- Для Android задайте в Gradle `mytpu.webOrigin` (HTTPS origin с завершающим слешем) и `mytpu.appLinkHost`. Опубликуйте `/.well-known/assetlinks.json` для идентификатора и сертификата подписи APK на этом хосте. Задайте `IDENTITY_MOBILE_RETURN` как HTTPS-адрес `/auth/return` на том же хосте. Проверьте открытие ссылки установленным APK.
+- Локальная версия `identity` рассчитана на один экземпляр. Сессии и токены находятся в памяти сервера, перезапуск завершает сессии. Перед запуском нескольких экземпляров нужен общий защищённый источник сессий.

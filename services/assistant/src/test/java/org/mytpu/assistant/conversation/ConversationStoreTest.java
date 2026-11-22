@@ -5,12 +5,41 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.mytpu.assistant.errors.ChatException;
+import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConversationStoreTest {
+
+    @Test
+    void authenticatedConversationIsOnlyAccessibleToItsOwner() {
+        ConversationStore store = new ConversationStore();
+        var opened = store.begin("student-one", null);
+        String id = opened.key().id();
+        store.append(opened.key(), state -> state.withSlots(Map.of("group", "8К31")));
+
+        assertEquals("8К31", store.begin("student-one", id).state().slots().get("group"));
+        assertTrue(store.begin(null, id).state().slots().isEmpty());
+        ChatException other = assertThrows(ChatException.class, () -> store.begin("student-two", id));
+        ChatException missing = assertThrows(ChatException.class,
+                () -> store.begin("student-two", UUID.randomUUID().toString()));
+        assertEquals(HttpStatus.NOT_FOUND, other.status());
+        assertEquals(other.code(), missing.code());
+        assertEquals(missing.status(), other.status());
+    }
+
+    @Test
+    void lateResponseDoesNotRestoreExpiredAuthenticatedConversation() {
+        AtomicLong nanos = new AtomicLong();
+        var store = ConversationStore.withCustomExpiry(Duration.ofMinutes(30), nanos::get);
+        var opened = store.begin("student-one", null);
+        nanos.set(Duration.ofMinutes(31).toNanos());
+        store.append(opened.key(), state -> state.withMessage("assistant", "ответ"));
+        assertThrows(ChatException.class, () -> store.begin("student-one", opened.key().id()));
+    }
 
     @Test
     @DisplayName("Хранение и перенос слотов между запросами («а завтра?»)")

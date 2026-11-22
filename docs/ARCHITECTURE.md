@@ -9,6 +9,7 @@
 |---|---|---|
 | `shared/tool-api` (Java, без Spring) | контракт: `Integration`, `Tool`, `ToolDescriptor`, `CallContext` (+ `Trust`, `Consent`), `ToolResult`, `ToolAnswer` (+ `publicSummary`), пометки полей `Classified`/`Mask` | готов |
 | `services/assistant` (Java) | чат: `POST /api/ai/chat`, `/api/ai/chat/stream` (SSE meta/status/delta/error/done) через Spring AI 2 к ml-server; проверка запроса, лимиты (`limits`), таймауты, необязательный ключ клиента | готов к прод-деплою (`deploy/compose.server.yml`), `services/assistant/README.md` |
+| `services/identity` (Java) | вход через OAuth ТПУ, локальные сессии веба и Android | локальный запуск с профилем `mock` по `deploy/identity-local.md`; подключение стенда отложено |
 | `services/rag/rag-api` (Java) | контракт поиска `DocsSearch` | готов |
 | `services/rag/rag-search` (Kotlin) | схема, модель векторов (e5-small ru+en, ONNX), нарезка, загрузка, гибридный поиск, замер | готов, `services/rag/README.md` |
 | `services/rag/rag-app` (Kotlin) | `POST /internal/search` (ключ gateway), профили `ingest`, `eval` | готов |

@@ -20,24 +20,38 @@ public class ChatController {
     private final ChatService chatService;
     private final ChatRequestValidator validator;
     private final ChatLimits limits;
+    private final ChatSession session;
 
-    public ChatController(ChatService chatService, ChatRequestValidator validator, ChatLimits limits) {
+    ChatController(ChatService chatService, ChatRequestValidator validator, ChatLimits limits, ChatSession session) {
         this.chatService = chatService;
         this.validator = validator;
         this.limits = limits;
+        this.session = session;
     }
 
     @PostMapping("/chat")
     public ChatResponse chat(@RequestBody(required = false) ChatRequest chatRequest, HttpServletRequest request) {
         validator.validate(chatRequest);
         ChatLimits.Permit permit = limits.acquire(request);
-        return chatService.chat(chatRequest, permit::release);
+        String owner;
+        try {
+            owner = session.owner(request);
+        } catch (RuntimeException e) {
+            permit.release();
+            throw e;
+        }
+        return chatService.chat(chatRequest, owner, permit::release);
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<?>> streamChat(@RequestBody(required = false) ChatRequest chatRequest, HttpServletRequest request) {
         validator.validate(chatRequest);
         ChatLimits.Permit permit = limits.acquire(request);
-        return chatService.streamChat(chatRequest).doFinally(signal -> permit.release());
+        try {
+            return chatService.streamChat(chatRequest, session.owner(request)).doFinally(signal -> permit.release());
+        } catch (RuntimeException e) {
+            permit.release();
+            throw e;
+        }
     }
 }
