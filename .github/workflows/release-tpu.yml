@@ -1,0 +1,193 @@
+name: release-tpu
+# Релиз стенда «Мой ТПУ» для сервера ТПУ: проверки → образы gateway/rag/assistant (amd64+arm64 в GHCR по digest)
+# → смоук на готовых контейнерах и маршрутах Caddy → GitHub Release с манифестом и файлами выкладки.
+# Сервер забирает релиз сам (deploy/tpu-server/README.md). Отдельный VPS assistant — ci-cd-ai-backend.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "shared/**"
+      - "console/**"
+      - "deploy/**"
+      - "pom.xml"
+      - ".github/workflows/release-tpu.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-tpu
+  cancel-in-progress: false
+
+env:
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  CADDY_VERSION: 2.11.9
+
+jobs:
+  verify:
+    name: Проверки
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование проекта с историей
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Образ закреплён по digest; gitleaks-action не берём — для организаций он требует лицензию
+      - name: Поиск секретов во всей истории
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" -w /repo
+          -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git /repo --config /repo/.gitleaks.toml --gitleaks-ignore-path /repo/.gitleaksignore
+          --redact --no-banner --exit-code 1
+
+      - name: Установка JDK 25
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Сборка и проверка всех модулей
+        run: mvn -B -ntp verify
+
+      - name: Проверка версии Node
+        run: |
+          node -e 'const [a,b]=process.versions.node.split(".").map(Number);
+            if (a < 20 || (a === 20 && b < 19)) { console.error("Angular 22 требует Node >= 20.19, сейчас " + process.versions.node); process.exit(1) }'
+
+      - name: Сборка консоли (production)
+        working-directory: console
+        run: |
+          npm ci
+          npx ng build
+
+  publish:
+    name: Образы, смоук и релиз
+    needs: verify
+    runs-on: ubuntu-latest
+    # Запись в GHCR и создание релиза — только этой задаче
+    permissions:
+      contents: write
+      packages: write
+    env:
+      GATEWAY_IMAGE: mytpu/gateway:smoke
+      RAG_IMAGE: mytpu/rag:smoke
+      ASSISTANT_IMAGE: mytpu/assistant:smoke
+    steps:
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Версия релиза
+        run: |
+          # Версия = дата коммита и короткий SHA: уникальна, откат на любую прошлую
+          echo "VERSION=v$(git show -s --format=%cd --date=format:%Y%m%d "$GITHUB_SHA")-${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+
+      - name: Установка JDK 25
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Jar-файлы для образов
+        run: mvn -B -ntp -DskipTests package
+
+      - name: Сборка консоли (production)
+        working-directory: console
+        run: |
+          npm ci
+          npx ng build
+
+      - name: Сборщик buildx
+        run: docker buildx create --name mytpu --driver docker-container --use
+
+      # Сначала amd64 локально: на нём гоняются trivy и смоук. Кеш этого шага использует многоплатформенная сборка
+      - name: Образы amd64 для проверки
+        run: |
+          docker buildx build --platform linux/amd64 --load \
+            -f deploy/docker/spring.Dockerfile --build-arg MODULE=services/gateway \
+            -t "$GATEWAY_IMAGE" .
+          docker buildx build --platform linux/amd64 --load \
+            -f deploy/docker/spring.Dockerfile --build-arg MODULE=services/rag/rag-app \
+            -t "$RAG_IMAGE" .
+          docker buildx build --platform linux/amd64 --load \
+            -f deploy/docker/spring.Dockerfile --build-arg MODULE=services/assistant \
+            --build-arg TRAINING_ENV="ML_BASE_URL=http://localhost/v1 ML_API_KEY=training ML_CHAT_MODEL=training" \
+            -t "$ASSISTANT_IMAGE" .
+
+      - name: Сканирование образов (критичные уязвимости с исправлением — стоп)
+        run: |
+          for image in "$GATEWAY_IMAGE" "$RAG_IMAGE" "$ASSISTANT_IMAGE"; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+              image --no-progress --exit-code 1 --severity CRITICAL --ignore-unfixed "$image"
+          done
+
+      - name: Комплект файлов выкладки
+        run: |
+          mkdir -p dist/postgres/init
+          cp deploy/tpu-server/compose.yml deploy/tpu-server/Caddyfile dist/
+          cp deploy/postgres/init/01-databases.sh dist/postgres/init/
+          tar -czf dist/console.tar.gz -C console/dist/console/browser .
+
+      # Caddy нужен смоуку: версия закреплена, архив сверяется по контрольной сумме из релиза Caddy
+      - name: Установка Caddy для смоука
+        run: |
+          curl -fsSL -o /tmp/caddy.tgz "https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o /tmp/caddy.sums "https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_${CADDY_VERSION}_checksums.txt"
+          (cd /tmp && grep "caddy_${CADDY_VERSION}_linux_amd64.tar.gz$" caddy.sums | sha512sum -c -)
+          tar -xzf /tmp/caddy.tgz -C /tmp caddy
+          sudo install -m 0755 /tmp/caddy /usr/local/bin/caddy
+          caddy version
+
+      # Конфиг маршрутов и матрица отказов проверяются отдельно и раньше: заглушки сервисов занимают те же порты
+      - name: Проверка конфига маршрутов и отказов
+        run: bash deploy/tpu-server/smoke-routes.sh --console-dir console/dist/console/browser
+
+      - name: Смоук готовых контейнеров и маршрутов
+        run: |
+          bash deploy/tpu-server/smoke-stack.sh --release dist --console-dir console/dist/console/browser
+
+      # Публикация образов только после проверок: две платформы, ссылка — по digest индекса
+      - name: Публикация образов в GHCR
+        run: |
+          mkdir -p build
+          push() { # push <сервис> <доп. аргументы сборки>
+            local service="$1"; shift
+            docker buildx build --platform linux/amd64,linux/arm64 --push \
+              -f deploy/docker/spring.Dockerfile "$@" \
+              --metadata-file "build/$service.json" \
+              -t "$IMAGE_PREFIX/$service:sha-$GITHUB_SHA" .
+            python3 -c "import json;print(json.load(open('build/$service.json'))['containerimage.digest'])" > "build/$service.digest"
+          }
+          push gateway --build-arg MODULE=services/gateway
+          push rag --build-arg MODULE=services/rag/rag-app
+          push assistant --build-arg MODULE=services/assistant \
+            --build-arg TRAINING_ENV="ML_BASE_URL=http://localhost/v1 ML_API_KEY=training ML_CHAT_MODEL=training"
+
+      - name: Манифест релиза
+        run: |
+          bash deploy/tpu-server/release-manifest.sh --out dist --version "$VERSION" --source-sha "$GITHUB_SHA" \
+            --gateway "$IMAGE_PREFIX/gateway@$(cat build/gateway.digest)" \
+            --rag "$IMAGE_PREFIX/rag@$(cat build/rag.digest)" \
+            --assistant "$IMAGE_PREFIX/assistant@$(cat build/assistant.digest)"
+
+      - name: Публикация релиза
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          files="dist/release.json dist/SHA256SUMS dist/compose.yml dist/Caddyfile dist/console.tar.gz dist/01-databases.sh"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" $files --clobber
+          else
+            gh release create "$VERSION" $files --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+          fi
+          gh release view "$VERSION" --json tagName,url --jq '"релиз: \(.tagName) \(.url)"'

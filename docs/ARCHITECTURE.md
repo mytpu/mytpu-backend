@@ -14,7 +14,7 @@
 | `services/rag/rag-search` (Kotlin) | схема, модель векторов (e5-small ru+en, ONNX), нарезка, загрузка, гибридный поиск, замер | готов, `services/rag/README.md` |
 | `services/rag/rag-app` (Kotlin) | `POST /internal/search` (ключ gateway), профили `ingest`, `eval` | готов |
 | `services/gateway` (Java) | MCP-шлюз: `catalog`, `access` (мастер-ключи), `runtime`, `mcp` (свой обработчик), `integrations.docs` (`docs_search`), `integrations.rasp` (`rasp_find`) | готов; `rasp_day/week` отложены, `services/gateway/README.md` |
-| `deploy/` | общий `spring.Dockerfile` (база по digest, AOT-кэш, флаги документа 22), `compose.dev.yml` (сети, секреты-файлы, укреплённые контейнеры, лимиты), `compose.server.yml` (прод assistant на VPS), замер `load/measure.sh` | готов; деплой в CI — за флагом `ASSISTANT_DEPLOY_ENABLED` |
+| `deploy/` | общий `spring.Dockerfile` (база по digest, AOT-кэш, флаги документа 22), `compose.dev.yml` (сети, секреты-файлы, укреплённые контейнеры, лимиты), `compose.server.yml` (прод assistant на VPS), `tpu-server/` (стенд ТПУ: релиз GitHub → образы GHCR по digest + статика консоли архивом, `compose.yml`, Caddy-маршруты, `mytpu-update.sh` и systemd-таймер, откат комплекта), замер `load/measure.sh` | готов; обновление стенда ТПУ — `.github/workflows/release-tpu.yml`; деплой assistant на VPS — за флагом `ASSISTANT_DEPLOY_ENABLED` |
 | ml-server (`D:\projects\ML-server`, ветка `feature/native-image`) | прокси к LLM на Ktor CIO, подготовлен к GraalVM Native Image | собирается на сервере, `README-native.md` |
 
 ## Целевые модули и их единственная ответственность
@@ -28,7 +28,7 @@
 | `services/gateway` → `integrations/*` | по модулю на сервис ТПУ: `rasp`, `docs`, позже `tpuapi`, `help`, `lms` | проверки прав | сервисы ТПУ, rag |
 | `services/gateway` → `catalog`, `access` | каталог интеграций; мастер-ключи клиентов (набор разрешённых API); жизнь ключа: сроки по типу (`KeyLifecycleProperties`, `KeyRules`), заявки (`KeyRequests`), самоперевыпуск (`KeySelfRotation`), ночная уборка (`KeyHousekeeping`), ловушки с группами (`DecoyGroups`), оповещения по вебхуку (`KeyAlerts`) | вызовы инструментов | door-mcp, консоль |
 | `services/gateway` → `admin`, `connectors`, `stats` | `admin` — API консоли MCP (по контроллеру на раздел), журнал действий, прокси консоли rag; `connectors` — API без кода (интеграция `connectors`, `GET`, SSRF в DNS-резолвере, секреты AES-GCM); `stats` — чтение журналов (обзор по `audit_minute`) | интерфейс консоли; проверки доступа (это `access`) | консоль; rag через `/admin/api/rag/**` |
-| `console/` | интерфейс консолей MCP и rag (Angular + TS, статика) | данные и права | `/admin/api/**` gateway |
+| `console/` | интерфейс консолей MCP и rag (Angular + TS, статика; на стенде ТПУ раздаётся Caddy по `https://<хост>/console/`) | данные и права | `/admin/api/**` gateway |
 | `services/assistant` | чат с LLM, инструменты как `ToolCallback` → gateway | вызовы сервисов ТПУ напрямую | ml-server, gateway |
 | `services/rag` | поиск по документам, ночной ingest, модель векторов; API консоли rag (`rag-app` `admin`: источники и файлы, задачи загрузки, документы, песочница, замер, ненайденное), разбор файлов и `Redactor` (`rag-search` `files`, `privacy`) | права доступа (решает gateway) | gateway (`POST /internal/search` — `rag_internal_key`, `/admin/**` — `rag_admin_key`) |
 | ml-server (отдельный репо) | прокси к LLM, pii | инструменты | assistant |

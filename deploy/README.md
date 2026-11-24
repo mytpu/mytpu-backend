@@ -3,6 +3,8 @@
 - `compose.dev.yml` — стенд на ПК: все сервисы, сети `edge`/`core`/`data`, секреты-файлы (`bash deploy/dev-secrets.sh`).
 - `compose.server.yml` — сервер команды (VPS): пока только `assistant`, с тем же укреплением. Полное развёртывание
   за caddy на ВМ ТПУ — спецификация `deploy-server`.
+- `tpu-server/` — стенд «Мой ТПУ» на сервере ТПУ: HTTPS-консоль, релизы GitHub с образами по digest, обновлятор с
+  откатом и systemd-таймер. Инструкция владельцу сервера — `deploy/tpu-server/README.md`.
 
 ## Сервер: перенос со старого `.env` на файлы (один раз, делает владелец VPS)
 Раньше CI запускал `docker-compose.backend-java.yml` с `env_file: .env` (секреты в переменных окружения, образ `latest`).

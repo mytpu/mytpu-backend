@@ -1,0 +1,68 @@
+# Сайт стенда «Мой ТПУ» на сервере ТПУ.
+# Шаблон: render-caddyfile.sh подставляет значения из /etc/mytpu/server.env. Готовый файл проверяется
+# 'caddy validate' и ставится в /etc/caddy/mytpu.caddy; основной /etc/caddy/Caddyfile импортирует его
+# строкой 'import mytpu.caddy'.
+#
+# Наружу открыты только:
+#   /console/*        статика консоли администратора (SPA; fallback только внутри /console/)
+#   /admin/api/*      API консоли → порт консоли шлюза 127.0.0.1:18090 (ключ и роли проверяет шлюз)
+#   /mcp*             MCP Streamable HTTP / SSE
+#   /actuator/health  проверка работоспособности шлюза
+#   /api/ai/*         стриминг чата assistant
+# Остальное — 404: /internal/**, порт консоли 18090 и порты сервисов наружу не публикуются.
+
+{{SITE_ADDRESS}} {
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+{{TLS_LINE}}
+	# Пути, которые Caddy и Tomcat понимают по-разному (/mcp/..;/admin/...), — отказ до проксирования
+	@suspicious path_regexp (?i)(;|\.\.|%2e|%2f|%3b|%5c|\\)
+	handle @suspicious {
+		respond 400
+	}
+
+	# MCP-шлюз (Streamable HTTP и SSE события)
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		reverse_proxy 127.0.0.1:8081 {
+			flush_interval -1
+		}
+	}
+
+	# Проверка работоспособности gateway
+	handle /actuator/health {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	# Чат assistant (SSE-стриминг meta/status/delta/done)
+	handle /api/ai/* {
+		reverse_proxy 127.0.0.1:8082 {
+			flush_interval -1
+		}
+	}
+
+{{CONSOLE_SECTION}}
+	# Всё прочее (корень, /admin, /internal/**, /actuator/*) не проксируется
+	handle {
+		respond 404
+	}
+
+	# Ключ клиента чата в журнал Caddy не попадает (Authorization и Cookie Caddy скрывает сам)
+	log {
+		output stdout
+		format filter {
+			wrap console
+			fields {
+				request>headers>X-Assistant-Key delete
+			}
+		}
+	}
+}

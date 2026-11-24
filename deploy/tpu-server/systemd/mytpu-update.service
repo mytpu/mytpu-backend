@@ -1,0 +1,20 @@
+[Unit]
+Description=Обновление стенда «Мой ТПУ» из релиза GitHub (исходящий HTTPS)
+Documentation=file:/etc/mytpu/README.md
+Wants=network-online.target
+After=network-online.target docker.service caddy.service
+Requires=docker.service
+# Обновление изменило compose или конфиг маршрутов — перезапускать нечего, всё делает скрипт
+ConditionPathExists=/etc/mytpu/server.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mytpu-update.sh
+# Обрыв сети или медленный GHCR не должен считаться успехом; таймер запускает следующий круг
+TimeoutStartSec=45min
+Nice=10
+# root нужен для docker, записи в /etc/caddy и перечитывания Caddy; секреты читает только этот процесс
+User=root
+# Журнал: journalctl -u mytpu-update.service (ключей и токенов в нём нет)
+StandardOutput=journal
+StandardError=journal
