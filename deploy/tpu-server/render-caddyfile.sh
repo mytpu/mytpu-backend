@@ -87,7 +87,7 @@ if [ -n "$networks" ]; then
 		uri strip_prefix /console
 		try_files {path} /index.html
 		file_server
-		header Cache-Control "private, no-cache"
+		header ?Cache-Control "private, no-cache"
 		@immutable path_regexp (?i)-[a-z0-9]{6,}\.(?:js|css|woff2?|ttf|svg|png|ico)\$
 		header @immutable Cache-Control "private, max-age=31536000, immutable"
 	}
