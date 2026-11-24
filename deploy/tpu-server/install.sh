@@ -4,7 +4,7 @@
 #   sudo bash deploy/tpu-server/install.sh            # установить
 #   sudo bash deploy/tpu-server/install.sh --check    # только проверить зависимости и показать план
 # Что делает: проверяет зависимости, раскладывает скрипты и unit-файлы, создаёт каталоги, секреты и server.env
-# с правами root 0600, подключает конфиг маршрутов к системному Caddy. Образы и контейнеры НЕ трогает:
+# в закрытом каталоге root, подключает конфиг маршрутов к системному Caddy. Образы и контейнеры НЕ трогает:
 # первый запуск обновления — отдельная команда (README.md, раздел «Первичная установка»).
 set -euo pipefail
 
@@ -43,7 +43,7 @@ echo "    docker $(docker version --format '{{.Server.Version}}' 2>/dev/null || 
 step "план"
 cat <<EOF
     скрипты:    $BIN_DIR/mytpu-update.sh, $LIB_DIR/{checks,release,render-caddyfile}.sh
-    параметры:  $CONFIG_DIR/server.env (0600 root), секреты — $SECRETS_DIR/ (0600 root)
+    параметры:  $CONFIG_DIR/server.env (0600 root), секреты — $SECRETS_DIR/ (каталог 0700 root)
     данные:     $DATA_DIR/{releases,state,console,models,geo,dataset}, загрузки — $CACHE_DIR
     маршруты:   $CADDY_FILE, подключается из $MAIN_CADDY строкой 'import mytpu.caddy'
     таймер:     $SYSTEMD_DIR/mytpu-update.{service,timer}, проверка раз в 15 минут
@@ -54,7 +54,7 @@ step "каталоги"
 mkdir -p "$CONFIG_DIR" "$CONFIG_DIR/postgres-init" "$SECRETS_DIR" "$LIB_DIR" "$DATA_DIR/releases" \
     "$DATA_DIR/state" "$DATA_DIR/console" "$DATA_DIR/models" "$DATA_DIR/geo" "$DATA_DIR/dataset" \
     "$CACHE_DIR" "$SYSTEMD_DIR"
-# Секреты читает только root: демон Docker копирует их в контейнер, файлы на хосте другим не нужны
+# Каталог закрыт для обычных пользователей хоста. Compose монтирует отдельные файлы в контейнеры.
 chmod 700 "$CONFIG_DIR" "$SECRETS_DIR"
 # Статику консоли читает пользователь caddy, каталоги релизов должны быть проходимы
 chmod 755 "$DATA_DIR"
@@ -74,12 +74,18 @@ else
 fi
 
 step "секреты"
-SECRETS_DIR="$SECRETS_DIR" SECRETS_MODE=600 bash "$HERE/../dev-secrets.sh" >/dev/null || die "dev-secrets.sh не выполнился"
+SECRETS_DIR="$SECRETS_DIR" SECRETS_MODE=644 bash "$HERE/../dev-secrets.sh" >/dev/null || die "dev-secrets.sh не выполнился"
 if [ ! -f "$SECRETS_DIR/assistant_client_key" ]; then
     # Ключ клиента чата: /api/ai/* открыт наружу, без ключа любой тратил бы квоту модели
     head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n' > "$SECRETS_DIR/assistant_client_key"
 fi
-chmod 600 "$SECRETS_DIR"/*
+# Файловые секреты Compose сохраняют режим при монтировании в контейнер.
+for name in pg_superuser_password gateway_db_password rag_db_password assistant_db_password \
+    rag_internal_key gateway_audit_key connector_vault_key rag_admin_key ml_api_key \
+    assistant_gateway_key assistant_client_key key_alert_webhook; do
+    chmod 644 "$SECRETS_DIR/$name"
+done
+if [ -f "$SECRETS_DIR/github_token" ]; then chmod 600 "$SECRETS_DIR/github_token"; fi
 echo "    ВНИМАНИЕ: в $SECRETS_DIR/ml_api_key должен лежать ключ ml-server (одна строка, без перевода строки в конце)"
 if [ ! -f "$SECRETS_DIR/github_token" ]; then
     echo "    если репозиторий и пакеты закрыты: $SECRETS_DIR/github_token — PAT только на чтение (contents, packages)"
@@ -96,8 +102,7 @@ bash "$HERE/caddy-site.sh" --main "$MAIN_CADDY" --site "$CADDY_FILE" \
 step "systemd"
 install -m 0644 "$HERE/systemd/mytpu-update.service" "$HERE/systemd/mytpu-update.timer" "$SYSTEMD_DIR/"
 systemctl daemon-reload
-systemctl enable --now mytpu-update.timer >/dev/null
-echo "    таймер включён: systemctl list-timers mytpu-update.timer"
+echo "    таймер установлен: включите его после первичной проверки стенда"
 
 step "тома с данными"
 docker volume ls --format '{{.Name}}' | grep -Ei 'pgdata|rag-files' | sed 's/^/    найден том: /' || true
@@ -110,4 +115,5 @@ cat <<EOF
   2. положите модель e5 в каталог RAG_MODEL_HOST_DIR и базу стран DB-IP в GEO_DB_HOST_DIR
   3. sudo systemctl start mytpu-update.service   # первый запуск: скачать релиз и поднять стенд
   4. journalctl -u mytpu-update.service -f       # ход обновления; systemctl stop mytpu-update.timer — пауза
+  5. sudo systemctl enable --now mytpu-update.timer   # после успешной проверки
 EOF

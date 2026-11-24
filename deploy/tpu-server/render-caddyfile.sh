@@ -27,7 +27,8 @@ case "$tls_mode" in
     # в X-Forwarded-For от прокси (иначе лимиты и страна ключа считаются по адресу прокси)
     upstream)
         listen="${MYTPU_LISTEN:-127.0.0.1:8443}"
-        site="http://$listen"
+        [[ "$listen" =~ ^127\.0\.0\.1:[0-9]+$ ]] || die "MYTPU_LISTEN должен быть 127.0.0.1:<порт>"
+        site="http://:${listen##*:}"
         tls_line=""
         # Явный bind: без него Caddy слушает все интерфейсы, хотя в адресе указан loopback
         site_options=$'\tbind 127.0.0.1'
@@ -67,7 +68,10 @@ if [ -n "$networks" ]; then
     done
     console_section=$(cat <<EOF
 	# Консоль: только сети администраторов ТПУ; ключ и роли проверяет шлюз на порту консоли
-	@console_closed not remote_ip $networks
+	@console_closed {
+		path /console /console/* /admin/api /admin/api/*
+		not remote_ip $networks
+	}
 	handle @console_closed {
 		respond 404
 	}
@@ -83,9 +87,9 @@ if [ -n "$networks" ]; then
 		uri strip_prefix /console
 		try_files {path} /index.html
 		file_server
-		header /console/index.html Cache-Control "no-cache"
+		header Cache-Control "private, no-cache"
 		@immutable path_regexp (?i)-[a-z0-9]{6,}\.(?:js|css|woff2?|ttf|svg|png|ico)\$
-		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		header @immutable Cache-Control "private, max-age=31536000, immutable"
 	}
 
 	# API консоли — на порт консоли шлюза. Заголовки клиента о его адресе туда не передаются:

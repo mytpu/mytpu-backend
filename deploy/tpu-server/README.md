@@ -46,10 +46,11 @@ sudo bash deploy/tpu-server/install.sh             # скрипты, катал�
 # 3. Параметры площадки: HTTPS-режим, сети консоли, адрес ml-server, пути к модели и базе стран
 sudo nano /etc/mytpu/server.env                    # права 0600, владелец root
 
-# 4. Учётные данные — отдельными файлами, права 0600
+# 4. Учётные данные — в закрытом каталоге (0700). Контейнер читает свой файл с режимом 0644.
 sudo sh -c 'printf "%s" "<ключ ml-server>" > /etc/mytpu/secrets/ml_api_key'
-# если репозиторий и пакеты закрыты: PAT только на чтение contents и packages
-sudo sh -c 'printf "%s" "<github-pat>" > /etc/mytpu/secrets/github_token'
+# если репозиторий и пакеты закрыты: файл только для root, токен только на чтение
+sudo install -m 0600 /dev/null /etc/mytpu/secrets/github_token
+sudoedit /etc/mytpu/secrets/github_token
 # GHCR_USER — имя владельца токена, в /etc/mytpu/server.env
 
 # 5. Данные, которые в релиз не входят: модель векторов e5 (ONNX) и база стран DB-IP
@@ -68,20 +69,25 @@ journalctl -u mytpu-update.service -f
 curl -sS https://mytpu.red.tpu.ru/actuator/health                       # {"status":"UP"}
 curl -sS -o /dev/null -w '%{http_code}\n' https://mytpu.red.tpu.ru/mcp  # 401 без ключа
 curl -sS -o /dev/null -w '%{http_code}\n' https://mytpu.red.tpu.ru/internal/tools  # 404
-curl -sS -H "Authorization: Bearer $CONSOLE_KEY" https://mytpu.red.tpu.ru/admin/api/keys   # JSON консоли
 ```
 
 Открыть консоль администраторам:
 
 ```bash
-sudo sed -i 's|^CONSOLE_ALLOWED_NETWORKS=.*|CONSOLE_ALLOWED_NETWORKS="10.0.0.0/8 192.168.0.0/16"|' /etc/mytpu/server.env
+sudoedit /etc/mytpu/server.env                # CONSOLE_ALLOWED_NETWORKS по правилам выбранного TLS-режима
 sudo /usr/local/bin/mytpu-update.sh --config    # пересобрать маршруты без обновления версии
+sudo docker compose --env-file /var/lib/mytpu/state/compose.env -f /var/lib/mytpu/state/compose.yml \
+  run --rm --no-deps -T gateway --spring.profiles.active=issue-key --owner=console-admin --roles=console.admin
 ```
 
 Дальше в браузере `https://mytpu.red.tpu.ru/console/`: вход ключом `console.admin` (изменения) или `console.viewer`
 (только чтение). Прямой переход на вложенную страницу и F5 работают, HTTP перенаправляется на HTTPS.
+Ключ выдаётся один раз в сеансе администратора. После проверки стенда включите таймер командой
+`sudo systemctl enable --now mytpu-update.timer`.
 
 ## Обновление
+
+Workflow выпускает релизы только из защищённой ветки `main`. Перед первым запуском убедитесь, что в GitHub для неё действует правило защиты ветки или ruleset.
 
 Таймер проверяет канал раз в 15 минут после загрузки сервера (`OnBootSec=5min`) и обновляет стенд, если в канале
 появился новый релиз. Один запуск — один комплект версий.
@@ -112,9 +118,10 @@ sudo /usr/local/bin/mytpu-update.sh --rollback   # предыдущий акти
 ## Прокси, адрес клиента и лимиты тела
 
 - `upstream`: Caddy слушает **только `127.0.0.1`** (`bind 127.0.0.1`), поэтому до него доходит лишь входной
-  прокси. Прокси обязан присылать `X-Forwarded-For` (он же делает HTTP → HTTPS и ограничение по сетям для
-  `/console/` и `/admin/api/**`); Caddy передаёт это значение шлюзу и assistant без изменений. Если прокси
-  заголовок не присылает, лимиты и геополитика ключей считаются по адресу прокси — проверьте настройку.
+  прокси на том же хосте. Он передаёт исходный `Host`, заменяет входной `X-Forwarded-For` проверенным адресом
+  клиента, делает HTTP → HTTPS и ограничивает доступ к `/console`, `/console/**`, `/admin/api` и `/admin/api/**`.
+  После проверки этого ограничения из двух сетей укажите `CONSOLE_ALLOWED_NETWORKS="127.0.0.1/32"`.
+  До проверки оставьте список пустым. Caddy передаёт проверенный адрес шлюзу и assistant.
 - `caddy-cert` и `letsencrypt`: клиент подключается напрямую, и Caddy сам подставляет адрес соединения
   (`header_up X-Forwarded-For {remote_host}`) — подделанный заголовок клиента до шлюза не доходит.
   Сетевое ограничение консоли здесь применяет сам Caddy (`CONSOLE_ALLOWED_NETWORKS`).

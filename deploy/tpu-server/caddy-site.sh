@@ -77,7 +77,7 @@ if [ "$MAIN_EXISTED" = 0 ]; then
     mkdir -p "$(dirname "$MAIN")"
     : > "$MAIN"
 fi
-if grep -Eq "^[[:space:]]*import[[:space:]]+mytpu\.caddy[[:space:]]*$" "$MAIN"; then
+if grep -Eq '^[[:space:]]*import[[:space:]]+mytpu\.caddy([[:space:]]+#.*|[[:space:]]*)$' "$MAIN"; then
     say "$MAIN уже подключает $SITE"
 else
     # Перевод строки в конце обязателен: файл мог не заканчиваться им
@@ -87,8 +87,8 @@ else
 fi
 
 # 3. Проверка итогового конфига целиком: чужой сайт и глобальные настройки тоже должны остаться валидными
-if ! caddy validate --config "$MAIN" >/tmp/caddy-validate.log 2>&1; then
-    fail "Caddy не принял итоговый конфиг $MAIN: $(tail -2 /tmp/caddy-validate.log | tr '\n' ' ')"
+if ! validation="$(caddy validate --config "$MAIN" 2>&1)"; then
+    fail "Caddy не принял итоговый конфиг $MAIN: $validation"
 fi
 say "итоговый конфиг $MAIN прошёл caddy validate"
 

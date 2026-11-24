@@ -120,7 +120,7 @@ case "$(uname -s)" in
     *)
         expect_eq "каталог параметров закрыт (700)" "700" "$(stat -c '%a' "$ROOT/config")"
         expect_eq "каталог секретов закрыт (700)" "700" "$(stat -c '%a' "$ROOT/config/secrets")"
-        expect_eq "секрет только для владельца (600)" "600" "$(stat -c '%a' "$ROOT/config/secrets/gateway_db_password")"
+        expect_eq "секрет читается пользователем контейнера (644)" "644" "$(stat -c '%a' "$ROOT/config/secrets/gateway_db_password")"
         ;;
 esac
 [ -d "$ROOT/config/postgres-init" ] && ok "каталог инициализации БД создан" || bad "нет каталога postgres-init"

@@ -55,6 +55,11 @@ jobs:
       - name: Сборка и проверка всех модулей
         run: mvn -B -ntp verify
 
+      - name: Сценарии установки и обновления
+        run: |
+          bash deploy/tpu-server/test/install-scenarios.sh
+          bash deploy/tpu-server/test/update-scenarios.sh
+
       - name: Проверка версии Node
         run: |
           node -e 'const [a,b]=process.versions.node.split(".").map(Number);
@@ -66,17 +71,24 @@ jobs:
           npm ci
           npx ng build
 
-  publish:
-    name: Образы, смоук и релиз
+  images:
+    name: Сборка и смоук (${{ matrix.arch }})
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     # Публикация — только из защищённой main: ручной запуск с другой ветки прогоняет проверки, но не публикует
-    if: github.ref == 'refs/heads/main'
-    # Запись в GHCR и создание релиза — только этой задаче
+    if: github.ref == 'refs/heads/main' && github.ref_protected
     permissions:
-      contents: write
+      contents: read
       packages: write
     env:
+      ARCH: ${{ matrix.arch }}
       GATEWAY_IMAGE: mytpu/gateway:smoke
       RAG_IMAGE: mytpu/rag:smoke
       ASSISTANT_IMAGE: mytpu/assistant:smoke
@@ -86,11 +98,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Версия релиза
-        run: |
-          # Версия = дата коммита и короткий SHA: уникальна, откат на любую прошлую
-          echo "VERSION=v$(git show -s --format=%cd --date=format:%Y%m%d "$GITHUB_SHA")-${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - name: Установка JDK 25
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -111,16 +118,15 @@ jobs:
       - name: Сборщик buildx
         run: docker buildx create --name mytpu --driver docker-container --use
 
-      # Сначала amd64 локально: на нём гоняются trivy и смоук. Кеш этого шага использует многоплатформенная сборка
-      - name: Образы amd64 для проверки
+      - name: Образы для проверки на нативном раннере
         run: |
-          docker buildx build --platform linux/amd64 --load \
+          docker buildx build --platform "linux/$ARCH" --load \
             -f deploy/docker/spring.Dockerfile --build-arg MODULE=services/gateway \
             -t "$GATEWAY_IMAGE" .
-          docker buildx build --platform linux/amd64 --load \
+          docker buildx build --platform "linux/$ARCH" --load \
             -f deploy/docker/spring.Dockerfile --build-arg MODULE=services/rag/rag-app \
             -t "$RAG_IMAGE" .
-          docker buildx build --platform linux/amd64 --load \
+          docker buildx build --platform "linux/$ARCH" --load \
             -f deploy/docker/spring.Dockerfile --build-arg MODULE=services/assistant \
             --build-arg TRAINING_ENV="ML_BASE_URL=http://localhost/v1 ML_API_KEY=training ML_CHAT_MODEL=training" \
             -t "$ASSISTANT_IMAGE" .
@@ -143,15 +149,15 @@ jobs:
       # Caddy нужен смоуку: версия закреплена, архив сверяется по контрольной сумме из релиза Caddy
       - name: Установка Caddy для смоука
         run: |
-          archive="caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+          archive="caddy_${CADDY_VERSION}_linux_${ARCH}.tar.gz"
           base="https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION"
-          curl -fsSL -o /tmp/caddy.tgz "$base/$archive"
+          curl -fsSL -o "/tmp/$archive" "$base/$archive"
           curl -fsSL -o /tmp/caddy.sums "$base/caddy_${CADDY_VERSION}_checksums.txt"
           # Имя архива сверяется с файлом контрольных сумм, а не берётся на веру
           line="$(grep -E "  ${archive}\$| \*${archive}\$" /tmp/caddy.sums || true)"
           [ -n "$line" ] || { echo "в контрольных суммах Caddy нет $archive"; exit 1; }
           (cd /tmp && printf '%s\n' "$line" | sha512sum -c -) || { echo "контрольная сумма $archive не сошлась"; exit 1; }
-          tar -xzf /tmp/caddy.tgz -C /tmp caddy
+          tar -xzf "/tmp/$archive" -C /tmp caddy
           sudo install -m 0755 /tmp/caddy /usr/local/bin/caddy
           caddy version
 
@@ -161,7 +167,13 @@ jobs:
 
       - name: Смоук готовых контейнеров и маршрутов
         run: |
-          bash deploy/tpu-server/smoke-stack.sh --release dist --console-dir console/dist/console/browser
+          model_dir="$(mktemp -d)"
+          trap 'rm -rf "$model_dir"' EXIT
+          model="https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78"
+          curl -fsSL --retry 3 --max-time 300 "$model/onnx/model_quantized.onnx" -o "$model_dir/model.onnx"
+          curl -fsSL --retry 3 --max-time 60 "$model/tokenizer.json" -o "$model_dir/tokenizer.json"
+          chmod 755 "$model_dir"
+          bash deploy/tpu-server/smoke-stack.sh --release dist --console-dir console/dist/console/browser --model-dir "$model_dir"
 
       # Без авторизации buildx не загрузит образы: логин строго перед публикацией
       - name: Логин в GHCR перед публикацией
@@ -171,22 +183,88 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Публикация образов только после проверок: две платформы, ссылка — по digest индекса
-      - name: Публикация образов в GHCR
+      - name: Загрузка проверенных образов в GHCR
+        run: |
+          mkdir -p digests
+          push() {
+            local service="$1" local_image="$2" ref output digest
+            ref="$IMAGE_PREFIX/$service:ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$ARCH"
+            docker tag "$local_image" "$ref"
+            output="$(docker push "$ref")"
+            digest="$(sed -nE 's/.*digest: (sha256:[0-9a-f]{64}).*/\1/p' <<< "$output")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            printf '%s\n' "$digest" > "digests/$service.digest"
+          }
+          push gateway "$GATEWAY_IMAGE"
+          push rag "$RAG_IMAGE"
+          push assistant "$ASSISTANT_IMAGE"
+
+      - name: Digest проверенной платформы
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digests-${{ matrix.arch }}
+          path: digests/
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Проверенный комплект выкладки
+        if: matrix.arch == 'amd64'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tpu-deploy-files
+          path: dist/
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    name: Индексы образов и релиз
+    needs: images
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Клонирование проекта
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Версия релиза
+        run: echo "VERSION=v$(git show -s --format=%cd --date=format:%Y%m%d "$GITHUB_SHA")-${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+
+      - name: Загрузка digest проверенных образов
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: digests-*
+          path: verified
+
+      - name: Загрузка проверенного комплекта выкладки
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tpu-deploy-files
+          path: dist
+
+      - name: Логин в GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Индексы из проверенных образов
         run: |
           mkdir -p build
-          push() { # push <сервис> <доп. аргументы сборки>
-            local service="$1"; shift
-            docker buildx build --platform linux/amd64,linux/arm64 --push \
-              -f deploy/docker/spring.Dockerfile "$@" \
-              --metadata-file "build/$service.json" \
-              -t "$IMAGE_PREFIX/$service:sha-$GITHUB_SHA" .
-            python3 -c "import json;print(json.load(open('build/$service.json'))['containerimage.digest'])" > "build/$service.digest"
-          }
-          push gateway --build-arg MODULE=services/gateway
-          push rag --build-arg MODULE=services/rag/rag-app
-          push assistant --build-arg MODULE=services/assistant \
-            --build-arg TRAINING_ENV="ML_BASE_URL=http://localhost/v1 ML_API_KEY=training ML_CHAT_MODEL=training"
+          for service in gateway rag assistant; do
+            image="$IMAGE_PREFIX/$service"
+            amd64="$(cat "verified/digests-amd64/$service.digest")"
+            arm64="$(cat "verified/digests-arm64/$service.digest")"
+            ref="$image:sha-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            docker buildx imagetools create -t "$ref" "$image@$amd64" "$image@$arm64"
+            digest="$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}')"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            printf '%s\n' "$digest" > "build/$service.digest"
+          done
+
       - name: Манифест релиза
         run: |
           bash deploy/tpu-server/release-manifest.sh --out dist --version "$VERSION" --source-sha "$GITHUB_SHA" \
@@ -199,9 +277,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           files="dist/release.json dist/SHA256SUMS dist/compose.yml dist/Caddyfile dist/console.tar.gz dist/01-databases.sh"
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            gh release upload "$VERSION" $files --clobber
-          else
-            gh release create "$VERSION" $files --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+          if [ "$(gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null || true)" = false ]; then
+            gh release view "$VERSION" --json tagName,url --jq '"релиз уже опубликован: \(.tagName) \(.url)"'
+            exit 0
           fi
+          if ! gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release create "$VERSION" --draft --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+          fi
+          gh release upload "$VERSION" $files --clobber
+          gh release edit "$VERSION" --draft=false
           gh release view "$VERSION" --json tagName,url --jq '"релиз: \(.tagName) \(.url)"'

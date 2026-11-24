@@ -57,7 +57,10 @@ SH
 cat > "$STUBS/caddy" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
-    validate) echo "Valid configuration" ;;
+    validate)
+        [[ " $* " == *" --adapter caddyfile "* ]] || exit 1
+        [ ! -f "$STUB_DIR/fail-caddy" ] || exit 1
+        echo "Valid configuration" ;;
     version) echo "v2.11.9 test" ;;
     *) echo "caddy $*" >> "${STUB_DIR:?}/commands.log" ;;
 esac
@@ -182,6 +185,7 @@ new_scenario() { # new_scenario <имя>
     ROOT="$WORK/$1"
     rm -rf "$ROOT"
     mkdir -p "$ROOT/config/secrets" "$ROOT/state" "$ROOT/releases" "$ROOT/cache" "$ROOT/caddy" "$ROOT/stub"
+    printf 'import mytpu.caddy\n' > "$ROOT/caddy/Caddyfile"
     STUB_DIR="$ROOT/stub"
     STUB_FIXTURE="$WORK/fixture"
     for name in pg_superuser_password gateway_db_password rag_db_password assistant_db_password \
@@ -341,11 +345,16 @@ expect_eq "активная версия прежняя" "v20261126-bbbbbbb" "$(
 
 echo "== сценарий 6: ошибка проверки здоровья — откат"
 make_release v20261129-eeeeeee eeeeeee
+caddy_before="$(cat "$ROOT/caddy/mytpu.caddy")"
+env_before="$(cat "$ROOT/state/compose.env")"
+printf 'старый конфиг\n' > "$ROOT/state/caddyfile.previous"
 echo fail > "$ROOT/stub/health"              # новый контейнер не отвечает UP
 run_update
 [ "$UPDATE_RC" -ne 0 ] && ok "запуск завершился ошибкой" || bad "запуск не заметил нездоровый контейнер"
 expect_contains "журнал: откат выполнен" "ОТКАТ" "$(cat "$ROOT/update.log")"
 expect_eq "после отката активна прежняя версия" "v20261126-bbbbbbb" "$(active)"
+expect_eq "ранний откат не трогает Caddy" "$caddy_before" "$(cat "$ROOT/caddy/mytpu.caddy")"
+expect_eq "активное окружение не изменилось" "$env_before" "$(cat "$ROOT/state/compose.env")"
 rm -f "$ROOT/stub/health"
 
 echo "== сценарий 7: манифест без digest — переключение не начинается"
@@ -415,6 +424,18 @@ expect_eq "активна версия повторной установки" "v
 echo "== сценарий 13: токен вне контейнеров и порядок инициализации БД"
 if grep -q 'github_token' "$TPU/compose.yml"; then bad "compose монтирует github_token в контейнер"; else ok "github_token не монтируется в контейнеры"; fi
 expect_contains "инициализация БД установлена до первого старта" "compose up file=$ROOT/releases/v20261204-c3d4e5f/compose.yml init=yes" "$(cat "$ROOT/stub/commands.log")"
+
+echo "== сценарий 14: итоговый Caddy невалиден до переключения"
+make_release v20261205-d4e5f6a d4e5f6a
+before="$(compose_ups)"
+env_before="$(cat "$ROOT/state/compose.env")"
+caddy_before="$(cat "$ROOT/caddy/mytpu.caddy")"
+: > "$ROOT/stub/fail-caddy"
+run_update
+[ "$UPDATE_RC" -ne 0 ] && ok "невалидный Caddy отклонён" || bad "проверка Caddy не сработала"
+expect_eq "контейнеры не переключались" "$before" "$(compose_ups)"
+expect_eq "активное окружение не изменилось" "$env_before" "$(cat "$ROOT/state/compose.env")"
+expect_eq "активный Caddy не изменился" "$caddy_before" "$(cat "$ROOT/caddy/mytpu.caddy")"
 
 echo
 if [ "$FAIL" -ne 0 ]; then

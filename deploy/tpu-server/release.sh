@@ -114,20 +114,25 @@ verify_release_manifest() { # verify_release_manifest <тег> <каталог> 
 }
 
 # Каталог релиза: compose, шаблон Caddy, init БД и распакованная статика консоли
-stage_release() { # stage_release <тег> <каталог загрузки> → печатает путь каталога релиза
-    local tag="$1" src="$2" dst="$RELEASES_DIR/$tag"
-    rm -rf "$dst"
-    mkdir -p "$dst/postgres/init" "$dst/console"
-    cp "$src/compose.yml" "$dst/compose.yml"
-    cp "$src/Caddyfile" "$dst/Caddyfile"
-    cp "$src/release.json" "$dst/release.json"
-    cp "$src/SHA256SUMS" "$dst/SHA256SUMS"
-    cp "$src/01-databases.sh" "$dst/postgres/init/01-databases.sh"
-    tar -xzf "$src/console.tar.gz" -C "$dst/console" || { echo "release: не распаковалась статика консоли" >&2; return 1; }
-    [ -s "$dst/console/index.html" ] || { echo "release: в архиве статики нет index.html" >&2; return 1; }
-    grep -q 'base href="/console/"' "$dst/console/index.html" \
+stage_release() ( # stage_release <тег> <каталог загрузки> → печатает путь каталога релиза
+    local tag="$1" src="$2" dst="$RELEASES_DIR/$1" staged
+    if [ -d "$dst" ]; then
+        cmp -s "$src/SHA256SUMS" "$dst/SHA256SUMS" \
+            || { echo "release: файлы опубликованной версии $tag изменились" >&2; return 1; }
+        printf '%s\n' "$dst"
+        return 0
+    fi
+    staged="$(mktemp -d "$RELEASES_DIR/.staged.XXXXXX")" || return 1
+    trap 'rm -rf "$staged"' EXIT
+    mkdir -p "$staged/postgres/init" "$staged/console" || return 1
+    cp "$src"/{compose.yml,Caddyfile,release.json,SHA256SUMS} "$staged/" || return 1
+    cp "$src/01-databases.sh" "$staged/postgres/init/01-databases.sh" || return 1
+    tar -xzf "$src/console.tar.gz" -C "$staged/console" || { echo "release: не распаковалась статика консоли" >&2; return 1; }
+    [ -s "$staged/console/index.html" ] || { echo "release: в архиве статики нет index.html" >&2; return 1; }
+    grep -q 'base href="/console/"' "$staged/console/index.html" \
         || { echo "release: сборка консоли без baseHref /console/ — проверьте angular.json и CI" >&2; return 1; }
     # Статику читает пользователь caddy (не root)
-    chmod -R a+rX "$dst"
+    chmod -R a+rX "$staged" || return 1
+    mv "$staged" "$dst" || return 1
     printf '%s\n' "$dst"
-}
+)

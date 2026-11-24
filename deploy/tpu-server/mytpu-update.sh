@@ -28,7 +28,13 @@ KEEP_RELEASES=3
 
 # Активный compose и его параметры — по постоянным путям: команды администратора не зависят от версии
 COMPOSE_FILE="$STATE_DIR/compose.yml"
-COMPOSE_ENV="$STATE_DIR/compose.env"
+ACTIVE_ENV="$STATE_DIR/compose.env"
+COMPOSE_ENV="$ACTIVE_ENV"
+RENDERED=""
+CHECK_MAIN=""
+CADDY_CHANGED=0
+CADDY_EXISTED=0
+ATTEMPT=""
 
 MODE=update
 ARG_TAG=""
@@ -62,14 +68,14 @@ compose_up() {
 
 # Ссылки на образы релиза кладутся в один файл вместе с параметрами сервера: одна --env-file на все команды
 write_compose_env() { # write_compose_env <каталог релиза>
-    local rel="$1" tmp="$STATE_DIR/compose.env.tmp"
+    local rel="$1" tmp="$COMPOSE_ENV.tmp"
     {
         echo "# Сгенерировано mytpu-update.sh $(date -u +%FT%TZ) для релиза $(basename "$rel"). Правки перезаписываются."
         cat "$SERVER_ENV"
         printf 'GATEWAY_IMAGE=%s\nRAG_IMAGE=%s\nASSISTANT_IMAGE=%s\n' "$IMG_GATEWAY" "$IMG_RAG" "$IMG_ASSISTANT"
     } > "$tmp"
     chmod 600 "$tmp"
-    mv -f "$tmp" "$STATE_DIR/compose.env"
+    mv -f "$tmp" "$COMPOSE_ENV"
 }
 
 # Активный compose — по постоянному пути: администратору не нужен номер версии в команде
@@ -103,46 +109,44 @@ pull_images() {
     done
 }
 
-install_caddyfile() { # install_caddyfile <шаблон Caddyfile в каталоге релиза>
-    local template="$1" rendered="$STATE_DIR/mytpu.caddy.new"
-    bash "$LIB_DIR/render-caddyfile.sh" "$SERVER_ENV" "$template" > "$rendered" \
+prepare_caddyfile() {
+    local template="$1" validation
+    local import_pattern='^[[:space:]]*import[[:space:]]+mytpu\.caddy([[:space:]]+#.*|[[:space:]]*)$'
+    grep -Eq "$import_pattern" "$MAIN_CADDY" || die "в $MAIN_CADDY нет импорта mytpu.caddy — запустите install.sh"
+    # Соседний файл сохраняет базовый путь остальных относительных импортов.
+    RENDERED="$(mktemp "$(dirname "$MAIN_CADDY")/.mytpu-site.XXXXXX")"
+    CHECK_MAIN="$(mktemp "$(dirname "$MAIN_CADDY")/.mytpu-main.XXXXXX")"
+    bash "$LIB_DIR/render-caddyfile.sh" "$SERVER_ENV" "$template" > "$RENDERED" \
         || die "не удалось собрать конфиг маршрутов из шаблона"
-    # 1. Синтаксис самого файла маршрутов
-    caddy validate --config "$rendered" 2>&1 | grep -q 'Valid configuration' \
-        || { rm -f "$rendered"; die "caddy validate не принял конфиг маршрутов — Caddy не изменён"; }
+    sed -E "s/$import_pattern/import $(basename "$RENDERED")/" "$MAIN_CADDY" > "$CHECK_MAIN"
+    if ! validation="$(caddy validate --config "$CHECK_MAIN" --adapter caddyfile 2>&1)"; then
+        die "Caddy не принял итоговый конфиг: $validation"
+    fi
+}
 
-    if [ -f "$CADDY_FILE" ] && cmp -s "$rendered" "$CADDY_FILE"; then
+install_caddyfile() {
+    if [ -f "$CADDY_FILE" ] && cmp -s "$RENDERED" "$CADDY_FILE"; then
         log "конфиг маршрутов не изменился"
-        rm -f "$rendered"
         return 0
     fi
-    if [ -f "$CADDY_FILE" ]; then cp -p "$CADDY_FILE" "$STATE_DIR/caddyfile.previous"; fi
-    install -m 0644 "$rendered" "$CADDY_FILE"
-    rm -f "$rendered"
-
-    # 2. Итоговый конфиг с импортами: чужой сайт и глобальные настройки тоже должны остаться валидными
-    if [ -f "$MAIN_CADDY" ] && grep -q 'import mytpu.caddy' "$MAIN_CADDY"; then
-        if ! caddy validate --config "$MAIN_CADDY" >"$STATE_DIR/caddy-validate.log" 2>&1; then
-            restore_caddyfile
-            die "итоговый конфиг Caddy не принял новые маршруты: $(tail -2 "$STATE_DIR/caddy-validate.log" | tr '\n' ' ')"
-        fi
-    else
-        log "ВНИМАНИЕ: $MAIN_CADDY не импортирует mytpu.caddy (это делает install.sh)"
+    if [ -f "$CADDY_FILE" ]; then
+        cp -p "$CADDY_FILE" "$ATTEMPT/caddyfile.previous"
+        CADDY_EXISTED=1
     fi
-
-    if ! $CADDY_RELOAD; then
-        restore_caddyfile
-        die "Caddy не перечитал конфиг — маршруты возвращены"
-    fi
+    CADDY_CHANGED=1
+    install -m 0644 "$RENDERED" "$CADDY_FILE"
+    $CADDY_RELOAD || die "Caddy не перечитал конфиг"
     log "конфиг маршрутов обновлён, Caddy перечитан"
 }
 
 restore_caddyfile() {
-    if [ -f "$STATE_DIR/caddyfile.previous" ]; then
-        install -m 0644 "$STATE_DIR/caddyfile.previous" "$CADDY_FILE"
-        $CADDY_RELOAD || log "ОТКАТ: Caddy не перечитал прежний конфиг — нужен администратор"
-        log "ОТКАТ: прежний конфиг маршрутов возвращён"
+    [ "$CADDY_CHANGED" = 1 ] || return 0
+    if [ "$CADDY_EXISTED" = 1 ]; then
+        install -m 0644 "$ATTEMPT/caddyfile.previous" "$CADDY_FILE"
+    else
+        rm -f "$CADDY_FILE"
     fi
+    $CADDY_RELOAD || log "ОТКАТ: Caddy не перечитал прежний конфиг — нужен администратор"
 }
 
 wait_healthy() { # wait_healthy <сервис> <функция проверки> <попыток>
@@ -153,37 +157,59 @@ wait_healthy() { # wait_healthy <сервис> <функция проверки>
 }
 
 ROLLBACK_DONE=0
+save_active_state() {
+    local file
+    mkdir "$ATTEMPT/active"
+    for file in compose.yml compose.env current-version previous; do
+        if [ -f "$STATE_DIR/$file" ]; then cp -p "$STATE_DIR/$file" "$ATTEMPT/active/$file"; fi
+    done
+}
+
+restore_active_state() {
+    local file
+    for file in compose.yml compose.env current-version previous; do
+        if [ -f "$ATTEMPT/active/$file" ]; then
+            cp -p "$ATTEMPT/active/$file" "$STATE_DIR/$file"
+        else
+            rm -f "$STATE_DIR/$file"
+        fi
+    done
+}
+
 rollback() {
-    local rc="$1"
     [ "$SWITCHED" = 1 ] || return 0
     if [ "$ROLLBACK_DONE" = 1 ]; then return 0; fi
     ROLLBACK_DONE=1
     log "ОТКАТ: возвращаю ${PREV_TAG:-предыдущий комплект}"
     if [ -n "$PREV_DIR" ] && [ -d "$PREV_DIR" ] && [ -f "$PREV_DIR/compose.yml" ]; then
-        # Возвращается фактический предыдущий комплект: его compose, статика, init БД и образы из его манифеста
-        COMPOSE_FILE="$PREV_DIR/compose.yml"
-        printf '%s\n' "$PREV_TAG" > "$STATE_DIR/current-version"
-        install_compose "$PREV_DIR"
+        restore_active_state
+        COMPOSE_FILE="$STATE_DIR/compose.yml"
         install_postgres_init "$PREV_DIR"
         switch_static "$PREV_DIR"
-        if verify_release_manifest "$PREV_TAG" "$PREV_DIR" 2>/dev/null \
-            && write_compose_env "$PREV_DIR" && compose_up; then
-            wait_until 45 2 gateway_health && wait_until 45 2 assistant_health \
+        COMPOSE_ENV="$ACTIVE_ENV"
+        if compose_up; then
+            wait_until 30 2 postgres_health && wait_until 90 2 rag_health \
+                && wait_until 45 2 gateway_health && wait_until 45 2 assistant_health && check_routes \
                 && log "ОТКАТ: ${PREV_TAG} поднят" \
                 || log "ОТКАТ: ${PREV_TAG} запущен, но здоровье не подтверждено — нужен администратор"
         else
             log "ОТКАТ: не удалось поднять ${PREV_TAG} — нужен администратор"
         fi
     else
-        log "ОТКАТ: предыдущего релиза нет (первая установка) — оставляю как есть"
+        compose stop postgres rag gateway assistant || log "ОТКАТ: не удалось остановить первый релиз"
+        restore_active_state
     fi
-    restore_caddyfile
-    exit "$rc"
 }
 
 on_exit() {
     local rc=$?
-    if [ "$rc" -ne 0 ]; then rollback "$rc"; fi
+    if [ "$rc" -ne 0 ]; then
+        restore_caddyfile
+        rollback
+    fi
+    if [ -n "$RENDERED" ]; then rm -f "$RENDERED"; fi
+    if [ -n "$CHECK_MAIN" ]; then rm -f "$CHECK_MAIN"; fi
+    if [ -n "$ATTEMPT" ]; then rm -rf "$ATTEMPT"; fi
     if [ "$LOGGED_IN" = 1 ]; then docker logout "${GHCR_REGISTRY:-ghcr.io}" >/dev/null 2>&1 || true; fi
     exit "$rc"
 }
@@ -220,10 +246,8 @@ write_previous() {
 apply_release() { # apply_release <тег>
     local tag="$1" dir="$CACHE_DIR/$tag" rel
     # Тег приходит из сети: он же становится именем каталога, поэтому формат проверяется
-    case "$tag" in
-        v[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
-        *) die "неожиданный тег релиза: '$tag' (ожидается v<ГГГГММДД>-<sha>)" ;;
-    esac
+    [[ "$tag" =~ ^v[0-9]{8}-[0-9a-f]{7}$ ]] \
+        || die "неожиданный тег релиза: '$tag' (ожидается v<ГГГГММДД>-<sha>)"
     rm -rf "$dir"
     log "загрузка релиза $tag из github.com/$MYTPU_REPO"
     download_release "$dir" || die "загрузка прервана — текущий релиз продолжает работать"
@@ -232,16 +256,18 @@ apply_release() { # apply_release <тег>
     log "релиз $tag подготовлен: $rel"
     # Проверки и запуск — по compose целевого релиза: на чистой установке активного compose ещё нет
     COMPOSE_FILE="$rel/compose.yml"
+    COMPOSE_ENV="$ATTEMPT/compose.env"
     [ -f "$COMPOSE_FILE" ] || die "в релизе $tag нет compose.yml — переключение не начато"
     write_compose_env "$rel"
     compose config --quiet || die "Compose не принял конфигурацию релиза — переключение не начато"
     pull_images || die "образы не загружены — текущий релиз продолжает работать"
+    prepare_caddyfile "$rel/Caddyfile"
     remember_previous
+    save_active_state
     # Скрипт инициализации БД должен лежать на месте до первого старта postgres на новом томе
-    install_postgres_init "$rel"
-
-    log "запуск контейнеров релиза $tag"
     SWITCHED=1
+    install_postgres_init "$rel"
+    log "запуск контейнеров релиза $tag"
     compose_up || die "контейнеры релиза $tag не запустились"
     wait_healthy postgres postgres_health 30
     wait_healthy rag rag_health 90
@@ -249,14 +275,16 @@ apply_release() { # apply_release <тег>
     wait_healthy assistant assistant_health 45
 
     log "переключение статики и конфига маршрутов"
-    install_compose "$rel"
     switch_static "$rel"
-    install_caddyfile "$rel/Caddyfile"
+    install_caddyfile
 
     log "версия $tag переключена, проверка маршрутов"
     check_routes || die "маршруты после переключения не в порядке"
+    install_compose "$rel"
+    mv -f "$COMPOSE_ENV" "$ACTIVE_ENV"
     printf '%s\n' "$tag" > "$STATE_DIR/current-version"
     write_previous
+    SWITCHED=0
     log "активна версия $tag"
     prune_releases
 }
@@ -266,15 +294,18 @@ manual_rollback() {
     [ -n "$prev" ] && [ -d "$RELEASES_DIR/$prev" ] || die "предыдущего релиза нет"
     [ -f "$RELEASES_DIR/$prev/compose.yml" ] || die "в релизе $prev нет compose.yml"
     log "ручной откат на $prev"
-    SWITCHED=1
     remember_previous
     verify_release_manifest "$prev" "$RELEASES_DIR/$prev" || die "манифест $prev не сходится"
     COMPOSE_FILE="$RELEASES_DIR/$prev/compose.yml"
+    COMPOSE_ENV="$ATTEMPT/compose.env"
     write_compose_env "$RELEASES_DIR/$prev"
-    install_compose "$RELEASES_DIR/$prev"
+    compose config --quiet || die "Compose не принял конфигурацию отката"
+    prepare_caddyfile "$RELEASES_DIR/$prev/Caddyfile"
+    save_active_state
+    SWITCHED=1
     install_postgres_init "$RELEASES_DIR/$prev"
     switch_static "$RELEASES_DIR/$prev"
-    install_caddyfile "$RELEASES_DIR/$prev/Caddyfile"
+    install_caddyfile
     # Версия записывается только после здоровья и маршрутов: иначе состояние соврёт о том, что запущено
     compose_up || die "откат на $prev не поднялся — нужен администратор"
     wait_healthy postgres postgres_health 30
@@ -282,6 +313,8 @@ manual_rollback() {
     wait_healthy gateway gateway_health 45
     wait_healthy assistant assistant_health 45
     check_routes || die "после отката на $prev маршруты не в порядке — нужен администратор"
+    install_compose "$RELEASES_DIR/$prev"
+    mv -f "$COMPOSE_ENV" "$ACTIVE_ENV"
     printf '%s\n' "$prev" > "$STATE_DIR/current-version"
     write_previous
     SWITCHED=0
@@ -314,14 +347,18 @@ main() {
     [ -n "${MYTPU_HOST:-}" ] || die "MYTPU_HOST не задан в $SERVER_ENV"
 
     case "$MODE" in
-        rollback) manual_rollback; return 0 ;;
+        rollback)
+            ATTEMPT="$(mktemp -d "$STATE_DIR/.update.XXXXXX")"
+            manual_rollback
+            return 0 ;;
         config)
+            ATTEMPT="$(mktemp -d "$STATE_DIR/.update.XXXXXX")"
             # Изменились сети консоли, режим TLS или пути: маршруты пересобираются из активного релиза
             local active_release; active_release="$(active_tag)"
             [ -n "$active_release" ] && [ -d "$RELEASES_DIR/$active_release" ] || die "нет активного релиза"
-            install_caddyfile "$RELEASES_DIR/$active_release/Caddyfile"
+            prepare_caddyfile "$RELEASES_DIR/$active_release/Caddyfile"
+            install_caddyfile
             if ! check_routes; then
-                restore_caddyfile
                 die "маршруты после пересборки конфига не в порядке — прежний конфиг возвращён"
             fi
             log "конфиг маршрутов пересобран из релиза $active_release"
@@ -339,6 +376,7 @@ main() {
         log "версия $tag уже активна — обновление пропущено"
         return 0
     fi
+    ATTEMPT="$(mktemp -d "$STATE_DIR/.update.XXXXXX")"
     apply_release "$tag"
 }
 
