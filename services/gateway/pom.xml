@@ -14,7 +14,7 @@
     <artifactId>gateway</artifactId>
 
     <properties>
-        <jsoup.version>1.22.1</jsoup.version>
+        <jsoup.version>1.23.2</jsoup.version>
     </properties>
 
     <dependencies>
