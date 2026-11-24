@@ -105,7 +105,8 @@ services:
       RAG_URL: http://rag:8080
       # Адрес caddy (/32) на сервере; на dev-стенде прокси нет — пусто (X-Forwarded-For не учитывается)
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
-      # Консоль: с каких сетей (в контейнере запрос с хоста приходит с адреса шлюза сети edge — см. deploy/README.md)
+      # Консоль — только на порту 8090 (на хосте 127.0.0.1:18090) и только соединениям с этих сетей. В контейнере
+      # соединение с хоста приходит с адреса шлюза сети edge, а не с 127.0.0.1 — см. deploy/README.md
       ADMIN_ALLOWED_NETWORKS: ${ADMIN_ALLOWED_NETWORKS:-127.0.0.1/32,::1/128}
       CONNECTORS_DENIED_NETWORKS: ${CONNECTORS_DENIED_NETWORKS:-}
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://127.0.0.1:8081}
@@ -116,7 +117,8 @@ services:
     volumes:
       - ${GEO_DB_HOST_DIR:-../geo}:/geo:ro
     tmpfs: ["/tmp:size=16m"]
-    ports: ["127.0.0.1:8081:8080"]
+    # 8081 — /mcp и health (за ним Caddy); 18090 — только консоль, прокси на него не ставить
+    ports: ["127.0.0.1:8081:8080", "127.0.0.1:18090:8090"]
     # edge — выход наружу (rasp.tpu.ru) и опубликованный порт; core — к rag и от assistant; data — к своей БД.
     # Имя gateway-core есть только в core: assistant ходит к инструментам по внутренней сети, а не через edge
     networks:

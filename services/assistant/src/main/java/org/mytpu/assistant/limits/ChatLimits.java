@@ -52,10 +52,18 @@ public class ChatLimits {
     }
 
     public Permit acquire(HttpServletRequest request) {
+        checkRate(request);
+        return reserve();
+    }
+
+    public void checkRate(HttpServletRequest request) {
         AtomicInteger used = perAddress.get(addresses.of(request), k -> new AtomicInteger());
         if (used.incrementAndGet() > properties.perIpPerMinute()) {
             throw new ChatException(HttpStatus.TOO_MANY_REQUESTS, "rate_limited");
         }
+    }
+
+    public Permit reserve() {
         if (!slots.tryAcquire()) {
             throw new ChatException(HttpStatus.TOO_MANY_REQUESTS, "busy");
         }

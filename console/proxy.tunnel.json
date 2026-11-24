@@ -1,10 +1,7 @@
 {
   "/admin/api": {
-    "target": "http://127.0.0.1:18081",
+    "target": "http://127.0.0.1:18090",
     "secure": false,
-    "changeOrigin": true,
-    "headers": {
-      "X-Forwarded-For": "127.0.0.1"
-    }
+    "changeOrigin": true
   }
 }

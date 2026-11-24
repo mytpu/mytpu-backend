@@ -30,17 +30,19 @@ public class AccessCheck implements ToolCheck {
 
     @Override
     public boolean visible(CallRequest request, RegisteredTool tool) {
-        return reason(request, tool.descriptor()) == null;
+        return reason(request, tool) == null;
     }
 
     @Override
     public Optional<ToolResult<?>> check(CallState state) {
-        String reason = reason(state.request(), state.tool().descriptor());
+        String reason = reason(state.request(), state.tool());
         return reason == null ? Optional.empty() : Optional.of(ToolResult.denied(ErrorCode.TOOL_NOT_ALLOWED, messages.text(reason)));
     }
 
-    private static String reason(CallRequest request, ToolDescriptor descriptor) {
-        if (!request.context().hasScope(descriptor.scope()) || request.policy().deniedTools().contains(descriptor.name())) {
+    private static String reason(CallRequest request, RegisteredTool tool) {
+        ToolDescriptor descriptor = tool.descriptor();
+        if (!tool.tool().availableOn(request.context().channel()) || !request.context().hasScope(descriptor.scope())
+                || request.policy().deniedTools().contains(descriptor.name())) {
             return "error.tool_not_allowed";
         }
         if (descriptor.sensitivity() == Sensitivity.SENSITIVE && request.context().channel() == Channel.MCP) {

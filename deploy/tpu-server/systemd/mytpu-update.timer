@@ -1,0 +1,15 @@
+[Unit]
+Description=Проверка канала релизов «Мой ТПУ» на сервере ТПУ
+
+[Timer]
+# Первый круг — через 5 минут после старта сервера, дальше раз в 15 минут
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=60
+AccuracySec=1min
+# Пропущенный из-за выключения круг выполняется один раз после включения
+Persistent=true
+Unit=mytpu-update.service
+
+[Install]
+WantedBy=timers.target

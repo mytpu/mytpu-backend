@@ -1,0 +1,75 @@
+# Сайт стенда «Мой ТПУ» на сервере ТПУ.
+# Шаблон: render-caddyfile.sh подставляет значения из /etc/mytpu/server.env. Готовый файл проверяется
+# 'caddy validate' вместе с основным конфигом и ставится в /etc/caddy/mytpu.caddy; основной
+# /etc/caddy/Caddyfile подключает его строкой 'import mytpu.caddy' (install.sh не теряет чужие сайты).
+#
+# Наружу открыты только:
+#   /console/*        статика консоли администратора (SPA; fallback только внутри /console/)
+#   /admin/api/*      API консоли → порт консоли шлюза 127.0.0.1:18090 (ключ и роли проверяет шлюз)
+#   /mcp*             MCP Streamable HTTP / SSE
+#   /actuator/health  проверка работоспособности шлюза
+#   /api/ai/*         стриминг чата assistant
+# Остальное — 404: /internal/**, порт консоли 18090 и порты сервисов наружу не публикуются.
+
+{{SITE_ADDRESS}} {
+{{SITE_OPTIONS}}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+{{TLS_LINE}}
+	# Пути, которые Caddy и Tomcat понимают по-разному (/mcp/..;/admin/...), — отказ до проксирования
+	@suspicious path_regexp (?i)(;|\.\.|%2e|%2f|%3b|%5c|\\)
+	handle @suspicious {
+		respond 400
+	}
+
+	# MCP-шлюз (Streamable HTTP и SSE события); тело ограничено и здесь, и в самом шлюзе
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		request_body {
+			max_size 2MB
+		}
+		reverse_proxy 127.0.0.1:8081 {
+			flush_interval -1
+{{XFF_LINE}}
+		}
+	}
+
+	# Проверка работоспособности gateway
+	handle /actuator/health {
+		reverse_proxy 127.0.0.1:8081 {
+{{XFF_LINE}}
+		}
+	}
+
+	# Чат assistant (SSE-стриминг meta/status/delta/done)
+	handle /api/ai/* {
+		request_body {
+			max_size 2MB
+		}
+		reverse_proxy 127.0.0.1:8082 {
+			flush_interval -1
+{{XFF_LINE}}
+		}
+	}
+
+{{CONSOLE_SECTION}}
+	# Всё прочее (корень, /admin, /internal/**, /actuator/*) не проксируется
+	handle {
+		respond 404
+	}
+
+	# Ключ клиента чата в журнал Caddy не попадает (Authorization и Cookie Caddy скрывает сам)
+	log {
+		output stdout
+		format filter {
+			wrap console
+			fields {
+				request>headers>X-Assistant-Key delete
+			}
+		}
+	}
+}

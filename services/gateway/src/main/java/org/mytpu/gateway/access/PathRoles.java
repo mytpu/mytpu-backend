@@ -4,7 +4,7 @@ package org.mytpu.gateway.access;
  * Проверка соответствия роли ключа и пути запроса (docs/SECURITY.md, разделы 5 и 14).
  * {@code /chat/**} — только роль {@code chat.service}.
  * {@code /internal/**} и {@code /admin/api/**} — только роли консоли.
- * Ключ {@code chat.service} не имеет доступа к {@code /mcp} и консоли.
+ * Роли консоли и {@code chat.service} не дают доступа к {@code /mcp}.
  */
 public final class PathRoles {
     private PathRoles() {
@@ -33,20 +33,23 @@ public final class PathRoles {
     }
 
     public static AccessCheck checkAccess(ApiClient client, String path, String method) {
+        boolean chatService = client.hasChatServiceRole();
+        boolean consoleRole = client.hasConsoleRole();
         if (isChat(path)) {
-            if (client.hasChatServiceRole()) {
+            if (chatService && !consoleRole) {
                 return AccessCheck.ok();
             }
             return AccessCheck.forbidden("access.chat_service_role");
         }
-        if (client.hasChatServiceRole()) {
-            if (isMcp(path) || isConsole(path)) {
-                return AccessCheck.forbidden("access.mcp_role");
-            }
+        if (isMcp(path) && (chatService || consoleRole)) {
+            return AccessCheck.forbidden("access.mcp_role");
         }
         if (isConsole(path)) {
+            if (chatService) {
+                return AccessCheck.forbidden("access.mcp_role");
+            }
             boolean readOnly = "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
-            boolean allowed = readOnly ? client.hasConsoleRole() : client.roles().contains(ApiClient.CONSOLE_ADMIN);
+            boolean allowed = readOnly ? consoleRole : client.roles().contains(ApiClient.CONSOLE_ADMIN);
             if (!allowed) {
                 return AccessCheck.forbidden("access.console_role");
             }

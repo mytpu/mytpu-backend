@@ -2,6 +2,7 @@ package org.mytpu.gateway.integrations.rasp;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.mytpu.gateway.runtime.Messages;
 import org.mytpu.tool.api.Integration;
@@ -20,10 +21,14 @@ public class RaspIntegration implements Integration {
     private final List<Tool<?, ?>> tools = new ArrayList<>();
     private final Messages messages;
 
-    public RaspIntegration(RaspProperties properties, Messages messages) {
+    public RaspIntegration(RaspProperties properties, Messages messages, Optional<DemoCalendar> demo) {
         this.messages = messages;
         RaspClient client = new RaspClient(properties, messages);
         tools.add(new RaspFindTool(client, messages, properties.publicUrl()));
+        demo.ifPresent(calendar -> {
+            tools.add(new DemoCalendarTool("rasp_day", false, calendar, messages));
+            tools.add(new DemoCalendarTool("rasp_week", true, calendar, messages));
+        });
     }
 
     @Override

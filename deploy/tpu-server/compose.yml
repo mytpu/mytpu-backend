@@ -1,0 +1,178 @@
+# Стенд «Мой ТПУ» на сервере ТПУ — Compose-файл релиза (см. deploy/tpu-server/README.md).
+# Сервер не собирает образы: gateway, rag и assistant приходят из релиза GitHub по digest, postgres — по
+# закреплённому тегу. Параметры сервера — /etc/mytpu/server.env, ссылки на образы релиза — в
+# /var/lib/mytpu/state/compose.env, секреты — файлами в /etc/mytpu/secrets/ (в git и в образы не попадают).
+# Запускает mytpu-update.sh; вручную:
+#   docker compose -f /var/lib/mytpu/state/compose.yml --env-file /var/lib/mytpu/state/compose.env ps
+name: ${MYTPU_PROJECT:-mytpu}
+
+x-spring-hardening: &spring-hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  restart: unless-stopped
+  # Образы только из релиза: compose не тянет :latest и не подменяет версию сам (тянет mytpu-update.sh по digest)
+  pull_policy: never
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:0.8.1-pg17}
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser_password
+    secrets: [pg_superuser_password, gateway_db_password, rag_db_password, assistant_db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Первый запуск на пустом томе создаёт БД и пользователей сервисов; скрипт кладёт mytpu-update.sh
+      - ${MYTPU_CONFIG_DIR:-/etc/mytpu}/postgres-init:/docker-entrypoint-initdb.d:ro
+    command: >-
+      postgres -c shared_buffers=128MB -c max_connections=40
+      -c work_mem=4MB -c maintenance_work_mem=64MB
+    networks: [data]
+    mem_limit: 640m
+    memswap_limit: 640m
+    security_opt: ["no-new-privileges:true"]
+    # Postgres сам меняет владельца данных и переключается на своего пользователя — оставлены только эти права
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rag:
+    <<: *spring-hardening
+    image: ${RAG_IMAGE:?RAG_IMAGE — digest образа rag из манифеста релиза}
+    environment:
+      RAG_MODEL_DIR: /models/e5
+      DJL_CACHE_DIR: /tmp/djl
+      # Модель векторов живёт вне кучи: куче — 30 % лимита (решение 19.10)
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=30 -XX:InitialRAMPercentage=10"
+    secrets: [rag_db_password, rag_internal_key, rag_admin_key]
+    volumes:
+      - ${RAG_MODEL_HOST_DIR:?RAG_MODEL_HOST_DIR — каталог модели e5 в server.env}:/models/e5:ro
+      # Нативные библиотеки ONNX и токенизатора распаковываются в /tmp: том на диске, а не tmpfs в памяти
+      - rag-tmp:/tmp
+      # Файлы из консоли rag (mytpu.rag.files-dir = /data/files)
+      - rag-files:/data
+    networks: [core, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    mem_limit: 380m
+    memswap_limit: 380m
+
+  # Разовый ingest тем же образом rag, что и поиск: версия и схема совпадают
+  rag-ingest:
+    <<: *spring-hardening
+    image: ${RAG_IMAGE:?RAG_IMAGE — digest образа rag из манифеста релиза}
+    profiles: [ingest]
+    environment:
+      SPRING_PROFILES_ACTIVE: ingest
+      RAG_MODEL_DIR: /models/e5
+      RAG_DATASET_DIR: /data/dataset
+      DJL_CACHE_DIR: /tmp/djl
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=30 -XX:InitialRAMPercentage=10"
+    secrets: [rag_db_password]
+    volumes:
+      - ${RAG_MODEL_HOST_DIR:?RAG_MODEL_HOST_DIR — каталог модели e5 в server.env}:/models/e5:ro
+      - ${RAG_DATASET_HOST_DIR:?RAG_DATASET_HOST_DIR — каталог корпуса в server.env}:/data/dataset:ro
+      - rag-ingest-tmp:/tmp
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 2
+    restart: "no"
+
+  gateway:
+    <<: *spring-hardening
+    image: ${GATEWAY_IMAGE:?GATEWAY_IMAGE — digest образа gateway из манифеста релиза}
+    environment:
+      RAG_URL: http://rag:8080
+      # Адрес Caddy: шлюз берёт из X-Forwarded-For клиентский адрес только от него
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES — адрес шлюза сети edge в server.env}
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:?GATEWAY_PUBLIC_URL — публичный адрес стенда в server.env}
+      # Порт консоли (18090) пускает только соединения с хоста — сюда приходит и Caddy, и SSH-туннель
+      ADMIN_ALLOWED_NETWORKS: ${ADMIN_ALLOWED_NETWORKS:?ADMIN_ALLOWED_NETWORKS — адрес шлюза сети edge в server.env}
+      # На стенде только ключи v2 (с контрольной суммой): случайные строки формата v1 не доходят до поиска в БД
+      V1_KEYS_UNTIL: ${V1_KEYS_UNTIL:-2026-10-01}
+      # Проверка страны ключа: на стенде включена (без файла базы шлюз не стартует), в смоуке CI выключена
+      KEY_GEO_ENABLED: ${KEY_GEO_ENABLED:-true}
+      # Живых данных в куче немного (кэш ограничен 32 МБ): потолок 40 % лимита
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=40"
+    secrets: [gateway_db_password, rag_internal_key, gateway_audit_key, connector_vault_key, rag_admin_key, key_alert_webhook]
+    volumes:
+      - ${GEO_DB_HOST_DIR:?GEO_DB_HOST_DIR — каталог базы стран в server.env}:/geo:ro
+    tmpfs: ["/tmp:size=16m"]
+    # 8081 — /mcp и health (за ним Caddy); 18090 — только консоль, наружу и в прокси не публикуется
+    ports: ["127.0.0.1:8081:8080", "127.0.0.1:18090:8090"]
+    networks:
+      edge: {}
+      core: {aliases: [gateway-core]}
+      data: {}
+    depends_on:
+      postgres: {condition: service_healthy}
+      rag: {condition: service_started}
+    mem_limit: 380m
+    memswap_limit: 380m
+
+  assistant:
+    <<: *spring-hardening
+    image: ${ASSISTANT_IMAGE:?ASSISTANT_IMAGE — digest образа assistant из манифеста релиза}
+    environment:
+      ML_BASE_URL: ${ML_BASE_URL:?ML_BASE_URL — адрес ml-server с /v1 в server.env}
+      ML_CHAT_MODEL: ${ML_CHAT_MODEL:-tpu-assistant}
+      # Инструменты — только через вход шлюза /chat/tools (ключ chat.service), не rag напрямую
+      GATEWAY_URL: http://gateway-core:8080
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES — адрес шлюза сети edge в server.env}
+    # assistant_client_key — ключ клиента чата: /api/ai/* открыт наружу, без ключа любой тратил бы квоту модели
+    secrets: [ml_api_key, assistant_gateway_key, assistant_client_key]
+    tmpfs: ["/tmp:size=16m"]
+    ports: ["127.0.0.1:8082:8080"]
+    networks: [edge, core]
+    mem_limit: 300m
+    memswap_limit: 300m
+
+networks:
+  # Единственная сеть с выходом наружу и опубликованными портами; публикуются только loopback-порты
+  edge:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${EDGE_SUBNET:-172.31.240.0/24}
+  core:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: ${CORE_SUBNET:-172.31.241.0/24}
+  data:
+    internal: true
+
+volumes:
+  # Имя тома постоянное: данные переживают переустановку, смену каталога и откат образов
+  pgdata:
+    name: ${MYTPU_PGDATA_VOLUME:-mytpu-pgdata}
+  rag-files:
+    name: ${MYTPU_RAG_FILES_VOLUME:-mytpu-rag-files}
+  rag-tmp:
+  rag-ingest-tmp:
+
+# Файлы-секреты читает демон Docker при создании контейнера; в образы и в git они не попадают
+secrets:
+  pg_superuser_password: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/pg_superuser_password"}
+  gateway_db_password: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/gateway_db_password"}
+  rag_db_password: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/rag_db_password"}
+  assistant_db_password: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/assistant_db_password"}
+  rag_internal_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/rag_internal_key"}
+  gateway_audit_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/gateway_audit_key"}
+  connector_vault_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/connector_vault_key"}
+  rag_admin_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/rag_admin_key"}
+  ml_api_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/ml_api_key"}
+  assistant_gateway_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/assistant_gateway_key"}
+  assistant_client_key: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/assistant_client_key"}
+  key_alert_webhook: {file: "${MYTPU_CONFIG_DIR:-/etc/mytpu}/secrets/key_alert_webhook"}

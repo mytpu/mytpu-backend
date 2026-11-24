@@ -28,3 +28,5 @@
   (ключ `demo`, `demo-viewer` — только чтение).
 - Тестовый стенд на сервере: `deploy/test-server/README.md` (`pack.sh` → `upload.sh` → `up.sh` → `seed.sh`,
   консоль — `bash deploy/test-server/console.sh`).
+- Стенд ТПУ без Docker: `bash deploy/tpu-server/test/update-scenarios.sh` (сценарии обновления и отката на заглушках);
+  при установленном Caddy — `bash deploy/tpu-server/smoke-routes.sh --console-dir console/dist/console/browser`.

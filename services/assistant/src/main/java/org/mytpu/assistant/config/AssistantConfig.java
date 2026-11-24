@@ -3,6 +3,8 @@ package org.mytpu.assistant.config;
 import java.time.Clock;
 import java.time.ZoneId;
 
+import org.mytpu.assistant.limits.ChatLimits;
+import org.mytpu.assistant.limits.ClientAddress;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,5 +21,10 @@ public class AssistantConfig {
     @ConditionalOnMissingBean
     public Clock clock() {
         return Clock.system(TOMSK_ZONE);
+    }
+
+    @Bean(defaultCandidate = false)
+    public ChatLimits scheduleLimits(ChatProperties properties, ClientAddress addresses) {
+        return new ChatLimits(properties, addresses);
     }
 }

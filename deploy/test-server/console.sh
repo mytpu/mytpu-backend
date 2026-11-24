@@ -2,7 +2,7 @@
 # Консоль тестового стенда на ПК одной командой (Git Bash, из корня репозитория):
 #   bash deploy/test-server/console.sh            # ключ консоли admin
 #   bash deploy/test-server/console.sh --viewer   # ключ «только чтение» (после seed.sh)
-# Открывает SSH-туннель 18081 → 127.0.0.1:8081 на сервере, кладёт ключ входа в буфер обмена (на экран не выводит)
+# Открывает SSH-туннель 18090 → 127.0.0.1:18090 (порт консоли шлюза) на сервере, кладёт ключ входа в буфер обмена (на экран не выводит)
 # и запускает dev-сервер консоли с proxy.tunnel.json: http://localhost:4200/console. Ctrl+C — закрыть всё.
 set -euo pipefail
 
@@ -24,12 +24,12 @@ else
     echo "Ключ не найден ($KEY_SOURCE на сервере) — выдайте его: bash test-server/issue-key.sh ..." >&2
 fi
 
-echo "==> Туннель к шлюзу на сервере (127.0.0.1:18081)..."
+echo "==> Туннель к порту консоли шлюза на сервере (127.0.0.1:18090)..."
 # Соединение до сервера иногда сбрасывается: проверка связи раз в 15 с и переподключение, пока открыта консоль
 (
     while true; do
         ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-            -o ConnectTimeout=15 -N -L 18081:127.0.0.1:8081 "$SERVER" || true
+            -o ConnectTimeout=15 -N -L 18090:127.0.0.1:18090 "$SERVER" || true
         echo "Туннель оборвался — переподключение через 3 с" >&2
         sleep 3
     done
@@ -37,8 +37,8 @@ echo "==> Туннель к шлюзу на сервере (127.0.0.1:18081)..."
 TUNNEL_PID=$!
 trap 'pkill -P $TUNNEL_PID 2>/dev/null; kill $TUNNEL_PID 2>/dev/null || true' EXIT
 sleep 3
-curl -s -o /dev/null --max-time 10 http://127.0.0.1:18081/actuator/health \
-    || echo "Туннель пока не отвечает (порт 18081 занят или нет связи с сервером) — повторяю в фоне" >&2
+curl -s -o /dev/null --max-time 10 http://127.0.0.1:18090/actuator/health \
+    || echo "Туннель пока не отвечает (порт 18090 занят или нет связи с сервером) — повторяю в фоне" >&2
 
 echo "==> Консоль: http://localhost:4200/console"
 cd "$ROOT_DIR/console"

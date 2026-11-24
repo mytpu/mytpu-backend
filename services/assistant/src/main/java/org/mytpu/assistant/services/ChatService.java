@@ -13,6 +13,7 @@ import org.mytpu.assistant.dto.DeltaEvent;
 import org.mytpu.assistant.dto.DoneEvent;
 import org.mytpu.assistant.dto.MetaEvent;
 import org.mytpu.assistant.dto.StatusEvent;
+import org.mytpu.assistant.errors.ChatException;
 import org.mytpu.assistant.llm.ModelPath;
 import org.mytpu.assistant.normalize.QueryNormalizer;
 import org.mytpu.assistant.router.IntentRouter;
@@ -57,14 +58,23 @@ public class ChatService {
     }
 
     /** Вопрос, разобранный до вызова инструментов и модели. */
-    private record Turn(String conversationId, String requestId, String message, ConversationState state, Route route,
+    private record Turn(ConversationStore.Key conversation, String requestId, String message, ConversationState state, Route route,
                         long startedAt) {
     }
 
     public ChatResponse chat(ChatRequest chatRequest, Runnable finished) {
+        return chat(chatRequest, null, finished);
+    }
+
+    public ChatResponse chat(ChatRequest chatRequest, String owner, Runnable finished) {
         try {
-            Turn turn = turn(chatRequest);
-            return new ChatResponse(answer(turn).message());
+            Turn turn = turn(chatRequest, owner);
+            return new ChatResponse(answer(turn).message(), turn.conversation().id());
+        } catch (ChatException e) {
+            if ("conversation_not_found".equals(e.code())) {
+                throw e;
+            }
+            throw errors.exception(e);
         } catch (RuntimeException e) {
             throw errors.exception(e);
         } finally {
@@ -73,10 +83,14 @@ public class ChatService {
     }
 
     public Flux<ServerSentEvent<?>> streamChat(ChatRequest chatRequest) {
-        Turn turn = turn(chatRequest);
+        return streamChat(chatRequest, null);
+    }
+
+    public Flux<ServerSentEvent<?>> streamChat(ChatRequest chatRequest, String owner) {
+        Turn turn = turn(chatRequest, owner);
         String messageId = UUID.randomUUID().toString();
         Flux<ServerSentEvent<?>> head = Flux.just(
-                sse("meta", new MetaEvent(turn.conversationId(), messageId, turn.requestId())),
+                sse("meta", new MetaEvent(turn.conversation().id(), messageId, turn.requestId())),
                 sse("status", new StatusEvent("thinking",
                         turn.route().isDirectEligible() ? "Ищу информацию" : "Думаю")));
         Flux<ServerSentEvent<?>> body = Mono.fromCallable(() -> answer(turn))
@@ -86,11 +100,11 @@ public class ChatService {
         return Flux.concat(head, body);
     }
 
-    private Turn turn(ChatRequest request) {
-        String conversationId = conversationStore.resolveConversationId(request.conversationId());
-        ConversationState state = conversationStore.get(conversationId);
+    private Turn turn(ChatRequest request, String owner) {
+        var snapshot = conversationStore.begin(owner, request.conversationId());
+        ConversationState state = snapshot.state();
         Route route = router.route(normalizer.normalize(request.message()), state.slots());
-        return new Turn(conversationId, UUID.randomUUID().toString(), request.message(), state, route,
+        return new Turn(snapshot.key(), UUID.randomUUID().toString(), request.message(), state, route,
                 System.currentTimeMillis());
     }
 
@@ -114,13 +128,14 @@ public class ChatService {
     }
 
     private void save(Turn turn, String answer) {
-        ConversationState updated = conversationStore.get(turn.conversationId())
+        conversationStore.append(turn.conversation(), state -> state
                 .withSlots(turn.route().slots())
                 .withMessage("user", turn.message())
-                .withMessage("assistant", answer);
-        conversationStore.put(turn.conversationId(), updated);
-        historyRepository.save(turn.conversationId(), turn.requestId(), "user", turn.message());
-        historyRepository.save(turn.conversationId(), UUID.randomUUID().toString(), "assistant", answer);
+                .withMessage("assistant", answer));
+        if (turn.conversation().owner() == null) {
+            historyRepository.save(turn.conversation().id(), turn.requestId(), "user", turn.message());
+            historyRepository.save(turn.conversation().id(), UUID.randomUUID().toString(), "assistant", answer);
+        }
     }
 
     private static List<ServerSentEvent<?>> answerEvents(DirectResult result) {
