@@ -50,7 +50,13 @@ port = int(sys.argv[1])
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     def _reply(self):
-        body = ("proxied:%d" % port).encode()
+        # Тело показывает порт заглушки и пришедший X-Forwarded-For: на порту консоли его быть не должно
+        xff = self.headers.get("X-Forwarded-For", "-")
+        # Тело запроса вычитывается: иначе следующий запрос на том же соединении ломается
+        length = int(self.headers.get("Content-Length") or 0)
+        if length:
+            self.rfile.read(length)
+        body = ("proxied:%d xff=%s" % (port, xff)).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -172,16 +178,44 @@ else
     echo "FAIL: в сборке нет файла с хешем в имени — проверка кэша не выполнена" >&2
     FAILS=$((FAILS + 1))
 fi
-expect "GET /admin/api/keys — через порт консоли" "proxied:18090" "$(body "$B/admin/api/keys")"
-expect "POST /admin/api/files — через порт консоли" "proxied:18090" "$(curl -sS --max-time 5 -X POST -H 'Content-Type: application/octet-stream' --data-binary 'x' "$B/admin/api/files" 2>/dev/null || true)"
-expect "GET /mcp — MCP-шлюз" "proxied:8081" "$(body "$B/mcp")"
-expect "GET /actuator/health — шлюз" "proxied:8081" "$(body "$B/actuator/health")"
-expect "GET /api/ai/chat/stream — assistant" "proxied:8082" "$(body "$B/api/ai/chat/stream")"
+expect_contains "GET /admin/api/keys — через порт консоли" "proxied:18090" "$(body "$B/admin/api/keys")"
+expect_contains "POST /admin/api/files — через порт консоли" "proxied:18090" "$(curl -sS --max-time 5 -X POST -H 'Content-Type: application/octet-stream' --data-binary 'x' "$B/admin/api/files" 2>/dev/null || true)"
+expect_contains "GET /mcp — MCP-шлюз" "proxied:8081" "$(body "$B/mcp")"
+expect_contains "GET /actuator/health — шлюз" "proxied:8081" "$(body "$B/actuator/health")"
+expect_contains "GET /api/ai/chat/stream — assistant" "proxied:8082" "$(body "$B/api/ai/chat/stream")"
 expect "GET /internal/tools — 404" "404" "$(status "$B/internal/tools")"
 expect "GET /admin — 404 (нет API без /api)" "404" "$(status "$B/admin")"
 expect "GET / — 404" "404" "$(status "$B/")"
 expect_any "GET /console/..%2f..%2fetc/passwd — отказ (400 или 404)" "400|404" "$(status "$B/console/..%2f..%2fetc/passwd")"
 expect "GET /mcp/..;/admin/api/keys — 400" "400" "$(status --path-as-is "$B/mcp/..;/admin/api/keys")"
+
+# Заголовки адреса: на порт консоли адрес клиента не передаётся, публичным маршрутам — передаётся
+# (в режиме upstream его присылает входной прокси, поэтому Caddy просто сохраняет полученное значение)
+expect_contains "порт консоли не получает X-Forwarded-For" "xff=-" "$(body "$B/admin/api/keys")"
+expect_contains "адрес клиента от входного прокси сохраняется" "xff=10.9.8.7" \
+    "$(body "$B/mcp" -H 'X-Forwarded-For: 10.9.8.7')"
+
+# Лимиты тела: консоль принимает документ до 20 МБ, публичные API — не больше 2 МБ
+dd if=/dev/zero of="$WORK/three" bs=1M count=3 2>/dev/null || dd if=/dev/zero of="$WORK/three" bs=1048576 count=3 2>/dev/null
+dd if=/dev/zero of="$WORK/large" bs=1M count=25 2>/dev/null || dd if=/dev/zero of="$WORK/large" bs=1048576 count=25 2>/dev/null
+expect_contains "загрузка 3 МБ через консоль проходит" "proxied:18090" \
+    "$(curl -sS --max-time 15 -X POST -H 'Content-Type: application/octet-stream' --data-binary @"$WORK/three" "$B/admin/api/rag/files" 2>/dev/null || true)"
+# Caddy отвечает 413 и закрывает соединение: curl может не успеть прочитать ответ, поэтому «не принято»
+expect_any "загрузка 25 МБ через консоль отклонена" "413|000" \
+    "$(status -X POST -H 'Content-Type: application/octet-stream' --data-binary @"$WORK/large" "$B/admin/api/rag/files")"
+expect_any "публичный API 3 МБ отклонён" "413|000" \
+    "$(status -X POST -H 'Content-Type: application/octet-stream' --data-binary @"$WORK/three" "$B/api/ai/chat")"
+
+# Режим upstream: слушается только loopback, иначе порт доступен на всех интерфейсах
+"$CADDY" adapt --config "$open_run" --adapter caddyfile 2>/dev/null > "$WORK/adapted.json"
+listen="$(python3 - "$WORK/adapted.json" <<'PY'
+import json, sys
+cfg = json.load(open(sys.argv[1], encoding="utf-8"))
+server = list(cfg["apps"]["http"]["servers"].values())[0]
+print(server["listen"][0])
+PY
+)"
+expect "смотрит только на loopback" "127.0.0.1:$PORT" "$listen"
 stop_caddy "$pid"
 
 echo "== Маршруты: внешняя сеть (10.0.0.0/8) не входит в разрешённые"
@@ -189,7 +223,7 @@ deny_run="$(render "10.0.0.0/8" "$WORK/deny.caddy")" || exit 1
 pid="$(start_caddy "$deny_run")"; PIDS+=("$pid")
 expect "GET /console/ — 404 чужой сети" "404" "$(status "$B/console/")"
 expect "GET /admin/api/keys — 404 чужой сети" "404" "$(status "$B/admin/api/keys")"
-expect "GET /mcp — публичный путь не затронут" "proxied:8081" "$(body "$B/mcp")"
+expect_contains "GET /mcp — публичный путь не затронут" "proxied:8081" "$(body "$B/mcp")"
 stop_caddy "$pid"
 
 echo "== Маршруты: консоль закрыта (CONSOLE_ALLOWED_NETWORKS пуст)"
@@ -197,7 +231,7 @@ closed_run="$(render "" "$WORK/closed.caddy")" || exit 1
 pid="$(start_caddy "$closed_run")"; PIDS+=("$pid")
 expect "GET /console/ — 404 закрытой консоли" "404" "$(status "$B/console/")"
 expect "GET /admin/api/keys — 404 закрытой консоли" "404" "$(status "$B/admin/api/keys")"
-expect "GET /api/ai/chat/stream — публичный путь не затронут" "proxied:8082" "$(body "$B/api/ai/chat/stream")"
+expect_contains "GET /api/ai/chat/stream — публичный путь не затронут" "proxied:8082" "$(body "$B/api/ai/chat/stream")"
 stop_caddy "$pid"
 
 if [ "$FAILS" -ne 0 ]; then

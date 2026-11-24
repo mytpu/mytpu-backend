@@ -104,15 +104,12 @@ pull_images() {
 }
 
 install_caddyfile() { # install_caddyfile <шаблон Caddyfile в каталоге релиза>
-    local template="$1" rendered="$STATE_DIR/mytpu.caddy.new" wrapper="$STATE_DIR/Caddyfile.check"
+    local template="$1" rendered="$STATE_DIR/mytpu.caddy.new"
     bash "$LIB_DIR/render-caddyfile.sh" "$SERVER_ENV" "$template" > "$rendered" \
         || die "не удалось собрать конфиг маршрутов из шаблона"
-    printf 'import %s\n' "$rendered" > "$wrapper"
-    caddy validate --config "$wrapper" 2>&1 | grep -q 'Valid configuration' \
-        || { rm -f "$rendered" "$wrapper"; die "caddy validate не принял конфиг маршрутов — Caddy не изменён"; }
-    rm -f "$wrapper"
-    grep -q 'import mytpu.caddy' "$MAIN_CADDY" 2>/dev/null \
-        || log "ВНИМАНИЕ: $MAIN_CADDY не импортирует mytpu.caddy (это делает install.sh)"
+    # 1. Синтаксис самого файла маршрутов
+    caddy validate --config "$rendered" 2>&1 | grep -q 'Valid configuration' \
+        || { rm -f "$rendered"; die "caddy validate не принял конфиг маршрутов — Caddy не изменён"; }
 
     if [ -f "$CADDY_FILE" ] && cmp -s "$rendered" "$CADDY_FILE"; then
         log "конфиг маршрутов не изменился"
@@ -122,10 +119,19 @@ install_caddyfile() { # install_caddyfile <шаблон Caddyfile в катал�
     if [ -f "$CADDY_FILE" ]; then cp -p "$CADDY_FILE" "$STATE_DIR/caddyfile.previous"; fi
     install -m 0644 "$rendered" "$CADDY_FILE"
     rm -f "$rendered"
-    if ! $CADDY_RELOAD; then
-        if [ -f "$STATE_DIR/caddyfile.previous" ]; then
-            install -m 0644 "$STATE_DIR/caddyfile.previous" "$CADDY_FILE"
+
+    # 2. Итоговый конфиг с импортами: чужой сайт и глобальные настройки тоже должны остаться валидными
+    if [ -f "$MAIN_CADDY" ] && grep -q 'import mytpu.caddy' "$MAIN_CADDY"; then
+        if ! caddy validate --config "$MAIN_CADDY" >"$STATE_DIR/caddy-validate.log" 2>&1; then
+            restore_caddyfile
+            die "итоговый конфиг Caddy не принял новые маршруты: $(tail -2 "$STATE_DIR/caddy-validate.log" | tr '\n' ' ')"
         fi
+    else
+        log "ВНИМАНИЕ: $MAIN_CADDY не импортирует mytpu.caddy (это делает install.sh)"
+    fi
+
+    if ! $CADDY_RELOAD; then
+        restore_caddyfile
         die "Caddy не перечитал конфиг — маршруты возвращены"
     fi
     log "конфиг маршрутов обновлён, Caddy перечитан"
@@ -153,11 +159,13 @@ rollback() {
     if [ "$ROLLBACK_DONE" = 1 ]; then return 0; fi
     ROLLBACK_DONE=1
     log "ОТКАТ: возвращаю ${PREV_TAG:-предыдущий комплект}"
-    if [ -n "$PREV_DIR" ] && [ -d "$PREV_DIR" ]; then
+    if [ -n "$PREV_DIR" ] && [ -d "$PREV_DIR" ] && [ -f "$PREV_DIR/compose.yml" ]; then
+        # Возвращается фактический предыдущий комплект: его compose, статика, init БД и образы из его манифеста
+        COMPOSE_FILE="$PREV_DIR/compose.yml"
         printf '%s\n' "$PREV_TAG" > "$STATE_DIR/current-version"
         install_compose "$PREV_DIR"
+        install_postgres_init "$PREV_DIR"
         switch_static "$PREV_DIR"
-        # Ссылки на образы прошлого релиза берутся из его же манифеста, а не из неудачного
         if verify_release_manifest "$PREV_TAG" "$PREV_DIR" 2>/dev/null \
             && write_compose_env "$PREV_DIR" && compose_up; then
             wait_until 45 2 gateway_health && wait_until 45 2 assistant_health \
@@ -182,11 +190,15 @@ on_exit() {
 trap on_exit EXIT
 
 prune_releases() {
-    local old active
+    local old active prev
     active="$(active_tag)"
+    prev="$(cat "$STATE_DIR/previous" 2>/dev/null || true)"
+    # Активный и предыдущий комплекты не удаляются: иначе ручной откат некуда делать
     # shellcheck disable=SC2012
     ls -1dt "$RELEASES_DIR"/*/ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | while read -r old; do
-        if [ "$(basename "$old")" = "$active" ]; then continue; fi
+        case "$(basename "$old")" in
+            "$active"|"$prev") continue ;;
+        esac
         log "удаляю старый релиз $(basename "$old")"
         rm -rf "$old"
     done
@@ -194,12 +206,15 @@ prune_releases() {
 }
 
 remember_previous() {
+    # Только для восстановления при сбое: файл previous здесь не трогаем, иначе неудачная попытка
+    # отката потеряет указатель на настоящий предыдущий комплект
     PREV_TAG="$(active_tag)"
     PREV_DIR=""
-    if [ -n "$PREV_TAG" ]; then
-        [ -d "$RELEASES_DIR/$PREV_TAG" ] && PREV_DIR="$RELEASES_DIR/$PREV_TAG"
-        printf '%s\n' "$PREV_TAG" > "$STATE_DIR/previous"
-    fi
+    if [ -n "$PREV_TAG" ] && [ -d "$RELEASES_DIR/$PREV_TAG" ]; then PREV_DIR="$RELEASES_DIR/$PREV_TAG"; fi
+}
+
+write_previous() {
+    if [ -n "$PREV_TAG" ]; then printf '%s\n' "$PREV_TAG" > "$STATE_DIR/previous"; fi
 }
 
 apply_release() { # apply_release <тег>
@@ -215,12 +230,15 @@ apply_release() { # apply_release <тег>
     verify_release_manifest "$tag" "$dir" || die "манифест релиза не сходится — переключение не начато"
     rel="$(stage_release "$tag" "$dir")" || die "релиз $tag не подготовлен — переключение не начато"
     log "релиз $tag подготовлен: $rel"
-
+    # Проверки и запуск — по compose целевого релиза: на чистой установке активного compose ещё нет
+    COMPOSE_FILE="$rel/compose.yml"
+    [ -f "$COMPOSE_FILE" ] || die "в релизе $tag нет compose.yml — переключение не начато"
     write_compose_env "$rel"
-    # Проверки до переключения: compose, секреты и образы должны быть готовы целиком
     compose config --quiet || die "Compose не принял конфигурацию релиза — переключение не начато"
     pull_images || die "образы не загружены — текущий релиз продолжает работать"
     remember_previous
+    # Скрипт инициализации БД должен лежать на месте до первого старта postgres на новом томе
+    install_postgres_init "$rel"
 
     log "запуск контейнеров релиза $tag"
     SWITCHED=1
@@ -232,13 +250,13 @@ apply_release() { # apply_release <тег>
 
     log "переключение статики и конфига маршрутов"
     install_compose "$rel"
-    install_postgres_init "$rel"
     switch_static "$rel"
     install_caddyfile "$rel/Caddyfile"
 
     log "версия $tag переключена, проверка маршрутов"
     check_routes || die "маршруты после переключения не в порядке"
     printf '%s\n' "$tag" > "$STATE_DIR/current-version"
+    write_previous
     log "активна версия $tag"
     prune_releases
 }
@@ -246,18 +264,26 @@ apply_release() { # apply_release <тег>
 manual_rollback() {
     local prev; prev="$(cat "$STATE_DIR/previous" 2>/dev/null || true)"
     [ -n "$prev" ] && [ -d "$RELEASES_DIR/$prev" ] || die "предыдущего релиза нет"
+    [ -f "$RELEASES_DIR/$prev/compose.yml" ] || die "в релизе $prev нет compose.yml"
     log "ручной откат на $prev"
     SWITCHED=1
     remember_previous
     verify_release_manifest "$prev" "$RELEASES_DIR/$prev" || die "манифест $prev не сходится"
+    COMPOSE_FILE="$RELEASES_DIR/$prev/compose.yml"
     write_compose_env "$RELEASES_DIR/$prev"
     install_compose "$RELEASES_DIR/$prev"
     install_postgres_init "$RELEASES_DIR/$prev"
     switch_static "$RELEASES_DIR/$prev"
-    compose_up && wait_healthy gateway gateway_health 45 \
-        || die "откат на $prev не поднялся — нужен администратор"
     install_caddyfile "$RELEASES_DIR/$prev/Caddyfile"
+    # Версия записывается только после здоровья и маршрутов: иначе состояние соврёт о том, что запущено
+    compose_up || die "откат на $prev не поднялся — нужен администратор"
+    wait_healthy postgres postgres_health 30
+    wait_healthy rag rag_health 90
+    wait_healthy gateway gateway_health 45
+    wait_healthy assistant assistant_health 45
+    check_routes || die "после отката на $prev маршруты не в порядке — нужен администратор"
     printf '%s\n' "$prev" > "$STATE_DIR/current-version"
+    write_previous
     SWITCHED=0
     log "активна версия $prev (откат вручную)"
 }

@@ -75,6 +75,8 @@ GEO_DB_HOST_DIR=$WORK/console
 RAG_DATASET_HOST_DIR=$WORK/console
 ML_BASE_URL=http://127.0.0.1:9/v1
 KEY_GEO_ENABLED=false
+# Модели векторов в CI нет: проверяется запуск контейнера rag, поиск выключен
+MYTPU_RAG_ENABLED=false
 EOF
 # compose.env: параметры сервера + ссылки на образы (как это делает mytpu-update.sh)
 {
@@ -87,13 +89,26 @@ COMPOSE_ENV="$CONFIG/compose.env"
 # shellcheck source=/dev/null
 . "$HERE/checks.sh"
 
-echo "== поднимаю postgres, gateway и assistant"
-compose up -d postgres
+echo "== поднимаю postgres, rag, gateway и assistant"
+# rag без модели: поиск выключен (MYTPU_RAG_ENABLED=false), проверяется запуск контейнера и actuator.
+# Полноценный старт rag с моделью векторов подтверждается на сервере ТПУ при первом обновлении
+compose up -d postgres rag
 wait_until 60 2 postgres_health || { echo "smoke-stack: postgres не поднялся" >&2; exit 1; }
-# rag не поднимается (нет модели), gateway стартует без зависимостей
+wait_until 90 2 rag_health || { echo "smoke-stack: rag не стал healthy" >&2; exit 1; }
 compose up -d --no-deps gateway assistant
 wait_until 60 2 gateway_health || { echo "smoke-stack: gateway не стал healthy" >&2; exit 1; }
 wait_until 60 2 assistant_health || { echo "smoke-stack: assistant не стал healthy" >&2; exit 1; }
+
+# Секреты контейнерам читают их собственные пользователи: postgres и uid 10001 у Spring-сервисов
+compose exec -T rag cat /run/secrets/rag_db_password >/dev/null \
+    && echo "ok: rag читает свой секрет" || { echo "smoke-stack: rag не читает секрет" >&2; exit 1; }
+compose exec -T gateway cat /run/secrets/gateway_db_password >/dev/null \
+    && echo "ok: gateway читает свой секрет" || { echo "smoke-stack: gateway не читает секрет" >&2; exit 1; }
+compose exec -T postgres sh -c 'test -s /run/secrets/pg_superuser_password' \
+    && echo "ok: postgres получает секрет" || { echo "smoke-stack: postgres не получает секрет" >&2; exit 1; }
+if grep -q 'github_token' "$RELEASE/compose.yml"; then
+    echo "smoke-stack: compose монтирует github_token в контейнер" >&2; exit 1
+fi
 
 echo "== конфиг маршрутов"
 bash "$HERE/render-caddyfile.sh" "$CONFIG/server.env" "$RELEASE/Caddyfile" > "$WORK/Caddyfile"
@@ -115,5 +130,16 @@ CONSOLE_ALLOWED_NETWORKS="127.0.0.1/32"
 BASE_URL="http://$MYTPU_LISTEN"
 export MYTPU_TLS MYTPU_LISTEN MYTPU_HOST CONSOLE_ALLOWED_NETWORKS BASE_URL
 check_routes || { echo "smoke-stack: маршруты не в порядке" >&2; exit 1; }
+
+# Загрузка документа больше 2 МБ через консоль: Caddy и настоящий gateway должны принять тело
+dd if=/dev/zero of="$WORK/three" bs=1M count=3 2>/dev/null \
+    || dd if=/dev/zero of="$WORK/three" bs=1048576 count=3 2>/dev/null
+upload_code="$(http_code "$BASE_URL/admin/api/rag/files" -X POST \
+    -H 'Content-Type: application/octet-stream' --data-binary @"$WORK/three")"
+if [ "$upload_code" = "413" ]; then
+    echo "smoke-stack: загрузка 3 МБ отклонена по размеру тела (413)" >&2
+    exit 1
+fi
+echo "ok: тело 3 МБ принято консольным API ($upload_code)"
 
 echo "smoke-stack: готовые контейнеры и маршруты в порядке"

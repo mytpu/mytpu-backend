@@ -15,18 +15,21 @@ github_curl() { # github_curl <url> <файл-назначение>
     fi
 }
 
-# Имя и адрес файлов релиза: строки «имя<TAB>url»
+# Имя и адрес файлов релиза: строки «имя<TAB>url». Для приватного репозитория нужен API release assets:
+# browser_download_url уходит редиректом на хранилище, где заголовок авторизации уже не действует
 release_assets() { # release_assets <api.json>
-    python3 - "$1" <<'PY'
+    # tr -d '\r': на Windows python печатает CRLF, и адрес переставал совпадать с файлом контрольных сумм
+    python3 - "$1" <<'PY' | tr -d '\r'
 import json, sys
 release = json.load(open(sys.argv[1], encoding="utf-8"))
 for asset in release.get("assets", []):
-    print("%s\t%s" % (asset["name"], asset["browser_download_url"]))
+    url = asset.get("url") or asset.get("browser_download_url", "")
+    print("%s\t%s" % (asset["name"], url))
 PY
 }
 
 json_field() { # json_field <файл> <путь через точку>
-    python3 - "$1" "$2" <<'PY'
+    python3 - "$1" "$2" <<'PY' | tr -d '\r'
 import json, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
 for part in sys.argv[2].split("."):
@@ -62,16 +65,19 @@ resolve_release_tag() { # resolve_release_tag [тег] → печатает те
 # Загрузка всех файлов релиза в каталог с проверкой SHA256SUMS
 download_release() { # download_release <каталог>
     local dir="$1" name url token_file="$SECRETS_DIR/github_token"
-    local -a auth=()
     mkdir -p "$dir"
     release_assets "$CACHE_DIR/api.json" > "$dir/.assets" || return 1
     while IFS="$(printf '\t')" read -r name url; do
         [ -n "$name" ] || continue
+        # Один и тот же файл качается из API release assets: Accept: application/octet-stream — тело файла
         if [ -s "$token_file" ]; then
-            curl -fsSL --max-time 600 --config <(printf 'header = "Authorization: Bearer %s"\n' "$(tr -d '\r\n' < "$token_file")") \
+            curl -fsSL --max-time 600 \
+                --config <(printf 'header = "Authorization: Bearer %s"\n' "$(tr -d '\r\n' < "$token_file")") \
+                -H 'Accept: application/octet-stream' -H 'X-GitHub-Api-Version: 2022-11-28' \
                 -o "$dir/$name" "$url" || { echo "release: не скачан $name" >&2; return 1; }
         else
-            curl -fsSL --max-time 600 -o "$dir/$name" "$url" || { echo "release: не скачан $name" >&2; return 1; }
+            curl -fsSL --max-time 600 -H 'Accept: application/octet-stream' -H 'X-GitHub-Api-Version: 2022-11-28' \
+                -o "$dir/$name" "$url" || { echo "release: не скачан $name" >&2; return 1; }
         fi
     done < "$dir/.assets"
     rm -f "$dir/.assets"

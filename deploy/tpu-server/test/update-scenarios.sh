@@ -79,9 +79,23 @@ case "${1:-}" in
     image) exit 0 ;;
     compose)
         shift
+        # Строгая проверка как у настоящего docker: без существующего файла -f compose не принимается
+        cfile=""
+        prev_arg=""
+        for arg in "$@"; do
+            [ "$prev_arg" = "-f" ] && cfile="$arg"
+            prev_arg="$arg"
+        done
+        init="no"
+        [ -f "${MYTPU_CONFIG_DIR:?}/postgres-init/01-databases.sh" ] && init="yes"
         case " $* " in
-            *" config "*) exit 0 ;;
+            *" config "*)
+                [ -n "$cfile" ] && [ -f "$cfile" ] || { echo "no configuration file provided: $cfile" >&2; exit 1; }
+                echo "compose config file=$cfile init=$init" >> "$STUB_DIR/commands.log"
+                exit 0 ;;
             *" up "*)
+                [ -n "$cfile" ] && [ -f "$cfile" ] || { echo "no configuration file provided: $cfile" >&2; exit 1; }
+                echo "compose up file=$cfile init=$init" >> "$STUB_DIR/commands.log"
                 # Ошибка запуска нового релиза
                 if [ -f "$STUB_DIR/fail-up" ]; then echo "container failed" >&2; exit 1; fi
                 exit 0 ;;
@@ -108,8 +122,17 @@ while [ $# -gt 0 ]; do
         *) url="$1"; shift ;;
     esac
 done
+url="${url%$'\r'}"
+out="${out%$'\r'}"
 
 case "$url" in
+    https://api.github.com/*/releases/assets/*)
+        # Скачивание файла релиза через API (Accept: application/octet-stream): соответствие url → файл
+        if [ -f "${STUB_FIXTURE:?}/assets.map" ]; then
+            name="$(awk -v u="$url" '$1 == u { print $2 }' "$STUB_FIXTURE/assets.map")"
+            if [ -n "$name" ] && [ -f "$STUB_FIXTURE/$name" ]; then cp "$STUB_FIXTURE/$name" "$out"; exit 0; fi
+        fi
+        echo "404: Not Found" >&2; exit 22 ;;
     https://api.github.com/*)
         cp "${STUB_FIXTURE:?}/api.json" "$out"; exit 0 ;;
     https://github.com/*/releases/download/*/*)
@@ -120,6 +143,17 @@ esac
 
 health="ok"
 [ -f "$STUB_DIR/health" ] && health="$(cat "$STUB_DIR/health")"
+# Режим «маршруты не проходят»: health отвечает UP, остальные маршруты — 500 (сбой после переключения)
+if [ -f "$STUB_DIR/routes" ]; then
+    case "$url" in
+        *"/actuator/health") : ;;
+        *)
+            if [ -n "$out" ] && [ "$out" != "/dev/null" ]; then printf '%s' "routes broken" > "$out"; fi
+            if [ -z "$out" ]; then printf '%s' "routes broken"; fi
+            [ -n "$write_out" ] && printf '%s' "500"
+            exit 22 ;;
+    esac
+fi
 case "$url" in
     *"/actuator/health")
         if [ "$health" = fail ]; then code=503; body='{"status":"DOWN"}'; else code=200; body='{"status":"UP"}'; fi ;;
@@ -205,7 +239,11 @@ make_release() { # make_release <тег> <образ-суффикс> [порти
     rel="$dir/build"
     mkdir -p "$rel"
     cp "$TPU/compose.yml" "$TPU/Caddyfile" "$rel/"
+    # Метка релиза в compose и init: по ней видно, какой комплект реально применён
+    printf '\n# release: %s\n' "$tag" >> "$rel/compose.yml"
+    printf '\n# release: %s\n' "$tag" >> "$rel/Caddyfile"
     cp "$TPU/../postgres/init/01-databases.sh" "$rel/"
+    printf '\n# release: %s\n' "$tag" >> "$rel/01-databases.sh"
     mkdir -p "$rel/console"
     printf '<html data-build="%s"><base href="/console/"></html>\n' "$suffix" > "$rel/console/index.html"
     tar -czf "$rel/console.tar.gz" -C "$rel/console" .
@@ -234,9 +272,18 @@ import json, sys
 tag, out = sys.argv[1], sys.argv[2]
 assets = ["release.json", "SHA256SUMS", "compose.yml", "Caddyfile", "console.tar.gz", "01-databases.sh"]
 api = {"tag_name": tag, "assets": [
-    {"name": name, "browser_download_url": "https://github.com/mytpu/mytpu-backend/releases/download/%s/%s" % (tag, name)}
-    for name in assets]}
+    {
+        "name": name,
+        # Обновлятор качает через API release assets (Accept: application/octet-stream),
+        # поэтому в фикстуре есть и url, и browser_download_url
+        "url": "https://api.github.com/repos/mytpu/mytpu-backend/releases/assets/%d" % index,
+        "browser_download_url": "https://github.com/mytpu/mytpu-backend/releases/download/%s/%s" % (tag, name),
+    }
+    for index, name in enumerate(assets, start=1)]}
 json.dump(api, open(out + "/api.json", "w", encoding="utf-8"))
+with open(out + "/assets.map", "w", encoding="utf-8") as handle:
+    for index, name in enumerate(assets, start=1):
+        handle.write("https://api.github.com/repos/mytpu/mytpu-backend/releases/assets/%d %s\n" % (index, name))
 PY
 }
 
@@ -324,6 +371,50 @@ run_update --check
 expect_eq "--check успешен" 0 "$UPDATE_RC"
 expect_eq "контейнеры не тронуты" "$before" "$(compose_ups)"
 expect_eq "активная версия не изменилась" "v20261126-bbbbbbb" "$(active)"
+
+echo
+echo "== сценарий 10: сбой после изменения Caddy — откат возвращает прежние файлы"
+make_release v20261202-a1b2c3d a1b2c3d
+caddy_before="$(cat "$ROOT/caddy/mytpu.caddy" 2>/dev/null || true)"
+echo fail > "$ROOT/stub/routes"            # маршруты после переключения не проходят
+run_update
+[ "$UPDATE_RC" -ne 0 ] && ok "запуск завершился ошибкой" || bad "запуск не заметил плохие маршруты"
+expect_contains "журнал: откат выполнен" "ОТКАТ" "$(cat "$ROOT/update.log")"
+expect_eq "активная версия прежняя" "v20261126-bbbbbbb" "$(active)"
+expect_contains "прежний конфиг маршрутов возвращён" "# release: v20261126-bbbbbbb" "$(cat "$ROOT/caddy/mytpu.caddy")"
+if [ "$caddy_before" = "$(cat "$ROOT/caddy/mytpu.caddy")" ]; then ok "файл маршрутов совпадает с прежним"; else bad "файл маршрутов изменён после отката"; fi
+rm -f "$ROOT/stub/routes"
+
+echo "== сценарий 11: ручной откат пишет версию только после здоровья и маршрутов"
+make_release v20261203-b2c3d4e b2c3d4e
+run_update
+expect_eq "обновление до версии перед ручным откатом" 0 "$UPDATE_RC"
+echo fail > "$ROOT/stub/routes"
+run_update --rollback
+[ "$UPDATE_RC" -ne 0 ] && ok "откат с плохими маршрутами завершился ошибкой" || bad "откат принял плохие маршруты"
+expect_eq "активная версия не переписана" "v20261203-b2c3d4e" "$(active)"
+rm -f "$ROOT/stub/routes"
+run_update --rollback
+expect_eq "откат при здоровых маршрутах успешен" 0 "$UPDATE_RC"
+expect_eq "активна предыдущая версия" "v20261126-bbbbbbb" "$(active)"
+
+echo "== сценарий 12: провал первого запуска оставляет чистое состояние"
+new_scenario fresh
+make_release v20261204-c3d4e5f c3d4e5f
+: > "$ROOT/stub/fail-up"
+run_update
+[ "$UPDATE_RC" -ne 0 ] && ok "первый запуск завершился ошибкой" || bad "первый запуск не заметил отказ контейнеров"
+expect_eq "активная версия отсутствует" "" "$(active)"
+[ ! -f "$ROOT/state/compose.yml" ] && ok "активный compose не установлен" || bad "после сбоя остался активный compose"
+expect_eq "версия предыдущего релиза не записана" "" "$(cat "$ROOT/state/previous" 2>/dev/null || true)"
+rm -f "$ROOT/stub/fail-up"
+run_update
+expect_eq "повтор установки проходит" 0 "$UPDATE_RC"
+expect_eq "активна версия повторной установки" "v20261204-c3d4e5f" "$(active)"
+
+echo "== сценарий 13: токен вне контейнеров и порядок инициализации БД"
+if grep -q 'github_token' "$TPU/compose.yml"; then bad "compose монтирует github_token в контейнер"; else ok "github_token не монтируется в контейнеры"; fi
+expect_contains "инициализация БД установлена до первого старта" "compose up file=$ROOT/releases/v20261204-c3d4e5f/compose.yml init=yes" "$(cat "$ROOT/stub/commands.log")"
 
 echo
 if [ "$FAIL" -ne 0 ]; then

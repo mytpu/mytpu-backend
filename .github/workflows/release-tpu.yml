@@ -70,6 +70,8 @@ jobs:
     name: Образы, смоук и релиз
     needs: verify
     runs-on: ubuntu-latest
+    # Публикация — только из защищённой main: ручной запуск с другой ветки прогоняет проверки, но не публикует
+    if: github.ref == 'refs/heads/main'
     # Запись в GHCR и создание релиза — только этой задаче
     permissions:
       contents: write
@@ -141,9 +143,14 @@ jobs:
       # Caddy нужен смоуку: версия закреплена, архив сверяется по контрольной сумме из релиза Caddy
       - name: Установка Caddy для смоука
         run: |
-          curl -fsSL -o /tmp/caddy.tgz "https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL -o /tmp/caddy.sums "https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_${CADDY_VERSION}_checksums.txt"
-          (cd /tmp && grep "caddy_${CADDY_VERSION}_linux_amd64.tar.gz$" caddy.sums | sha512sum -c -)
+          archive="caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+          base="https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION"
+          curl -fsSL -o /tmp/caddy.tgz "$base/$archive"
+          curl -fsSL -o /tmp/caddy.sums "$base/caddy_${CADDY_VERSION}_checksums.txt"
+          # Имя архива сверяется с файлом контрольных сумм, а не берётся на веру
+          line="$(grep -E "  ${archive}\$| \*${archive}\$" /tmp/caddy.sums || true)"
+          [ -n "$line" ] || { echo "в контрольных суммах Caddy нет $archive"; exit 1; }
+          (cd /tmp && printf '%s\n' "$line" | sha512sum -c -) || { echo "контрольная сумма $archive не сошлась"; exit 1; }
           tar -xzf /tmp/caddy.tgz -C /tmp caddy
           sudo install -m 0755 /tmp/caddy /usr/local/bin/caddy
           caddy version
@@ -155,6 +162,14 @@ jobs:
       - name: Смоук готовых контейнеров и маршрутов
         run: |
           bash deploy/tpu-server/smoke-stack.sh --release dist --console-dir console/dist/console/browser
+
+      # Без авторизации buildx не загрузит образы: логин строго перед публикацией
+      - name: Логин в GHCR перед публикацией
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # Публикация образов только после проверок: две платформы, ссылка — по digest индекса
       - name: Публикация образов в GHCR
@@ -172,7 +187,6 @@ jobs:
           push rag --build-arg MODULE=services/rag/rag-app
           push assistant --build-arg MODULE=services/assistant \
             --build-arg TRAINING_ENV="ML_BASE_URL=http://localhost/v1 ML_API_KEY=training ML_CHAT_MODEL=training"
-
       - name: Манифест релиза
         run: |
           bash deploy/tpu-server/release-manifest.sh --out dist --version "$VERSION" --source-sha "$GITHUB_SHA" \

@@ -86,26 +86,12 @@ if [ ! -f "$SECRETS_DIR/github_token" ]; then
 fi
 
 step "маршруты"
-if [ -f "$MAIN_CADDY" ] && grep -q 'import mytpu.caddy' "$MAIN_CADDY"; then
-    echo "    $MAIN_CADDY уже импортирует mytpu.caddy"
-else
-    if [ -f "$MAIN_CADDY" ]; then
-        cp -p "$MAIN_CADDY" "$MAIN_CADDY.bak.$(date -u +%Y%m%d%H%M%S)"
-        echo "    прежний $MAIN_CADDY сохранён рядом с датой в имени"
-    fi
-    printf '%s\n' 'import mytpu.caddy' > "$MAIN_CADDY"
-    echo "    $MAIN_CADDY теперь содержит 'import mytpu.caddy'"
-fi
-# До первого обновления конфига нет: Caddy должен остаться работоспособным
-if [ ! -f "$CADDY_FILE" ]; then
-    bash "$LIB_DIR/render-caddyfile.sh" "$CONFIG_DIR/server.env" "$LIB_DIR/Caddyfile.example" > "$CADDY_FILE.tmp" \
-        && caddy validate --config <(printf 'import %s\n' "$CADDY_FILE.tmp") >/dev/null 2>&1 \
-        && install -m 0644 "$CADDY_FILE.tmp" "$CADDY_FILE" \
-        || { echo "    конфиг маршрутов пока не создан: заполните server.env и запустите обновление"; }
-    rm -f "$CADDY_FILE.tmp"
-fi
-systemctl reload caddy 2>/dev/null || systemctl restart caddy 2>/dev/null \
-    || echo "    ВНИМАНИЕ: Caddy не перечитан — проверьте 'systemctl status caddy'"
+# Чужие сайты, импорты и глобальные настройки Caddy сохраняются: add-site проверяет итоговый конфиг целиком
+# и при ошибке возвращает прежние файлы (проверки — deploy/tpu-server/test/install-caddy.sh)
+bash "$HERE/caddy-site.sh" --main "$MAIN_CADDY" --site "$CADDY_FILE" \
+    --env "$CONFIG_DIR/server.env" --template "$HERE/Caddyfile" \
+    --render "$HERE/render-caddyfile.sh" --reload "systemctl reload caddy" \
+    || die "Caddy не подключён — прежний конфиг сохранён, проверьте 'systemctl status caddy'"
 
 step "systemd"
 install -m 0644 "$HERE/systemd/mytpu-update.service" "$HERE/systemd/mytpu-update.timer" "$SYSTEMD_DIR/"

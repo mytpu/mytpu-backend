@@ -49,6 +49,8 @@ services:
     environment:
       RAG_MODEL_DIR: /models/e5
       DJL_CACHE_DIR: /tmp/djl
+      # В смоуке CI поиск выключен (модель векторов в релиз не входит); на стенде — включён
+      MYTPU_RAG_ENABLED: ${MYTPU_RAG_ENABLED:-true}
       # Модель векторов живёт вне кучи: куче — 30 % лимита (решение 19.10)
       JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=30 -XX:InitialRAMPercentage=10"
     secrets: [rag_db_password, rag_internal_key, rag_admin_key]

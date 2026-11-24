@@ -23,11 +23,15 @@ console_root="${MYTPU_CONSOLE_ROOT:-/var/lib/mytpu/console}"
 tls_mode="${MYTPU_TLS:-upstream}"
 
 case "$tls_mode" in
-    # HTTPS завершается на входном прокси ТПУ: Caddy слушает только loopback, клиентский адрес видит прокси
+    # HTTPS завершается на входном прокси ТПУ: Caddy слушает только loopback. Клиентский адрес приходит
+    # в X-Forwarded-For от прокси (иначе лимиты и страна ключа считаются по адресу прокси)
     upstream)
         listen="${MYTPU_LISTEN:-127.0.0.1:8443}"
         site="http://$listen"
         tls_line=""
+        # Явный bind: без него Caddy слушает все интерфейсы, хотя в адресе указан loopback
+        site_options=$'\tbind 127.0.0.1'
+        xff_line=$'\t\t\theader_up X-Forwarded-For {http.request.header.X-Forwarded-For}'
         ;;
     # Сертификат ТПУ: файлы кладёт администратор (пути — MYTPU_TLS_CERT и MYTPU_TLS_KEY)
     caddy-cert)
@@ -37,11 +41,16 @@ case "$tls_mode" in
         [ -r "$key" ] || die "нет файла ключа $key"
         site="https://$HOST"
         tls_line=$'\ttls '"$cert $key"
+        site_options=""
+        # Клиент подключается напрямую: адрес берётся из соединения, подставленный заголовок не проходит
+        xff_line=$'\t\t\theader_up X-Forwarded-For {remote_host}'
         ;;
     # Домен резолвится в этот сервер и открыты 80/443 — Caddy сам берёт сертификат Let's Encrypt
     letsencrypt)
         site="$HOST"
         tls_line=""
+        site_options=""
+        xff_line=$'\t\t\theader_up X-Forwarded-For {remote_host}'
         ;;
     *)
         die "MYTPU_TLS=$tls_mode — ожидается upstream, caddy-cert или letsencrypt"
@@ -79,12 +88,16 @@ if [ -n "$networks" ]; then
 		header @immutable Cache-Control "public, max-age=31536000, immutable"
 	}
 
-	# API консоли — на порт консоли шлюза. X-Forwarded-For там не читается: адрес — адрес соединения
+	# API консоли — на порт консоли шлюза. Заголовки клиента о его адресе туда не передаются:
+	# на порту консоли шлюз смотрит только адрес соединения. Лимит тела — по загрузке файла в rag (20 МБ)
 	handle /admin/api/* {
 		request_body {
-			max_size 32MB
+			max_size 24MB
 		}
-		reverse_proxy 127.0.0.1:18090
+		reverse_proxy 127.0.0.1:18090 {
+			header_up -X-Forwarded-For
+			header_up -X-Real-IP
+		}
 	}
 EOF
 )
@@ -107,9 +120,12 @@ section_file="$(mktemp)"
 trap 'rm -f "$section_file"' EXIT
 printf '%s\n' "$console_section" > "$section_file"
 
-out="$(awk -v site="$site" -v tls_line="$tls_line" -v root="$console_root" -v section="$section_file" '
+out="$(awk -v site="$site" -v tls_line="$tls_line" -v root="$console_root" -v section="$section_file" \
+    -v site_options="$site_options" -v xff_line="$xff_line" '
     /^\{\{CONSOLE_SECTION\}\}/ { while ((getline line < section) > 0) print line; close(section); next }
     /^\{\{TLS_LINE\}\}/       { if (tls_line != "") print tls_line; next }
+    /^\{\{SITE_OPTIONS\}\}/   { if (site_options != "") print site_options; next }
+    /^\{\{XFF_LINE\}\}/       { if (xff_line != "") print xff_line; next }
     {
         gsub(/\{\{SITE_ADDRESS\}\}/, site)
         gsub(/\{\{CONSOLE_ROOT\}\}/, root)
