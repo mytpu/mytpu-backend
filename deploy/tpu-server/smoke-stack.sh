@@ -49,6 +49,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# CI скачивает исходную модель Xenova. Лимит памяти стенда рассчитан на версию с урезанным словарём.
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+    vocab_url=https://huggingface.co/d0rj/e5-small-en-ru/resolve/8d9d26ce7447cedb9dba7c33587dbed883e293bd/tokenizer.json
+    curl -fsSL --retry 3 --max-time 60 "$vocab_url" -o "$WORK/vocab.json"
+    printf '%s  %s\n' df7609bacb8869a7fd698625aa65f6f1bcbbc4d621432d286e631ed0efe02dc6 "$WORK/vocab.json" | sha256sum -c -
+    python3 -m venv "$WORK/model-tools"
+    "$WORK/model-tools/bin/python" -m pip install --only-binary=:all: 'numpy==2.5.4' 'onnx==1.23.2'
+    "$WORK/model-tools/bin/python" "$HERE/../../tools/rag/trim_e5_vocab.py" \
+        --model "$MODEL_DIR" --pruned-tokenizer "$WORK/vocab.json" --out "$WORK/model" --no-check
+    MODEL_DIR="$WORK/model"
+fi
+
 # Тестовые секреты: значения случайные, в стенд не попадают
 for name in pg_superuser_password gateway_db_password rag_db_password assistant_db_password \
             rag_internal_key gateway_audit_key connector_vault_key rag_admin_key ml_api_key; do
