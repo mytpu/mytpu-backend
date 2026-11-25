@@ -26,6 +26,10 @@ done
 for ref in "$GW" "$RAG" "$AS"; do
     printf '%s' "$ref" | grep -Eq '@sha256:[0-9a-f]{64}$' || die "образ без digest: '$ref'"
 done
+# В артефакте проверки скрипт лежит в postgres/init, а сервер скачивает его отдельным файлом релиза.
+if [ ! -e "$OUT/01-databases.sh" ] && [ -s "$OUT/postgres/init/01-databases.sh" ]; then
+    cp "$OUT/postgres/init/01-databases.sh" "$OUT/01-databases.sh"
+fi
 for name in compose.yml Caddyfile console.tar.gz 01-databases.sh; do
     [ -s "$OUT/$name" ] || die "нет файла $OUT/$name"
 done
