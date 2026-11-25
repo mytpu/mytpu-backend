@@ -96,7 +96,12 @@ echo "== поднимаю postgres, rag, gateway и assistant"
 compose config --quiet
 compose up -d postgres rag
 wait_until 60 2 postgres_health || { echo "smoke-stack: postgres не поднялся" >&2; exit 1; }
-wait_until 90 2 rag_health || { echo "smoke-stack: rag не стал healthy" >&2; exit 1; }
+if ! wait_until 90 2 rag_health; then
+    echo "smoke-stack: rag не стал healthy" >&2
+    compose ps -a >&2 || true
+    compose logs --no-color --tail 120 rag postgres >&2 || true
+    exit 1
+fi
 compose up -d --no-deps gateway assistant
 wait_until 60 2 gateway_health || { echo "smoke-stack: gateway не стал healthy" >&2; exit 1; }
 wait_until 60 2 assistant_health || { echo "smoke-stack: assistant не стал healthy" >&2; exit 1; }
