@@ -42,6 +42,11 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   rag:
     <<: *spring-hardening
@@ -61,8 +66,13 @@ services:
     networks: [core, data]
     depends_on:
       postgres: {condition: service_healthy}
-    mem_limit: 380m
-    memswap_limit: 380m
+    mem_limit: 640m
+    memswap_limit: 640m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   # Разовый ingest тем же образом rag, что и поиск: версия и схема совпадают
   rag-ingest:
@@ -87,6 +97,11 @@ services:
     memswap_limit: 512m
     cpus: 2
     restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   gateway:
     <<: *spring-hardening
@@ -119,6 +134,11 @@ services:
       rag: {condition: service_started}
     mem_limit: 380m
     memswap_limit: 380m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   assistant:
     <<: *spring-hardening
@@ -136,6 +156,11 @@ services:
     networks: [edge, core]
     mem_limit: 300m
     memswap_limit: 300m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
 networks:
   # Единственная сеть с выходом наружу и опубликованными портами; публикуются только loopback-порты
